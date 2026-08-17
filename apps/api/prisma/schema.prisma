@@ -1,0 +1,266 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Clinic {
+  id             String  @id @default(cuid())
+  name           String
+  address        String?
+  phone          String?
+  email          String?
+  doctorName     String?
+  degree         String?
+  regnNumber     String?
+  logoPath       String?
+  letterheadPath String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ADMIN, DOCTOR, RECEPTIONIST, ASSISTANT
+model Role {
+  id   String @id @default(cuid())
+  name String @unique
+
+  users User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  pin          String?
+  roleId       String
+  role         Role     @relation(fields: [roleId], references: [id])
+  isActive     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// key: PATIENT | VISIT | BILL | CERTIFICATE
+model Counter {
+  id            String @id @default(cuid())
+  key           String @unique
+  prefix        String
+  currentValue  Int    @default(0)
+  financialYear String
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model Patient {
+  id              String   @id @default(cuid())
+  patientId       String   @unique
+  name            String
+  age             Int
+  dob             DateTime?
+  gender          Gender
+  mobile          String
+  altMobile       String?
+  email           String?
+  address         String?
+  city            String?
+  pincode         String?
+  bloodGroup      String?
+  maritalStatus   String?
+  occupation      String?
+  photoPath       String?
+  allergies       String?
+  chronicDiseases String?
+  referredBy      String?
+  notes           String?
+  registeredOn    DateTime @default(now())
+  isActive        Boolean  @default(true)
+  createdBy       String?
+
+  visits Visit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mobile])
+  @@index([name])
+  @@index([patientId])
+}
+
+enum MedicineForm {
+  TABLET
+  CAPSULE
+  SYRUP
+  INJECTION
+  OINTMENT
+  DROPS
+  POWDER
+  OTHER
+}
+
+enum BeforeAfterFood {
+  BEFORE_FOOD
+  AFTER_FOOD
+  WITH_FOOD
+  EMPTY_STOMACH
+  ANYTIME
+}
+
+model Medicine {
+  id                     String          @id @default(cuid())
+  brandName              String
+  genericName            String?
+  strength               String?
+  form                   MedicineForm
+  company                String?
+  category               String?
+  defaultDose            String?
+  defaultMorning         Int             @default(0)
+  defaultAfternoon       Int             @default(0)
+  defaultEvening         Int             @default(0)
+  defaultNight           Int             @default(0)
+  defaultBeforeAfterFood BeforeAfterFood @default(ANYTIME)
+  defaultDurationDays    Int?
+  defaultInstruction     String?
+  isFavourite            Boolean         @default(false)
+  isActive               Boolean         @default(true)
+  usageCount             Int             @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandName])
+  @@index([genericName])
+}
+
+enum VisitType {
+  NEW
+  FOLLOW_UP
+  EMERGENCY
+}
+
+enum VisitStatus {
+  WAITING
+  IN_CONSULTATION
+  COMPLETED
+  CANCELLED
+}
+
+model Visit {
+  id                  String      @id @default(cuid())
+  visitNo             String      @unique
+  patientId           String
+  patient             Patient     @relation(fields: [patientId], references: [id])
+  doctorId            String?
+  visitDate           DateTime    @default(now())
+  visitType           VisitType   @default(NEW)
+  complaint           String?
+  complaintDurationDays Int?
+  examination         String?
+  diagnosis           String?
+  advice              String?
+  testsAdvised        String?
+  nextFollowUpDate    DateTime?
+  followUpAfterDays    Int?
+  consultationFee     Int?
+  status              VisitStatus @default(WAITING)
+  remark              String?
+  createdBy           String?
+
+  vital     Vital?
+  labTests  LabTest[]
+  followUps FollowUp[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([visitDate])
+  @@index([status])
+}
+
+model Vital {
+  id              String  @id @default(cuid())
+  visitId         String  @unique
+  visit           Visit   @relation(fields: [visitId], references: [id])
+  bp              String?
+  pulse           Int?
+  temperature     Float?
+  weight          Float?
+  height          Float?
+  bmi             Float?
+  spo2            Int?
+  respiratoryRate Int?
+  sugarRandom     Int?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum LabTestStatus {
+  ADVISED
+  DONE
+  CANCELLED
+}
+
+model LabTest {
+  id             String        @id @default(cuid())
+  visitId        String
+  visit          Visit         @relation(fields: [visitId], references: [id])
+  patientId      String
+  testName       String
+  advisedOn      DateTime      @default(now())
+  resultValue    String?
+  resultUnit     String?
+  normalRange    String?
+  resultDate     DateTime?
+  remark         String?
+  attachmentPath String?
+  status         LabTestStatus @default(ADVISED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([visitId])
+}
+
+enum FollowUpStatus {
+  PENDING
+  DONE
+  MISSED
+  RESCHEDULED
+  CANCELLED
+}
+
+// Model only for now — Day 9 builds the due/overdue/call-list screens on top of this.
+model FollowUp {
+  id       String         @id @default(cuid())
+  patientId String
+  visitId  String
+  visit    Visit          @relation(fields: [visitId], references: [id])
+  dueDate  DateTime
+  status   FollowUpStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([dueDate])
+  @@index([status])
+}

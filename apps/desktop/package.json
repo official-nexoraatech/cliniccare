@@ -1,0 +1,22 @@
+{
+  "name": "@clinic-care/desktop",
+  "private": true,
+  "version": "0.0.1",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "electron .",
+    "dev:wait": "node scripts/wait-and-start.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "electron-log": "^5.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.7.3",
+    "wait-on": "^9.1.0"
+  }
+}

@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.npm/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+release/
+*.tsbuildinfo
+coverage/
+
+# Environment / secrets — never commit real credentials or API keys
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+*.pem
+*.key
+*.p12
+*.pfx
+
+# SQLite database + uploaded files (local dev data, not source)
+apps/api/prisma/data/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+apps/api/files/
+
+# Deployment tool local state
+.vercel/
+.railway/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swp.*
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*

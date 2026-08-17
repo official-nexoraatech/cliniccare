@@ -1,0 +1,1362 @@
+ClinicCare
+Patient Management System for Small Clinics & Hospitals
+Desktop Application — Complete 15-Day Build Guide
+Phase 1 to Phase 8 | Client Requirement Document + Developer Handover Guide
+Stack: Electron + React + Node.js (Express) + SQLite · Runs offline on the clinic computer
+This document is written from the client's handwritten requirement sheet.
+All 12 points on that sheet — patient data record, search by mobile/name, certificates, compliance percentage,
+test & advice & follow-up, before/after food tablet timing, medicine save & search, follow-up module, income &
+expenses, appointments, notifications, SMS and reports — are mapped to a module and a build day inside.
+Who should read what:
+• Client / Doctor → Phase 1 (what the software does, in simple words) and Phase 4 (what you get on each
+day).
+• Developer → Phase 2, 3, 4, 6, 7 (stack, folder structure, database, screens, day-by-day prompts).
+Phase 1 — Software Idea Description
+What is ClinicCare
+ClinicCare is a desktop application (installed on the clinic's computer, works without internet) that manages everything a small clinic or
+small hospital does in a day: registering a patient, checking their old records, writing a prescription, printing certificates, tracking whether
+the patient actually took the medicine (compliance), reminding them of the next follow-up by SMS/call, booking appointments, and
+recording the day's income and expenses.
+In simple words: today the doctor writes in a paper file or register. Tomorrow the same patient comes and the file has to be searched by hand.
+ClinicCare replaces that register. Type the patient's mobile number or name → the full history opens in one second — every visit, every
+medicine, every test, every certificate, and how regularly that patient followed the treatment.
+Why a Desktop Application (and not a website)
+Works without internet — a clinic cannot stop working when the broadband is down.
+Fast — the database sits on the same computer, so search and printing are instant even with 50,000 patients.
+Data stays inside the clinic — patient data is sensitive; nothing leaves the machine unless the clinic wants a cloud backup.
+Installed like any normal software — one ClinicCare-Setup.exe, double-click, done. No server, no monthly hosting bill.
+Printer-friendly — prescriptions, certificates and receipts print directly to the clinic's existing printer.
+Purpose
+Replace paper patient files and the manual OPD register with one searchable system.
+Give the doctor the patient's complete past history on screen before the patient sits down.
+Measure treatment compliance in percentage — so the doctor knows who is actually taking the medicine and who is not.
+Make sure no follow-up is missed — automatic due-list, notification, SMS and call list.
+Print professional prescriptions and certificates on the clinic letterhead in one click.
+Show the doctor exactly how much money came in and went out, daily and monthly.
+Who will use it
+User What they do in the software
+Doctor Sees patient history, writes diagnosis, tests and prescription, records compliance, issues certificates, sees all reports
+and income.
+Receptionist Registers new patients, searches old patients by mobile/name, books appointments, manages the waiting queue,
+collects fees and prints receipts.
+Assistant / Compounder Enters vitals (BP, weight, temperature), makes follow-up calls from the call list, sends SMS reminders.
+Owner / Admin Manages users and passwords, clinic letterhead, fees, backup, and sees income & expense reports.
+Requirement Mapping — every point from the client's handwritten sheet
+This is the most important table in the document. It proves nothing the client asked for has been dropped.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 2 of 22
+# Client wrote What we will build Module & Day
+— Requirement → Desktop Application Windows desktop app (Electron), offline, installed with a setup file Foundation — Day 1
+1 Patient Data Record → Compliance Patient registration + full record card, with a compliance history
+attached to every patient
+Patient Master — Day 3, Day
+8
+2 Patient — All Record — mobile / name One search box: type mobile number, name or patient ID → complete
+history timeline opens
+Patient Search & History —
+Day 3, Day 7
+3 Certificate Medical / fitness / sick-leave / referral certificates, auto-filled,
+numbered, printed on letterhead
+Certificate Module — Day 11
+4 Percentage Compliance Automatic % calculation of medicine taken vs prescribed, and followups
+attended vs given
+Compliance Module — Day 8
+5 Test, Advice, Follow-up In every visit: tests advised, doctor's advice, and the next follow-up
+date
+Visit / Consultation — Day 5
+6 Patient — Before / After (food), Tablet Each medicine line has: before food / after food, morning-afternoonnight-
+bedtime, dose, days, total quantity
+Prescription — Day 6
+7 Medicine details save Medicine master with brand, generic (salt), strength, form, and the
+doctor's default dose
+Medicine Master — Day 4
+8 Medicine save & search Type 3 letters → instant medicine suggestion list; add a new medicine
+on the spot
+Medicine Master — Day 4
+9 Follow-up module Due today / overdue / upcoming list, call list, mark as done,
+reschedule, outcome notes
+Follow-up Module — Day 9
+10 Income, Expenses Consultation & procedure income, expense entry by head, day book,
+monthly profit summary
+Billing & Accounts — Day 12
+11 Appointment + Notification Appointment calendar, token/queue for the day, on-screen desktop
+reminders
+Appointment Module — Day
+10
+12 SMS / Call / Report SMS & WhatsApp reminder templates, one-click call list, and all
+printable reports
+Communication & Reports —
+Day 10, Day 13
+Key Features (full list)
+Patient side
+Patient registration with auto Patient ID (UHID)
+Photo, age/sex, mobile, address, blood group
+Allergy & chronic-disease alert flags
+Search by mobile / name / ID / barcode
+Complete visit history timeline
+Upload & view scanned lab reports
+Family grouping (same mobile number)
+Clinical side
+Vitals: BP, pulse, temperature, weight, SpO2, sugar
+Complaint, examination, diagnosis
+Tests advised + result entry
+Doctor's advice / instructions
+Prescription with before/after food & timing
+Print prescription on letterhead (A4 / A5)
+Repeat last prescription in one click
+Follow-up & compliance
+Next follow-up date on every visit
+Due-today / overdue follow-up dashboard
+Compliance entry at each follow-up
+Automatic compliance % + Good/Average/Poor grade
+SMS / WhatsApp reminder templates
+Call list with outcome recording
+Office side
+Appointment calendar & daily token queue
+Certificates with auto numbering & register
+Fee receipt printing
+Income & expense entry, day book
+Dashboard & printable/Excel reports
+User roles & password protection
+One-click backup and restore
+Business goals
+Cut patient waiting time — old file search in 1 second instead of 5 minutes.
+Increase repeat visits — no follow-up is forgotten because the system produces the daily call list.
+Improve treatment results — the doctor can see which patients are not taking medicine (low compliance %) and counsel them.
+Zero data loss — automatic daily backup.
+Clear money picture — daily and monthly income vs expense on one screen.
+What is deliberately NOT in version 1 (so the 15 days are realistic): no mobile app for patients, no in-patient (admission/bed/IPD)
+management, no pharmacy stock and billing, no lab machine integration, no insurance/TPA claims, no multi-branch. These are listed as Phase 2
+/ post-launch items and can be added later without rebuilding.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 3 of 22
+Phase 2 — Planning
+2.1 Technology Stack
+Layer Choice Why this choice
+Desktop shell Electron Turns a web app into a real installable Windows .exe. Same code can
+later run on a browser or another PC.
+Frontend React 18 + Vite + TypeScript Fast screens, huge developer availability, TypeScript prevents silly datatype
+bugs in medical data.
+UI / Styling Tailwind CSS + shadcn/ui Professional clean look quickly, no custom CSS effort, large fonts and
+buttons suitable for a busy counter.
+Backend Node.js + Express + TypeScript (runs inside
+Electron as a local service)
+Keeps all business rules (compliance %, billing, numbering) in one place,
+so the same backend can move to a cloud server later without a rewrite.
+Database SQLite (single local file clinic.db) No installation, no server, no password to manage. The whole clinic
+database is one file — backup = copy that file. Handles lakhs of records
+comfortably.
+ORM Prisma Type-safe queries, automatic migrations, readable schema file that
+doubles as documentation.
+Login Local user table + bcrypt password hash + PIN for
+quick switch
+No internet needed to log in; each user's actions are tracked.
+Printing / PDF Electron print + Puppeteer/HTML templates Prescription, certificate and receipt are HTML templates — easy to change
+letterhead later without touching code.
+Excel SheetJS (xlsx) Export any report to Excel; import the clinic's old patient list.
+Charts Recharts Dashboard graphs (patients per day, income vs expense, compliance).
+SMS / WhatsApp Any Indian SMS gateway API (MSG91 / Textlocal /
+Twilio) + WhatsApp click-to-chat link
+Only this feature needs internet. If internet is off, messages queue and
+send later.
+Notifications Electron native notifications On-screen popup for appointments and follow-ups due today.
+Backup Local folder + pen-drive + optional Google Drive /
+S3 upload
+Daily automatic copy of clinic.db; restore in one click.
+Installer electron-builder (NSIS) Produces ClinicCare-Setup.exe with desktop icon and auto-update
+support.
+If your developer prefers MongoDB / MySQL: the whole design still works — only the database layer changes. But for a single-computer
+clinic app, SQLite is strongly recommended: nothing to install at the clinic, nothing to configure, and backup is literally one file. Use
+MongoDB/MySQL only if the clinic wants multiple computers sharing data from day one (see 2.7).
+2.2 High-Level Architecture
+ClinicCare is one installed application with three layers running on the same computer. The React screens talk to a local Node/Express API
+on localhost, which talks to the SQLite file through Prisma. Because everything is local, there is no network delay and no internet
+dependency — except the SMS service, which is the only part that goes outside.
+┌──────────────────────────────────────────────────────────────┐
+│ ELECTRON WINDOW (the app the doctor sees) │
+│ React + Vite + Tailwind → screens, forms, print preview │
+└───────────────────────────┬──────────────────────────────────┘
+│ HTTP (localhost:4000)
+┌───────────────────────────▼──────────────────────────────────┐
+│ LOCAL API (Node.js + Express, started by Electron) │
+│ Modules: Auth · Patient · Visit · Prescription · Medicine │
+│ Compliance · FollowUp · Appointment · Certificate │
+│ Billing · Expense · Report · Settings · Backup │
+│ Shared services: NumberService · ComplianceService · │
+│ NotificationService · PrintService │
+└───────────────────────────┬──────────────────────────────────┘
+│ Prisma
+┌───────────────────────────▼──────────────────────────────────┐
+│ SQLite database file: C:\ClinicCare\data\clinic.db │
+│ Uploads folder: C:\ClinicCare\files\ (photos, scans)│
+│ Backups folder: C:\ClinicCare\backup\ (daily .db) │
+└──────────────────────────────────────────────────────────────┘
+│ (optional, internet)
+SMS / WhatsApp gateway · Cloud backup
+2.3 Folder Structure (give this exactly to the developer)
+clinic-care/
+├── package.json ← root, runs client + api + electron together
+├── README.md
+├── SCHEMA.md ← keep updated: all database tables
+├── API.md ← keep updated: all API routes
+│
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 4 of 22
+├── electron/ ← DESKTOP SHELL
+│ ├── main.ts ← creates window, starts local API, auto-update
+│ ├── preload.ts ← safe bridge between window and system
+│ ├── printer.ts ← silent printing helpers
+│ ├── notification.ts ← desktop popup reminders
+│ └── backup.ts ← daily automatic backup job
+│ ├
+─
+─
+client/ ←
+ALL SCREENS (
+React)
+│ ├── index.html
+│ ├── vite.config.ts
+│ └── src/
+│ ├── main.tsx · App.tsx · routes.tsx
+│ ├── assets/ ← logo, letterhead image, icons
+│ ├── components/ ← REUSABLE, build once, use everywhere
+│ │ ├── DataTable.tsx ← sortable + searchable + paginated table
+│ │ ├── FormModal.tsx ← popup add/edit form
+│ │ ├── SearchBox.tsx ← the patient/medicine search box
+│ │ ├── DatePicker.tsx · ConfirmDialog.tsx · Toast.tsx
+│ │ └── PrintLayout.tsx ← letterhead wrapper for all printing
+│ ├── layouts/
+│ │ ├── MainLayout.tsx ← sidebar + top bar
+│ │ └── Sidebar.tsx
+│ ├── pages/ ← ONE FOLDER PER MODULE
+│ │ ├── auth/ ← Login.tsx
+│ │ ├── dashboard/ ← Dashboard.tsx + widgets/
+│ │ ├── patients/ ← PatientList · PatientForm · PatientProfile · PatientHistory
+│ │ ├── visits/ ← VisitEntry · VitalsForm · TestAdvice · VisitList
+│ │ ├── prescription/ ← PrescriptionForm · MedicineRow · PrescriptionPrint
+│ │ ├── medicines/ ← MedicineList · MedicineForm · DoseTemplates
+│ │ ├── compliance/ ← ComplianceEntry · ComplianceReport
+│ │ ├── followup/ ← FollowUpDue · CallList · FollowUpHistory
+│ │ ├── appointments/ ← Calendar · AppointmentForm · TokenQueue
+│ │ ├── certificates/ ← CertificateForm · CertificateTemplates · CertificateRegister
+│ │ ├── billing/ ← BillEntry · ReceiptPrint · PaymentList
+│ │ ├── accounts/ ← ExpenseEntry · DayBook · IncomeExpenseReport
+│ │ ├── reports/ ← all report screens
+│ │ └── settings/ ← ClinicProfile · Users · SmsSettings · Backup · AuditLog
+│ ├── hooks/ ← usePatientSearch, useDebounce, useAuth ...
+│ ├── lib/ ← api.ts (axios), format.ts, calc.ts, constants.ts
+│ └── styles/ ← index.css, print.css
+│ ├
+─
+─
+api/ ←
+ALL LOGIC (
+Node +
+Express)
+│ └── src/
+│ ├── server.ts ← starts express
+│ ├── prisma/
+│ │ ├── schema.prisma ← ★ all tables defined here
+│ │ ├── migrations/
+│ │ └── seed.ts ← demo doctor, 20 medicines, 10 patients
+│ ├── middleware/ ← auth.ts, roleGuard.ts, errorHandler.ts, auditLog.ts
+│ ├── services/ ← SHARED, used by many modules
+│ │ ├── number.service.ts ← patient ID, bill no, certificate no
+│ │ ├── compliance.service.ts ← the % calculation, single source of truth
+│ │ ├── notification.service.ts
+│ │ ├── sms.service.ts
+│ │ ├── print.service.ts ← HTML → PDF
+│ │ └── backup.service.ts
+│ ├── modules/ ← ONE FOLDER PER MODULE (route + controller + service + validator)
+│ │ ├── auth/ patient/ visit/ prescription/ medicine/
+│ │ ├── compliance/ followup/ appointment/ certificate/
+│ │ ├── billing/ expense/ report/ settings/ user/
+│ └── templates/ ← print HTML: prescription.html, certificate-fitness.html,
+│ certificate-sick.html, receipt.html, letterhead.html
+│ └
+─
+─
+build/ ←
+installer icons, NSIS config, output .
+exe
+2.4 Database Tables (SQLite via Prisma)
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 5 of 22
+Table Main fields Purpose
+clinic name, address, phone, email, regNo, doctorName, degree,
+regnNumber, logo, letterhead
+Printed on every prescription, certificate and
+receipt
+user name, username, passwordHash, pin, role, isActive Doctor / receptionist / assistant / admin login
+patient patientId (auto), name, age, dob, gender, mobile, altMobile, address,
+city, bloodGroup, occupation, photo, allergies, chronicDiseases,
+referredBy, registeredOn, isActive
+Req 1 & 2 — the master patient record
+visit patientId, visitNo, visitDate, doctorId, complaint, examination,
+diagnosis, advice, testsAdvised, nextFollowUpDate, consultationFee,
+status
+Req 5 — one row per OPD visit
+vital visitId, bp, pulse, temperature, weight, height, spo2, sugar, notes Recorded by the assistant before the doctor
+medicine brandName, genericName, strength, form (TAB/CAP/SYP/INJ/OINT),
+company, defaultDose, defaultTiming, defaultBeforeAfterFood,
+defaultDurationDays, isActive
+Req 7 & 8 — medicine master, searchable
+prescription visitId, patientId, date, printedAt, notes Header of a prescription
+prescriptionItem prescriptionId, medicineId, medicineName, dose, morning, afternoon,
+evening, night, beforeAfterFood, durationDays, totalQuantity,
+instruction
+Req 6 — each medicine line with timing & food
+labTest visitId, testName, advisedOn, resultValue, resultDate, remark,
+attachmentPath
+Req 5 — tests advised and results
+followUp patientId, visitId, dueDate, status
+(PENDING/DONE/MISSED/RESCHEDULED), contactedOn, contactMode
+(CALL/SMS/WHATSAPP), outcome, remark
+Req 9 — follow-up tracking
+compliance patientId, visitId, followUpId, periodFrom, periodTo, dosesPrescribed,
+dosesTaken, medicinePercent, followUpsGiven, followUpsAttended,
+followUpPercent, overallPercent, grade, remark, recordedBy
+Req 1 & 4 — the compliance percentage
+appointment patientId, patientName, mobile, date, timeSlot, tokenNo, purpose,
+status (BOOKED/ARRIVED/DONE/CANCELLED), remindSent
+Req 11 — appointment & queue
+certificate certificateNo, patientId, type
+(FITNESS/SICK_LEAVE/MEDICAL/REFERRAL/VACCINATION/CUSTOM),
+issueDate, fromDate, toDate, diagnosis, bodyText, issuedBy, printedAt
+Req 3 — certificate register
+bill billNo, patientId, visitId, date, items(JSON), subtotal, discount,
+netAmount, paidAmount, balance, paymentMode
+Req 10 — income side
+expense date, head
+(RENT/SALARY/ELECTRICITY/MEDICINE_PURCHASE/EQUIPMENT/OTHER),
+description, amount, paymentMode, billRef
+Req 10 — expense side
+smsLog patientId, mobile, template, messageText, sentAt, status, provider,
+errorText
+Req 12 — proof of what was sent
+document patientId, visitId, fileName, filePath, fileType, uploadedOn, description Scanned lab reports, X-rays, old papers
+counter key (PATIENT/BILL/CERTIFICATE/VISIT), prefix, currentValue,
+financialYear
+Gives clean, gap-free numbers like P-2026-
+00147
+auditLog userId, action, module, recordId, before, after, timestamp Who changed which patient record and when
+setting key, value SMS API key, backup path, print size, fee
+defaults
+2.5 The Compliance Percentage — exact formula
+The client's sheet says "Percentage Compliance" but does not define it, so this document defines it precisely. The developer must
+implement it in one place only: compliance.service.ts.
+Medicine compliance % = (doses actually taken ÷ doses prescribed) × 100
+Follow-up compliance % = (follow-ups attended ÷ follow-ups given) × 100
+Overall compliance % = (Medicine % × 0.7) + (Follow-up % × 0.3) ← weights configurable in Settings
+Grade: 80–100% → GOOD (green)
+50–79% → AVERAGE (yellow)
+0–49% → POOR (red)
+Where the numbers come from: doses prescribed is calculated automatically by the software from the prescription (morning +
+afternoon + evening + night) × number of days. Doses taken is entered by the doctor or assistant at the next visit — either by asking the
+patient, or by a simple slider (100% / 75% / 50% / 25% / 0%), or by counting the returned tablets. Nothing is guessed by the software.
+In simple words: if the patient was given 2 tablets a day for 10 days (= 20 tablets) and says he took only 12, the software shows 60% —
+AVERAGE (yellow) on his record card forever. The doctor sees it at a glance on the next visit.
+2.6 Main API Routes
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 6 of 22
+/auth/login, /auth/logout, /auth/change-password
+/patients — list, search, create, update, deactivate
+/patients/search?q= — mobile or name search
+/patients/:id/history — full timeline
+/visits — create visit, list by patient/date
+/vitals — save vitals for a visit
+/medicines, /medicines/search?q=
+/prescriptions, /prescriptions/:id/print
+/prescriptions/repeat/:visitId
+/lab-tests — advise test, enter result
+/compliance, /compliance/patient/:id
+/follow-ups/due, /follow-ups/:id/contacted
+/appointments, /appointments/day/:date, /appointments/queue
+/certificates, /certificates/:id/print
+/bills, /bills/:id/receipt
+/expenses, /accounts/day-book
+/reports/* — patient, income, compliance, follow-up, certificate
+/sms/send, /settings, /backup, /restore
+2.7 Security & Data Safety
+Login is compulsory — username + password (bcrypt hashed), plus a 4-digit PIN for fast user switching at the counter.
+Role-based access — the receptionist cannot open income reports or edit a diagnosis; the assistant sees only vitals, follow-up and
+call list. Enforced on the API (roleGuard), not just by hiding buttons.
+Auto screen-lock after X minutes idle — patient data is not left open on a counter screen.
+Audit log on every create/edit/delete of a patient, visit, bill or certificate — stores who, what, before and after.
+No hard delete of clinical data — records are only marked inactive/cancelled, so history is never lost.
+Daily automatic backup of clinic.db to a local folder, plus a manual "Backup to pen-drive" button and optional cloud upload. Keep
+last 30 backups.
+Restore screen with a warning + confirmation, admin only.
+Input validation twice — on the form (React Hook Form + Zod) and again on the API (Zod/class-validator), so bad data cannot enter
+the database from any path.
+Optional database encryption (SQLCipher) if the clinic wants the file unreadable even if the PC is stolen.
+SMS API keys stored in the settings table / .env, never printed in the code or on screen.
+2.8 Multi-computer option (reception + doctor cabin)
+Most small clinics run on one computer. If two are needed (reception counter and doctor's cabin), no code rewrite is required: install
+the API + SQLite on one computer (the "main" PC), and point the second computer's app to http://192.168.1.x:4000 over the clinic's
+LAN/Wi-Fi. Only a setting changes. This is why the logic lives in a separate API layer instead of inside the screens — plan for it on Day 1,
+switch it on whenever the clinic asks.
+2.9 Development Strategy
+Build vertically — finish one complete module per day (database table → API → screen → print/report) instead of building all
+databases first. The app is demoable to the client every single evening.
+Build the reusable components on Day 1–3 (DataTable, FormModal, SearchBox, PrintLayout) and reuse them everywhere — this is
+what makes Days 8–14 fast.
+All shared calculations (compliance %, totals, numbering) live in services, never copy-pasted into screens.
+Use an AI coding assistant (Claude Code / Cursor) with the ready prompts in Phase 6, then review and test before moving on.
+Show the doctor the screen on Day 3, Day 6 and Day 9 — real clinical wording (complaint names, certificate text, medicine
+names) must come from the doctor, not from the developer's imagination.
+Day 15 gets no new features — only testing, fixing, installer build and installation at the clinic.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 7 of 22
+Phase 3 — Plan Audit
+Checking the Phase 2 plan against completeness, feasibility, safety and the doctor's real working style before spending 15 days building
+it.
+Completeness check
+All 12 points on the client's handwritten sheet map to a module and a specific day — verified against the mapping table in Phase 1.
+Nothing unscheduled.
+Gaps found and added (implied by the sheet but not written on it, and impossible to run a clinic without):
+Vitals entry — "test, advice" cannot be recorded meaningfully without BP/weight/temperature. Added to Day 5.
+Fee receipt / billing — "income" cannot be tracked unless the fee is recorded per patient. Added to Day 12.
+Document upload — patients bring outside lab reports; without a scan/attach feature the "all record" is incomplete. Added to Day
+7.
+Backup & restore — a clinic losing 3 years of patient data to a hard-disk crash is the single biggest risk. Added to Day 14, tested
+on Day 15.
+Numbering counter — patient ID, bill no. and certificate no. must never repeat or skip. A dedicated counter table added on Day 2.
+Audit log — medico-legal requirement: who edited a diagnosis or a certificate. Added to Day 14.
+Feasibility for 15 days
+Realistic only with an AI coding assistant generating the repetitive CRUD screens, and only because SQLite removes all databaseserver
+setup work.
+Scope is deliberately frozen: no IPD/admission, no pharmacy stock & billing, no patient mobile app, no lab-machine integration, no
+insurance claims, no multi-branch. These are v2.
+The clinic must give the following on Day 0, or days will be lost: clinic letterhead design, doctor's degree & registration number, the
+certificate wordings they currently use, their fee list, and their commonly used medicine list.
+Correctness & safety review (clinical data)
+Compliance % was undefined in the requirement — now defined with an exact formula in 2.5 and implemented in one shared service,
+so the number can never differ between two screens.
+Doses prescribed is auto-calculated from the prescription, not typed — removes the biggest source of wrong percentages.
+Prescription printing must show before/after food and timing in words (not codes like "1-0-1"), because the patient reads it. Both
+are printed.
+Allergy and chronic-disease flags appear as a red banner at the top of the prescription screen — a safety feature, not a nice-to-have.
+No hard delete of clinical records; edits are audit-logged. Certificates once printed can be cancelled but not silently changed.
+Performance & growth
+SQLite with proper indexes on mobile, name, patientId, visitDate handles 1–2 lakh patients and 10 lakh visits on ordinary clinic
+hardware. This is far beyond a small clinic's 15-year volume.
+Search is debounced and paginated — the app never loads the full patient table into the screen.
+If the clinic later grows to multiple branches, the same API + Prisma code points at PostgreSQL/MySQL on a server with a connectionstring
+change — the schema does not change.
+Alignment with the doctor's real working style
+The whole prescription flow must be completable with the keyboard only — a doctor will abandon software that needs the mouse for
+every field. Tab order and shortcuts are a Day 6 requirement, not polish.
+"Repeat last prescription" in one click covers the majority of chronic follow-up visits.
+The receptionist's search box accepts mobile number first — that is how Indian clinics actually identify a returning patient. Exactly
+as written on the client's sheet.
+Audit verdict
+Plan approved with six additions folded into the roadmap: vitals entry, fee receipt/billing, document upload, backup & restore, a
+numbering counter table, and an audit log. A precise compliance-percentage formula has been added to remove ambiguity. Proceed to
+Phase 4.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 8 of 22
+Phase 4 — Implementation Roadmap (15 Days)
+Vertical build order — each day delivers one fully working module (database + API + screen + print/report), so the client can see and
+approve real working software every evening, not only at the end.
+Day Focus What is finished and demoable that evening
+1 Setup & Foundation Project created, Electron window opens, SQLite connected, login screen with roles working, sidebar + top bar
+layout, gold/teal theme, reusable DataTable and FormModal components
+2 Clinic Setup & Users Clinic profile (name, address, doctor name, degree, reg. no., logo, letterhead), user creation with roles, fee
+master, numbering counter (patient/bill/certificate)
+3 Patient Master + Search
+Req 1, 2
+Patient registration with auto Patient ID, photo, allergies; patient list; search by mobile number / name / ID;
+patient profile card
+4 Medicine Master Req 7, 8 Medicine save (brand, generic, strength, form, default dose & timing), fast type-ahead medicine search,
+favourites, Excel import of the doctor's medicine list
+5 Visit / Consultation Req 5 Start a visit for a patient, enter vitals, complaint, examination, diagnosis, tests advised, advice, next followup
+date; today's visit list
+6 Prescription + Print Req 6 Add medicines with dose, morning/afternoon/evening/night, before/after food, days, auto total quantity;
+print on letterhead (A4/A5); repeat last prescription
+7 Patient All-Record / History
+Req 1, 2
+One screen showing the patient's complete timeline: every visit, diagnosis, prescription, test result, certificate,
+bill; upload & view scanned reports; reprint anything
+8 Compliance Module Req 4 Compliance entry at follow-up, automatic medicine %, follow-up % and overall %, Good/Average/Poor colour
+grade on the patient card, compliance report
+9 Follow-up Module Req 9 Due-today / overdue / upcoming lists, daily call list, mark contacted with outcome, reschedule, missed-follow-up
+report
+10 Appointment, Notification &
+SMS Req 11, 12
+Appointment calendar & day view, token queue, desktop popup reminders, SMS/WhatsApp templates
+(appointment, follow-up, birthday, report ready), sending log
+11 Certificate Module Req 3 Fitness / sick-leave / medical / referral / vaccination / custom certificates, auto-filled from the patient record, auto
+certificate number, print on letterhead, issued register
+12 Billing, Income & Expenses
+Req 10
+Fee receipt with print, payment modes, expense entry by head, day book, monthly income vs expense summary
+13 Dashboard & Reports Home dashboard (today's patients, collection, appointments, follow-ups due, compliance) with charts; all
+printable/Excel reports
+14 Roles, Settings, Backup & Audit Role permissions applied on every screen and API, settings screens, auto + manual backup, restore, audit log
+viewer, old-data Excel import
+15 Testing, Fixes & Installation End-to-end testing as each role, bug fixing, build ClinicCare-Setup.exe, install at the clinic, staff training,
+handover document
+Why this order (dependencies)
+Day 1–2 block everything — no screen can be built or tested before login, layout and clinic profile exist.
+Day 3 (Patient) blocks Days 5–12 — a visit, prescription, certificate, follow-up and bill all need a patient to exist first.
+Day 4 (Medicine) blocks Day 6 — a prescription cannot be written without the medicine list.
+Day 5 (Visit) blocks Days 6, 8, 9, 11, 12 — prescription, compliance, follow-up, certificate and bill are all attached to a visit.
+Day 6 (Prescription) blocks Day 8 — compliance % is calculated from the prescribed doses, so the prescription must exist and be
+correct first.
+Day 8 & 9 are placed together — compliance is recorded during a follow-up, so building them back-to-back avoids rework.
+Day 13 (Dashboard) comes near the end deliberately — it only summarises data produced by Days 3–12; building it earlier means
+rebuilding it later.
+Day 14 (Roles) is applied last on purpose — locking permissions before all screens exist slows down daily testing.
+Day 15 has zero new features by design — a hard scope freeze so that something working is definitely installed at the clinic.
+Client checklist before Day 1 (please arrange these): clinic letterhead / logo file • doctor's full name, degree and registration number • the
+exact wording of the certificates currently issued • current fee list • a list of commonly prescribed medicines (Excel or photo of the list) • the old
+patient register in Excel, if any • SMS gateway account (if SMS is wanted) • the computer and printer the software will run on.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 9 of 22
+Phase 5 — Roadmap Audit
+Completeness
+Every module from the Phase 1 feature list is scheduled on a specific day. Cross-checked against the requirement-mapping table — all
+12 client points covered, none left floating.
+Efficiency
+Reusable components (DataTable, FormModal, SearchBox, PrintLayout) are built on Days 1–3 and reused by every later screen —
+this roughly halves the work from Day 7 onward.
+Shared services (NumberService, ComplianceService, PrintService, NotificationService) are written once and injected everywhere —
+no duplicated logic, so a fix applies everywhere at once.
+One HTML print template system serves prescription, certificate and receipt — only the body changes, the letterhead is shared.
+Dependency check
+No day needs a table, service or screen that an earlier day has not created — verified line-by-line against the dependency list in Phase
+4. The build order is safe.
+Risk and buffer
+Highest-risk days: Day 6 (Prescription) and Day 8 (Compliance). Day 6 is the most-used screen in the clinic and must be
+keyboard-fast and print perfectly; Day 8 contains the only non-obvious calculation in the product. If the project slips, protect these two
+days first.
+Second risk: Day 10 (SMS) — it depends on an outside gateway, an account and a DLT-approved template, which can take days to
+get approved in India. Apply for the SMS account on Day 1, not on Day 10. Build the module so it works with the sending switched
+off.
+Compressible days if behind schedule: Day 13 (Dashboard — charts can start simple) and parts of Day 10 (WhatsApp can be a
+click-to-chat link instead of an API). These are additive, not foundational.
+Day 15 is a fixed buffer — installer building, installation at the clinic and staff training always take longer than expected. Do not let
+feature work eat into it.
+Client-approval checkpoints
+After Show the client / doctor Why it matters
+Day 3 Patient registration + search by mobile Confirms the fields the doctor actually wants on
+the patient card — cheap to change now,
+expensive on Day 12
+Day 6 A real printed prescription on the letterhead Print layout is the single most-argued item in
+clinic software. Get it signed off early.
+Day 9 Compliance % + follow-up call list These two are the client's differentiating features
+— confirm the doctor agrees with the formula and
+the grades
+Day 12 Certificate print + day book Certificate wording is legal text — the doctor
+must approve the exact sentences
+Verdict
+Roadmap approved as sequenced. Proceed to Phase 6 for the ready-to-use daily prompts.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 10 of 22
+Phase 6 — Copy-Paste-Ready Prompts (Day 1 to Day 15)
+One prompt per day. Paste each one, in order, into your AI coding assistant (Claude Code, Cursor, Copilot). Each prompt assumes the
+previous days' code already exists in the project. Review, run and test the output before moving to the next day's prompt.
+Day 1 — Project Setup, Database, Login & Base Layout
+Act as a senior full-stack engineer. Create a new DESKTOP application project called
+"ClinicCare" - a patient management system for a small clinic/hospital in India.
+Stack:
+- Desktop shell: Electron (electron-builder for the Windows installer)
+- Frontend: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui
+- Backend: Node.js + Express + TypeScript, started automatically by Electron on localhost:4000
+- Database: SQLite (local file) accessed through Prisma ORM
+- The app must work COMPLETELY OFFLINE. No cloud, no internet needed to run.
+Requirements:
+1) Create this folder structure: /electron, /client, /api, /build, with one root
+package.json that runs all three together in dev (concurrently).
+2) Prisma: create schema.prisma with SQLite provider and these starting models:
+Clinic { id, name, address, phone, email, doctorName, degree, regnNumber,
+logoPath, letterheadPath }
+Role { id, name } // ADMIN, DOCTOR, RECEPTIONIST, ASSISTANT
+User { id, name, username unique, passwordHash, pin, roleId, isActive,
+createdAt }
+Counter { id, key unique, prefix, currentValue, financialYear }
+Setting { id, key unique, value }
+Run the first migration and create the database file at
+C:\ClinicCare\data\clinic.db (use app.getPath userData in production,
+./data/clinic.db in development).
+3) Auth: POST /auth/login (username + password, bcrypt), POST /auth/pin-login,
+JWT stored in memory + refresh, GET /auth/me, POST /auth/logout.
+Express middleware: authGuard and roleGuard(...roles).
+4) React: React Router v6, a ProtectedRoute wrapper, React Query for all API calls,
+an axios instance with auth interceptors, and Zustand (or Context) for the
+logged-in user.
+5) Build the app shell:
+- Login screen (clinic logo, username, password, "Login with PIN" option)
+- MainLayout: left sidebar with menu items - Dashboard, Patients, Appointments,
+Visits, Prescriptions, Follow-up, Compliance, Certificates, Medicines,
+Billing, Accounts, Reports, Settings
+- Top bar: clinic name, today's date, logged-in user name + role, logout button
+- Theme: medical teal accent #0E6E6E, navy #1F3864, gold #C9A227, off-white
+background #F7FAFA. Large readable fonts (base 15px) and big touch-friendly
+buttons - this is used at a busy counter.
+6) Build these REUSABLE components now (everything later reuses them, do not
+duplicate later): DataTable (sortable, searchable, paginated), FormModal
+(React Hook Form + Zod), SearchBox (debounced), ConfirmDialog, Toast,
+DatePicker, PrintLayout (letterhead wrapper used by all printing).
+7) Seed script: create one ADMIN user (admin / admin123), one DOCTOR user, and a
+demo clinic profile.
+8) Add .env.example for /api (DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, PORT).
+9) README with: how to run in dev, how to build the .exe.
+Output: full folder structure and all code files. No explanation, just working code.
+Day 2 — Clinic Profile, Users, Fee Master & Numbering
+Continue building ClinicCare (Electron + React + Express + Prisma/SQLite, code from
+Day 1 exists).
+Task: build the setup/master screens that everything else depends on.
+1) Clinic Profile screen (Settings): edit clinic name, address, phone, email,
+doctor name, degree, registration number, upload logo and letterhead image
+(save files to the app's files folder, store the path in DB). Show a live
+preview of how the letterhead will look when printed.
+2) User Management screen (admin only): list users in the DataTable, add/edit user
+in a FormModal (name, username, password, 4-digit PIN, role, active toggle),
+reset password, activate/deactivate. Never allow deleting the last admin.
+3) Fee Master: Prisma model
+FeeType { id, name, amount, isDefault, isActive }
+e.g. New Consultation 300, Follow-up 150, Dressing 200, Injection 100.
+Full CRUD screen. These will be used in billing on Day 12.
+4) NumberService (api/src/services/number.service.ts): a single function
+getNextNumber(key) that uses the Counter table inside a transaction to return
+the next number safely, formatted with a prefix and financial year, e.g.
+PATIENT - P-2526-00001
+VISIT - V-2526-00001
+BILL - B-2526-00001
+CERT - C-2526-00001
+The prefix and starting number must be editable in Settings.
+5) Settings screen shell with tabs: Clinic Profile, Users, Fee Master, Numbering,
+SMS, Backup (later tabs can be empty placeholders for now).
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 11 of 22
+Output: Prisma model changes + migration, Express routes/controllers/services,
+Zod validators, and all React screens using the existing DataTable and FormModal.
+Day 3 — Patient Master & Search (Client requirement 1 and 2)
+Continue ClinicCare. Build the PATIENT module - the heart of the software.
+1) Prisma model:
+Patient { id, patientId unique (auto from NumberService),
+name, age, dob, gender enum MALE FEMALE OTHER,
+mobile, altMobile, email, address, city, pincode,
+bloodGroup, maritalStatus, occupation, photoPath,
+allergies, chronicDiseases, referredBy, notes,
+registeredOn, isActive, createdBy }
+Add database indexes on mobile, name and patientId - search speed depends on
+these.
+2) API:
+GET /patients list with pagination, sort, filters (gender, city,
+registered date range)
+GET /patients/search?q= THE MAIN SEARCH. One box that searches mobile number
+OR name OR patientId. If q is all digits, match
+mobile first. Return max 10 results with id, name,
+age, gender, mobile, patientId, lastVisitDate.
+Must respond in under 100ms - use the indexes.
+GET /patients/:id full patient record
+POST /patients create (auto patientId, duplicate-mobile warning -
+warn, do not block, families share a number)
+PATCH /patients/:id update
+PATCH /patients/:id/deactivate never hard delete
+3) React screens:
+a) Patient List: DataTable with columns Patient ID, Name, Age/Sex, Mobile,
+City, Last Visit, Compliance% (placeholder for now), Actions
+(View / Edit / New Visit). Filters and Excel export button.
+b) Patient Registration form (FormModal or full page): all fields above,
+webcam/file photo upload, mobile number validated as 10 digits,
+age auto-calculated from date of birth and vice versa.
+Allergies and chronic diseases as tag inputs.
+c) Patient Profile card: photo, name, age/sex, mobile, patient ID, blood group,
+a RED ALERT BANNER if allergies or chronic diseases exist, quick action
+buttons: New Visit, New Appointment, Print Card, View History.
+d) A GLOBAL SEARCH BAR in the top bar, always visible: typing a mobile number
+or name shows a dropdown of matching patients; Enter or click opens the
+patient profile. Keyboard shortcut Ctrl+F focuses it.
+4) Seed 15 realistic demo Indian patients.
+Output: Prisma model + migration + indexes, API routes with the fast search,
+all React screens, and the global search bar.
+Day 4 — Medicine Master, Save & Search (Client requirement 7 and 8)
+Continue ClinicCare. Build the MEDICINE module.
+1) Prisma model:
+Medicine { id, brandName, genericName, strength, form enum TABLET CAPSULE
+SYRUP INJECTION OINTMENT DROPS POWDER OTHER,
+company, category,
+defaultDose, defaultMorning, defaultAfternoon, defaultEvening,
+defaultNight, defaultBeforeAfterFood enum BEFORE_FOOD AFTER_FOOD
+WITH_FOOD EMPTY_STOMACH ANYTIME,
+defaultDurationDays, defaultInstruction,
+isFavourite, isActive, usageCount }
+Index brandName and genericName.
+2) API:
+GET /medicines list, paginated, filter by form/category/favourite
+GET /medicines/search?q= type-ahead: match brandName OR genericName,
+return top 10, favourites and high usageCount
+first. Must feel instant while typing.
+POST /medicines add (used both from the master screen AND
+inline from the prescription screen)
+PATCH /medicines/:id, PATCH /medicines/:id/deactivate
+POST /medicines/import Excel import (SheetJS) with a preview and
+row-level validation errors before committing
+3) React screens:
+a) Medicine List: DataTable with brand, generic, strength, form, company,
+default dose, favourite star toggle, actions. Search box on top.
+b) Medicine Add/Edit form: all fields, with the DEFAULT DOSE section built as
+the doctor thinks - four number boxes Morning / Afternoon / Evening / Night,
+a Before food / After food selector, and default days. These defaults
+auto-fill the prescription on Day 6 so the doctor types almost nothing.
+c) A reusable MedicineSearchInput component (this is important - Day 6 uses it):
+type 3 letters, dropdown of matches with brand + strength + form,
+arrow keys to move, Enter to select, and a "+ Add new medicine" option at
+the bottom of the dropdown that opens the add form in a modal without
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 12 of 22
+leaving the prescription.
+4) Seed 40 commonly used Indian medicines (Paracetamol, Amoxicillin, Pantoprazole,
+Metformin, Amlodipine, Cetirizine, Azithromycin, ORS, etc.) with sensible
+default doses.
+Output: model + migration, API with fast type-ahead search, Excel import,
+all screens, and the reusable MedicineSearchInput component.
+Day 5 — Visit / Consultation: Vitals, Diagnosis, Tests, Advice, Follow-up (Requirement 5)
+Continue ClinicCare. Build the VISIT (OPD consultation) module.
+1) Prisma models:
+Visit { id, visitNo (NumberService), patientId, doctorId, visitDate,
+visitType enum NEW FOLLOW_UP EMERGENCY,
+complaint, complaintDurationDays, examination, diagnosis,
+advice, testsAdvised, nextFollowUpDate, followUpAfterDays,
+consultationFee, status enum WAITING IN_CONSULTATION COMPLETED
+CANCELLED, remark, createdBy, createdAt }
+Vital { id, visitId unique, bp, pulse, temperature, weight, height, bmi,
+spo2, respiratoryRate, sugarRandom, notes }
+LabTest { id, visitId, patientId, testName, advisedOn, resultValue, resultUnit,
+normalRange, resultDate, remark, attachmentPath,
+status enum ADVISED DONE CANCELLED }
+2) API:
+POST /visits start a new visit for a patient
+GET /visits/today today's OPD list with status
+GET /visits/patient/:patientId all visits of one patient
+GET /visits/:id visit with vitals, tests, prescription
+PATCH /visits/:id save consultation
+POST /vitals save vitals for a visit (auto-calculate BMI)
+POST /lab-tests advise one or many tests
+PATCH /lab-tests/:id/result enter the result later
+IMPORTANT: when nextFollowUpDate is saved, automatically create a FollowUp row
+(the FollowUp table is built on Day 9 - create the model now with
+patientId, visitId, dueDate, status PENDING, so Day 9 only builds screens).
+3) React "Consultation" screen - one page, three sections, keyboard friendly:
+SECTION 1 PATIENT STRIP (top, always visible): photo, name, age/sex, patient
+ID, mobile, RED allergy banner, compliance% badge, and a "Previous Visits"
+side panel showing the last 5 visits (date, diagnosis, click to view details).
+SECTION 2 CLINICAL:
+- Vitals row: BP, Pulse, Temp, Weight, Height, SpO2, Sugar (auto BMI)
+- Chief complaint (free text + suggestion list of past complaints)
+- Examination findings
+- Diagnosis (free text + type-ahead from previously used diagnoses)
+- Tests advised: multi-select from a common test list (CBC, Blood Sugar,
+Lipid Profile, X-Ray, ECG, Urine Routine, Thyroid) plus free text
+- Advice / instructions (free text + saved quick-advice templates such as
+"Take rest for 3 days", "Avoid oily food", "Drink 3 litres water daily")
+SECTION 3 FOLLOW-UP:
+- "Follow up after" quick buttons: 3 days / 7 days / 15 days / 1 month /
+3 months, which set nextFollowUpDate automatically, plus a manual date picker
+Buttons at the bottom: Save, Save and Write Prescription (goes to Day 6 screen).
+4) Today's OPD list screen: waiting / in-consultation / completed, with token
+number, patient name, time, and a Start Consultation button.
+Output: models + migration, API routes, the full consultation screen with the
+patient strip and previous-visit panel, and the today's OPD list.
+Day 6 — Prescription with Before/After Food and Tablet Timing (Requirement 6)
+Continue ClinicCare. Build the PRESCRIPTION module - the most-used screen in the
+clinic. Speed and printing quality decide whether the doctor keeps using the
+software.
+1) Prisma models:
+Prescription { id, visitId unique, patientId, date, generalInstruction,
+printedAt, printCount, createdBy }
+PrescriptionItem { id, prescriptionId, medicineId, medicineName, strength,
+form, dose,
+morning, afternoon, evening, night, // numbers
+beforeAfterFood enum BEFORE_FOOD AFTER_FOOD WITH_FOOD
+EMPTY_STOMACH ANYTIME,
+durationDays, totalQuantity, instruction, sortOrder }
+2) Calculation rules (put them in api/src/services/dose.service.ts, used by both
+the screen and the API so both always agree):
+dosesPerDay = morning + afternoon + evening + night
+totalQuantity = dosesPerDay x durationDays (round up for syrups by bottle)
+Store totalQuantity on save - Day 8 compliance depends on it.
+3) React Prescription screen:
+- Patient strip at the top (reuse from Day 5) with the red allergy banner
+- A line-item grid, one medicine per row:
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 13 of 22
+[MedicineSearchInput] [Dose] [M] [A] [E] [N] [Before/After food]
+[Days] [Qty auto] [Instruction] [x remove]
+- selecting a medicine AUTO-FILLS its default dose, timing, food and days
+from the Medicine master (Day 4) - the doctor only changes what is different
+- a new empty row is added automatically when the last row is filled
+- FULL KEYBOARD OPERATION: Tab moves across fields, Enter adds a new row,
+Alt+Del removes a row, Ctrl+P prints, Ctrl+S saves. The doctor must be able
+to write a full prescription without touching the mouse.
+- "Repeat last prescription" button: loads the previous visit's medicines into
+the grid in one click, editable before saving
+- General instruction box + the advice from the Day 5 visit shown below
+- Save, Save and Print, Print Preview
+4) PRINT TEMPLATE (api/src/templates/prescription.html, rendered server-side and
+also usable by the Electron printer):
+- Header: clinic letterhead - logo, clinic name, address, phone, doctor name,
+degree, registration number
+- Patient line: name, age/sex, patient ID, date, mobile
+- Vitals line: BP, pulse, weight, temperature (if entered)
+- Diagnosis line (optional - a setting to hide it on the patient copy)
+- Rx section, a numbered table:
+Medicine name + strength + form | Dosage in WORDS | Duration | Quantity
+Dosage must print in plain readable words, for example:
+"1 tablet Morning and 1 tablet Night - AFTER FOOD - for 5 days"
+NOT just the code 1-0-1. Print the timing in words AND the 1-0-0-1 code.
+- Tests advised section, Advice section, Next follow-up date in bold
+- Footer: doctor signature space, "This is a computer generated prescription"
+- Paper sizes: A4 and A5, both must be tested. Margins configurable in Settings
+so the printout aligns with the clinic's pre-printed letterhead paper.
+5) Prescription history: view and reprint any old prescription (increment
+printCount, never edit a printed one silently - editing creates a revision and
+an audit log entry).
+Output: models + migration, dose.service.ts, the fast keyboard-driven React
+prescription screen, the A4 and A5 print templates, and the reprint feature.
+Day 7 — Patient All-Record / Complete History (Requirement 1 and 2)
+Continue ClinicCare. Build the PATIENT HISTORY screen - "Patient - All Record".
+This is the screen the doctor opens before seeing a returning patient.
+1) Prisma model:
+Document { id, patientId, visitId, fileName, filePath, fileType, fileSize,
+category enum LAB_REPORT XRAY PRESCRIPTION_SCAN DISCHARGE_SUMMARY
+ID_PROOF OTHER, description, uploadedOn, uploadedBy }
+2) API:
+GET /patients/:id/history returns ONE combined, date-sorted timeline of:
+visits (with diagnosis, vitals, tests, advice), prescriptions (with items),
+lab results, certificates, bills, follow-ups, compliance records and
+uploaded documents. Paginate by year or by last N visits - never load
+everything at once for an old patient.
+GET /patients/:id/summary quick stats: total visits, first visit, last visit,
+total amount paid, pending amount, average compliance %, active diagnoses,
+allergies, medicines most often prescribed to this patient
+POST /documents/upload file upload (copy into the app files folder)
+GET /documents/:id open/download
+3) React "Patient History" screen:
+- Left: patient card (photo, ID, name, age/sex, mobile, blood group, allergy
+banner, compliance badge with colour, summary stats)
+- Right: a VERTICAL TIMELINE, newest first. One card per visit showing date,
+visit number, diagnosis, vitals in one line, medicines given (collapsed,
+expandable), tests and results, advice, and the follow-up outcome.
+Each card has Reprint Prescription / View Full Visit buttons.
+- Tabs above the timeline: All | Visits | Prescriptions | Lab Reports |
+Certificates | Documents | Bills | Compliance
+- Filter by date range and by diagnosis; a search box that searches inside this
+patient's history (for example type "sugar" to find every visit mentioning it)
+- "Print full case sheet" - one PDF of the patient's entire history for
+referral or for the patient's own file
+- Document upload area with drag-and-drop, thumbnail preview for images and PDF
+Output: Document model, the combined history API with pagination, the timeline
+screen with tabs and filters, document upload/preview, and the printable case
+sheet.
+Day 8 — Compliance Module and Percentage (Requirement 1 and 4)
+Continue ClinicCare. Build the COMPLIANCE module. This is the client's key
+differentiating feature - implement the calculation in ONE service only.
+1) Prisma model:
+Compliance { id, patientId, visitId, followUpId, recordedOn,
+periodFrom, periodTo,
+dosesPrescribed, // auto-calculated, not typed
+dosesTaken, // entered by doctor/assistant
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 14 of 22
+medicinePercent,
+followUpsGiven, followUpsAttended, followUpPercent,
+overallPercent, grade enum GOOD AVERAGE POOR,
+reasonForMissing enum FORGOT COST SIDE_EFFECT FELT_BETTER
+NOT_AVAILABLE OTHER,
+remark, recordedBy }
+2) api/src/services/compliance.service.ts - the SINGLE source of truth:
+calculatePrescribedDoses(prescriptionId)
+= sum over all items of (morning+afternoon+evening+night) x durationDays
+calculateCompliance(patientId, visitId, dosesTaken)
+medicinePercent = dosesTaken / dosesPrescribed x 100
+followUpPercent = followUpsAttended / followUpsGiven x 100
+overallPercent = medicinePercent x weightA + followUpPercent x weightB
+(weightA default 0.7, weightB default 0.3, both editable
+in Settings)
+grade: 80 and above GOOD, 50 to 79 AVERAGE, below 50 POOR
+getPatientCompliance(patientId) lifetime average + trend of last 6 records
+Round to 1 decimal. Handle divide-by-zero (no prescription = not applicable,
+never 0%).
+3) API: POST /compliance, GET /compliance/patient/:id,
+GET /reports/compliance (filters: date range, grade, diagnosis, doctor)
+4) React Compliance Entry - it must take under 20 seconds to fill:
+- Opens automatically when a follow-up patient's visit is started, and is also
+reachable from the follow-up call list
+- Shows what was prescribed last time (medicine, dose, days, total tablets)
+- "How many doses did the patient actually take?" with quick buttons
+All (100%) / Most (75%) / Half (50%) / Few (25%) / None (0%) and an exact
+number box for doctors who count returned tablets
+- Reason for missing doses dropdown (only shown when below 100%)
+- Live preview of the calculated percentage and colour grade before saving
+5) Show compliance everywhere:
+- A coloured badge (green/yellow/red with the %) on the patient card, the
+patient list, the consultation patient strip and the follow-up list
+- Compliance trend mini-chart on the patient history screen
+- Compliance Report: all patients with their %, sortable, filter by grade,
+"Poor compliance patients" list for counselling, Excel and PDF export
+Output: model + migration, compliance.service.ts with the exact formulas and
+unit tests for the calculation, the fast entry screen, badges everywhere, and the
+compliance report.
+Day 9 — Follow-up Module (Requirement 9)
+Continue ClinicCare. Build the FOLLOW-UP module so that no patient is ever
+forgotten.
+1) Prisma model (created on Day 5, complete it now):
+FollowUp { id, patientId, visitId, dueDate, purpose,
+status enum PENDING DONE MISSED RESCHEDULED CANCELLED,
+contactedOn, contactedBy,
+contactMode enum CALL SMS WHATSAPP IN_PERSON,
+contactResult enum WILL_COME COMING_LATER NOT_INTERESTED
+NO_ANSWER WRONG_NUMBER RECOVERED,
+rescheduledTo, attendedOn, attendedVisitId, remark,
+reminderSentCount, lastReminderOn }
+2) Business rules in followup.service.ts:
+- A FollowUp row is created automatically whenever a visit saves a
+nextFollowUpDate (already wired on Day 5)
+- When a patient's new visit is created within 7 days of a pending due date,
+mark that follow-up DONE automatically and link attendedVisitId
+- A scheduled job (runs on app start and once daily) marks follow-ups MISSED
+when dueDate is more than 7 days past and the patient never came
+- Every status change updates the patient's follow-up compliance numbers used
+by the Day 8 compliance service
+3) API:
+GET /follow-ups/due?date= due today
+GET /follow-ups/overdue past due and still pending, oldest first
+GET /follow-ups/upcoming?days=7
+GET /follow-ups/call-list today's call list, ordered by priority
+(overdue first, then chronic patients, then
+poor-compliance patients)
+PATCH /follow-ups/:id/contacted record call mode, result and remark
+PATCH /follow-ups/:id/reschedule new date + reason
+PATCH /follow-ups/:id/cancel
+4) React screens:
+a) Follow-up Dashboard with four coloured count cards - Due Today, Overdue,
+Upcoming this week, Missed this month - each opening its list
+b) CALL LIST screen, designed for the assistant to work down the list:
+one row per patient - name, age/sex, mobile with a click-to-call and a
+click-to-WhatsApp icon, last visit date, diagnosis, what was prescribed,
+compliance %, due date, days overdue.
+Inline action buttons on each row: Contacted / Will come / No answer /
+Reschedule / Send SMS. Marking a row must not reload the whole page.
+Show a live counter: "12 of 34 called today".
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 15 of 22
+c) Follow-up history on the patient history timeline (given, attended, missed)
+d) Reports: Missed follow-up report, Follow-up conversion report
+(given vs attended %, by month and by doctor)
+Output: completed model, followup.service.ts with the auto rules, all API routes,
+the follow-up dashboard, the efficient call-list screen, and both reports.
+Day 10 — Appointments, Desktop Notifications, SMS & WhatsApp (Requirements 11 and 12)
+Continue ClinicCare. Build appointments and all patient communication.
+1) Prisma models:
+Appointment { id, patientId (nullable for a new caller), patientName, mobile,
+appointmentDate, timeSlot, tokenNo, doctorId, purpose,
+status enum BOOKED CONFIRMED ARRIVED IN_CONSULTATION DONE
+CANCELLED NO_SHOW,
+source enum WALK_IN PHONE ONLINE, remark, reminderSent,
+createdBy, createdAt }
+SmsTemplate { id, code, name, bodyText (with placeholders like {patient},
+{date}, {time}, {doctor}, {clinic}), isActive }
+SmsLog { id, patientId, mobile, templateCode, messageText, sentAt, status
+enum QUEUED SENT FAILED, provider, errorText, sentBy }
+2) API:
+POST /appointments, GET /appointments/day/:date, GET /appointments/week
+PATCH /appointments/:id/status BOOKED - ARRIVED - IN_CONSULTATION - DONE
+GET /appointments/queue today's live queue with token numbers
+POST /appointments/:id/arrived marks arrived AND creates a Visit (Day 5)
+GET /appointments/slots?date= free slots based on Settings
+(clinic timings, minutes per patient,
+weekly off, holiday list)
+POST /sms/send, POST /sms/send-bulk, GET /sms/logs
+CRUD /sms-templates
+3) React screens:
+a) Appointment Calendar: month view and day view. Day view is a time-slot
+column from clinic opening to closing time; click an empty slot to book.
+Book using the patient search box (existing patient) or by just typing a
+name and mobile (new caller). Colour by status.
+b) TODAY'S QUEUE screen for the reception: token number, patient name, time,
+status, and one-click buttons Arrived / Start / Done / No-show. Show
+"Now serving token 7, waiting 4".
+c) SMS Template screen with placeholder help and a live preview
+d) Send SMS: from the appointment screen, the call list, the patient profile,
+and a bulk sender (choose a filter such as "all follow-ups due tomorrow")
+with a confirmation showing how many messages will go out
+4) Default SMS/WhatsApp templates to create:
+APPT_CONFIRM - Dear {patient}, your appointment with {doctor} is confirmed for
+{date} at {time}. - {clinic}
+APPT_REMIND - Reminder: your appointment is tomorrow {date} at {time}.
+FOLLOWUP_DUE - Dear {patient}, your follow-up visit is due on {date}.
+Please visit {clinic}. Call {phone} to book.
+REPORT_READY - Dear {patient}, your test report is ready for collection.
+BIRTHDAY - Warm birthday wishes from {clinic}!
+5) Communication rules:
+- SMS goes through a pluggable provider (interface first, MSG91/Textlocal/
+Twilio as one implementation) with the API key stored in Settings
+- WhatsApp: open a wa.me click-to-chat link with the message pre-filled -
+free, needs no approval, works from Day 1
+- If the internet is down, queue messages and retry automatically; never lose
+one and never block the clinic's work
+- Log every message with its status. Show a small "SMS credits/status" card
+in Settings
+6) DESKTOP NOTIFICATIONS (Electron): on-screen popup for - appointment starting
+in 15 minutes, follow-ups due today (shown once each morning), a patient
+waiting more than 30 minutes, and daily backup completed. All individually
+switchable in Settings.
+Output: models + migrations, appointment API with slot logic, calendar and queue
+screens, SMS provider service with queue and retry, templates, WhatsApp links,
+and Electron notifications.
+Day 11 — Certificate Module (Requirement 3)
+Continue ClinicCare. Build the CERTIFICATE module.
+1) Prisma models:
+Certificate { id, certificateNo (NumberService), patientId, visitId,
+type enum FITNESS SICK_LEAVE MEDICAL REFERRAL VACCINATION
+BLOOD_GROUP CUSTOM,
+issueDate, fromDate, toDate, numberOfDays,
+diagnosis, bodyText, remark, issuedByUserId,
+status enum ISSUED CANCELLED, cancelReason,
+printedAt, printCount }
+CertificateTemplate { id, type, name, bodyTemplate (with placeholders),
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 16 of 22
+isDefault, isActive }
+2) Placeholders available in every template:
+{patient} {age} {gender} {patientId} {address} {mobile}
+{diagnosis} {fromDate} {toDate} {days} {issueDate} {certificateNo}
+{doctor} {degree} {regnNumber} {clinic} {clinicAddress}
+3) Default templates to create (the doctor must be able to edit every word):
+FITNESS - "This is to certify that {patient}, {age} years, {gender}, was
+examined by me on {issueDate} and is found medically FIT to
+resume duty/studies."
+SICK_LEAVE - "This is to certify that {patient}, {age} years, {gender}, was
+under my treatment for {diagnosis} from {fromDate} to {toDate}
+({days} days) and was advised rest during this period."
+MEDICAL - general treatment certificate with diagnosis and treatment period
+REFERRAL - referral letter to another doctor/hospital with the reason
+VACCINATION- vaccine name, dose number, date given, next due date
+CUSTOM - free typing on the letterhead
+4) React screens:
+a) Issue Certificate: pick the patient (search box), pick the type - the
+template loads and AUTO-FILLS every placeholder from the patient and the
+last visit. Pick from/to dates - days are calculated automatically. The
+body text remains fully editable before printing. Live print preview beside
+the form.
+b) Certificate Register: DataTable of all certificates issued - number, date,
+patient, type, period, issued by. Filters and Excel export. Reprint (with
+print count) and Cancel-with-reason (never delete).
+c) Template Manager in Settings: edit any template, insert placeholders from a
+dropdown, save as default.
+5) Print template (api/src/templates/certificate.html): clinic letterhead,
+"MEDICAL CERTIFICATE" heading, certificate number and date on the right, the
+body text, the doctor's name, degree, registration number and signature space,
+and an optional clinic seal image. A4, printable margins configurable.
+Output: models + migration, six default templates, the auto-filling issue screen
+with live preview, the certificate register with cancel/reprint, the template
+manager, and the print template.
+Day 12 — Billing, Income & Expenses (Requirement 10)
+Continue ClinicCare. Build the money side of the clinic.
+1) Prisma models:
+Bill { id, billNo (NumberService), patientId, visitId, billDate,
+subtotal, discount, discountReason, netAmount, paidAmount, balance,
+paymentMode enum CASH CARD UPI CHEQUE ONLINE CREDIT,
+paymentRef, status enum PAID PARTIAL UNPAID CANCELLED,
+createdBy, printedAt }
+BillItem { id, billId, feeTypeId, description, quantity, rate, amount }
+Payment { id, billId, patientId, date, amount, mode, ref, receivedBy }
+Expense { id, expenseDate,
+head enum RENT SALARY ELECTRICITY WATER INTERNET MEDICINE_PURCHASE
+EQUIPMENT MAINTENANCE STATIONERY MARKETING TAX
+PROFESSIONAL_FEE OTHER,
+description, amount, paymentMode, paidTo, billRef,
+attachmentPath, enteredBy }
+2) API:
+POST /bills create a bill (fee types from Day 2)
+GET /bills/:id/receipt printable receipt HTML/PDF
+POST /payments record a part payment against a bill
+GET /bills/pending all unpaid/partial with patient and days
+CRUD /expenses
+GET /accounts/day-book?date= every income and expense entry of one day
+GET /accounts/summary?from&to total income, total expense, net, by mode,
+by fee type, by expense head
+GET /accounts/monthly?year= month-wise income vs expense for charts
+3) React screens:
+a) Billing screen: opens from the visit with the consultation fee already
+filled; add more line items from the Fee Master; discount in amount or
+percent with a reason; payment mode; part payment allowed; Save and Print.
+b) Receipt print: letterhead, receipt number, date, patient name and ID,
+item table, total in figures AND words, amount paid, balance, payment mode,
+"Received with thanks", signature space. Support both A5 and 3-inch
+thermal printer widths.
+c) Expense entry: date, head, description, amount, paid to, mode, bill photo
+upload. Quick-add buttons for recurring monthly expenses.
+d) DAY BOOK: one screen for a chosen date - opening cash, all receipts, all
+expenses, closing cash, split by payment mode. Print it. This is the screen
+the clinic will look at every evening.
+e) Income vs Expense report: date range, bar chart by month, pie chart by
+expense head, net profit line, Excel export.
+f) Pending payments report with patient mobile numbers, so reception can follow
+up on dues.
+4) Access rule: only ADMIN and DOCTOR may open accounts and reports.
+RECEPTIONIST may create bills and receipts but not see totals or expenses.
+Enforce this in roleGuard on the API, not only in the UI.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 17 of 22
+Output: models + migrations, all API routes with correct rounding (2 decimals,
+never floating-point errors on money), billing and expense screens, receipt
+printing for A5 and thermal, day book, and the income/expense reports with charts.
+Day 13 — Dashboard & All Reports
+Continue ClinicCare. Build the home dashboard and the complete report set.
+1) DASHBOARD (home screen after login), built with Recharts, each widget backed by
+its own small pre-aggregated API endpoint - never send raw tables to the screen:
+- Today: patients seen, new patients, collection, pending appointments
+(four big number cards, each comparing with yesterday)
+- Today's appointment list and live queue (from Day 10)
+- Follow-ups due today - count with a "Open call list" button (Day 9)
+- Missed follow-ups this week - red card
+- Poor-compliance patients count - "Needs counselling" (Day 8)
+- Patients per day, last 30 days - line chart
+- Income vs expense, last 6 months - bar chart
+- Top 10 diagnoses this month - horizontal bar
+- Age/gender distribution - donut chart
+- Birthday list of today (with a Send Wishes button)
+- Quick action buttons: New Patient, New Appointment, Start Visit,
+Issue Certificate, Add Expense
+ROLE AWARE: the receptionist sees appointments, queue, follow-ups and today's
+patient count only - never income, expense or profit widgets.
+2) REPORTS section - every report must have: date-range filter, on-screen table
+using the shared DataTable, a totals row, Print, PDF and Excel export:
+Patient reports - New patient registration, Patient list by area/city,
+Age/gender analysis, Inactive patients (no visit in 6 months)
+Clinical reports - Daily OPD register, Diagnosis-wise patient count,
+Test-advised report, Doctor-wise patient count
+Follow-up - Due, Overdue, Missed, Follow-up conversion %
+Compliance - Patient-wise %, Grade-wise summary, Poor-compliance list,
+Reason-for-missing analysis
+Medicine - Most prescribed medicines, medicine usage by month
+Certificate - Certificate register by type and date
+Financial - Day book, Collection summary by mode, Fee-type wise income,
+Expense by head, Income vs expense, Pending payments
+Communication - SMS sent log with delivery status
+3) Add a "Print header" to every report: clinic name, report name, date range,
+printed on date/time and printed by user.
+Output: the role-aware dashboard page, all widget components with their
+aggregation endpoints, and every report screen with print and export.
+Day 14 — Roles & Permissions, Settings, Backup and Audit Log
+Continue ClinicCare. Lock the software down and make the data safe.
+1) ROLE-BASED ACCESS - apply across the whole app now:
+ADMIN - everything, including users, settings, backup, restore, accounts
+DOCTOR - patients, visits, prescriptions, certificates, compliance,
+follow-up, all reports, accounts (view). No user management.
+RECEPTIONIST - patient registration, search, appointments, queue, billing and
+receipts, SMS. NOT diagnosis editing, NOT expenses, NOT profit
+reports, NOT settings.
+ASSISTANT - vitals entry, follow-up call list, SMS sending, document upload
+only.
+Build a permission matrix (module x role) in one config file, a roleGuard
+middleware applied to EVERY route, and a usePermission hook that hides menu
+items and buttons in React. The API check is the real one - the UI hiding is
+only cosmetic.
+2) SETTINGS screens (tabs):
+- Clinic profile and letterhead (Day 2)
+- Users and roles
+- Fee master
+- Numbering and prefixes
+- Clinic timings, minutes per patient, weekly off, holiday list
+(used by appointment slots)
+- Print settings: paper size per document, margins, show/hide diagnosis on the
+patient copy, printer selection, thermal printer on/off
+- SMS settings: provider, API key, sender ID, on/off switch, credit check
+- Compliance settings: the two weights and the grade boundaries
+- Notification switches
+- Auto screen-lock idle minutes
+3) BACKUP AND RESTORE (this is what protects the clinic):
+- Automatic backup every day at a chosen time and also on app close: copy
+clinic.db plus the files folder into the backup folder, named
+ClinicCare-backup-YYYY-MM-DD-HHmm.zip. Keep the last 30 and delete older
+ones automatically.
+- Manual "Backup Now" button, and "Backup to pen-drive" with a folder picker
+- Optional cloud upload (Google Drive or S3) if the clinic gives credentials
+- RESTORE screen (admin only): pick a backup file, show its date and size, a
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 18 of 22
+strong confirmation warning, take a safety copy of the current database
+first, then restore and restart the app
+- Dashboard warning banner if no backup has run in the last 3 days
+4) AUDIT LOG:
+AuditLog { id, userId, userName, action enum CREATE UPDATE DELETE PRINT LOGIN
+LOGOUT CANCEL RESTORE, module, recordId, recordLabel,
+beforeJson, afterJson, ipOrDevice, timestamp }
+Write it automatically through Prisma middleware for patient, visit,
+prescription, certificate, bill, expense and user changes. Build a viewer
+screen with filters by user, module, action and date range. Admin only,
+read-only, never editable.
+5) OLD DATA IMPORT: an Excel import screen for the clinic's existing patient list
+(name, mobile, age, gender, address) with column mapping, a validation preview
+showing errors row by row, duplicate-mobile detection, and a confirm step that
+commits the valid rows only.
+Output: permission matrix + roleGuard applied to every route, usePermission hook,
+all settings tabs, the full backup/restore system with scheduling, Prisma audit
+middleware plus the viewer screen, and the patient Excel import.
+Day 15 — Testing, Bug Fixing, Installer & Handover
+Final day for ClinicCare. Do NOT add any new feature. Stabilise, package and
+install.
+1) Write a full TEST CHECKLIST covering every module from Day 1 to Day 14, and
+walk through it three times - once as ADMIN, once as DOCTOR, once as
+RECEPTIONIST. Include this complete real-life cycle:
+new patient registration - appointment booking - arrival and token - vitals -
+consultation with diagnosis, tests and advice - prescription with before/after
+food - print prescription - bill and receipt - follow-up date created
+automatically - follow-up due list shows the patient - call and SMS sent -
+patient returns - compliance entered and percentage shown - certificate issued
+- day book tallies - backup taken - restore tested on a spare folder.
+2) Fix bugs, focusing on:
+a) Print alignment on the real clinic printer, A4, A5 and thermal
+b) Search speed with 10,000 seeded patients (must stay instant)
+c) Money rounding - totals, discounts and balances must never be off by 0.01
+d) The compliance percentage on edge cases: no prescription, zero doses,
+partial follow-ups, patient who never returned
+e) Date and timezone handling - always store and compare local clinic dates
+f) Role leaks - log in as receptionist and try to open every income URL
+directly; the API must refuse it
+g) What happens when the printer is off, the internet is down, or the app is
+closed while saving
+3) Performance pass: add indexes on patientId, mobile, visitDate, dueDate,
+billDate; paginate every list; add loading and empty states on every screen;
+make sure the app window opens in under 5 seconds.
+4) PACKAGING AND INSTALLATION:
+- Build the Windows installer with electron-builder (NSIS): app icon, desktop
+shortcut, start-menu entry, install path C:\ClinicCare
+- On first run, a SETUP WIZARD: clinic name and address, doctor name, degree
+and registration number, logo and letterhead upload, admin username and
+password, fee list, backup folder location
+- Verify the database file, files folder and backup folder are created outside
+the program folder so a re-install or update never deletes patient data
+- Test installing on a clean Windows machine that has no Node.js installed
+- Set up auto-update (optional): electron-updater pointing at a shared folder
+or a GitHub release
+- Install at the clinic, restore/import their old patient data, connect the
+printer, print one real prescription, one real certificate and one receipt,
+and take the first backup on their pen-drive in front of them
+5) HANDOVER DOCUMENT (markdown + printed copy for the clinic), covering:
+how to log in and switch users - how to register a patient - how to find an old
+patient by mobile number - how to write and print a prescription - how to issue
+a certificate - how to use the follow-up call list - how to enter compliance -
+how to add an expense and read the day book - how to take a backup and where
+backups are kept - what to do if the printer does not work - who to call for
+support. Include screenshots. Also write a short technical README for the
+developer: how to run in dev, how to add a field, how to change a print
+template, how to build a new installer.
+6) Train the staff for one hour and leave a one-page laminated quick-reference
+card at the counter with the keyboard shortcuts.
+Output: the test checklist with results, the bug-fix summary, electron-builder
+configuration and the built installer, the first-run setup wizard, and both
+handover documents.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 19 of 22
+Phase 7 — Prompt Engineering Architecture
+A repeatable structure so that every prompt written for this project — not only Days 1–15 — produces consistent, on-specification code.
+7.1 Standard prompt template
+Act as a senior full-stack engineer working on ClinicCare
+(Electron + React/Vite client, Node/Express API, Prisma + SQLite,
+existing code and conventions from the previous days).
+Context: (1-2 lines - what already exists that this task builds on)
+Task: (one clear objective)
+Requirements:
+- (concrete, testable points)
+- (Prisma model changes, if any)
+- (API routes: method, path, what it returns)
+- (React screen behaviour, field by field)
+- (which existing service it must call - NumberService, ComplianceService,
+PrintService, NotificationService)
+Constraints:
+- Follow the existing folder structure and module pattern
+- Reuse the existing shared components (DataTable, FormModal, SearchBox,
+PrintLayout) - do NOT create duplicates
+- Validate with Zod on the form AND again on the API
+- Wrap any multi-table write in a Prisma transaction
+- Apply roleGuard on every new route
+- Never hard-delete clinical data - deactivate or cancel instead
+- All money to 2 decimals; all dates stored and compared as local clinic dates
+Output: full code for every new or changed file, plus a one-line summary of what
+changed.
+7.2 Reusable prompt patterns
+Pattern Use it for Order to write it in
+A — New module Patient, Medicine, Certificate, Expense … Prisma model → API route/controller/service → Zod validator → React list
+screen → React form → print/export. Always this order, so each layer has
+something real underneath it.
+B — Shared calculation Compliance %, dose totals, bill totals State the formula in the prompt exactly, demand it live in ONE service file,
+and ask for unit tests. Never let the same formula be written in a screen.
+C — Print template Prescription, certificate, receipt Describe the paper size, every section top to bottom, exactly which fields
+print, and what must print in words rather than codes. Ask for an HTML
+template plus a preview screen.
+D — Report Any report screen Specify the source tables, the filters, the grouping, the columns, the totals
+row, and the export formats. Under-specified report prompts almost always
+produce the wrong grouping.
+E — Retrofit across modules Applying roleGuard, audit log, branch/date
+rules
+List every existing file that must change and ask the assistant to show the
+diff for each one, not a rewritten file.
+F — Stabilisation (Day 15) Testing and fixing Give a checklist to walk through, not a feature to build — this is what stops
+new features creeping into the last day.
+7.3 Context management
+Keep SCHEMA.md (all Prisma models) and API.md (all routes) in the repository and update them at the end of every day. Paste the
+relevant few models into a prompt instead of the entire schema file.
+Refer to earlier work by name — "the ComplianceService from Day 8", "the MedicineSearchInput from Day 4" — rather than pasting
+the code again, when the assistant already has repository access.
+In a fresh chat session, paste only the model definitions and function signatures the new task depends on.
+Keep a DECISIONS.md file: every rule the doctor gives you (certificate wording, fee amounts, compliance weights) goes there, so it is
+never lost between sessions.
+7.4 Daily working rhythm
+1. One day = one prompt = one tested commit. Never batch two days into one prompt.
+2. After the code is generated, run the app and manually test the happy path plus one edge case before starting the next day.
+3. Commit to git every evening — that is your rollback point if the next day's code breaks something.
+4. If the output drifts from the plan, send a short correction prompt naming the specific requirement that was missed, instead of rewriting
+the whole original prompt.
+5. Show the doctor the screen on Days 3, 6, 9 and 12. Change wording and fields immediately — corrections are cheap on the day they
+are found and expensive at the end.
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 20 of 22
+Phase 8 — Getting Started
+Before Day 1 — developer setup
+1. Install Node.js LTS, Git, VS Code (or Cursor), and an AI coding assistant.
+2. Create an empty git repository named clinic-care.
+3. No database server to install — SQLite comes with Prisma. Nothing else is needed.
+4. If SMS is required, apply for the gateway account and get the DLT template approved today — approval in India can take several days,
+and Day 10 will be blocked without it.
+Before Day 1 — what to collect from the clinic
+Item Why it is needed
+Clinic letterhead / logo (image file) Printed on prescriptions, certificates and receipts — needed on Day 2
+Doctor's name, degree, registration number Legally required on prescriptions and certificates
+Existing certificate wordings The exact sentences the doctor already uses — needed on Day 11
+Fee list Consultation, follow-up, dressing, injection … — needed on Day 2 and Day 12
+Commonly prescribed medicine list Seeded into the medicine master on Day 4 so the doctor is productive immediately
+Old patient register (Excel, if any) Imported on Day 14 so history is not lost
+Clinic timings, per-patient minutes, weekly off Drives appointment slots on Day 10
+The computer and printer to be used Print alignment must be tested on the real printer, not a PDF viewer
+Day 1 kickoff
+Open your AI coding assistant inside the empty repository and paste the Day 1 prompt from Phase 6 exactly as written. When it
+finishes, run the app, confirm the Electron window opens and the login works against the local SQLite file, then commit before starting
+Day 2.
+Daily rhythm for 15 days
+Morning — paste that day's prompt, generate the module.
+Midday — run the app and test the module end to end; fix whatever is obviously wrong.
+Evening — commit, update SCHEMA.md and API.md, and read tomorrow's prompt so you can adjust it if the doctor's actual working
+style differs from this plan.
+Definition of done — the Day 15 target
+A receptionist can register a patient and book an appointment; the assistant can enter vitals and work through the follow-up call list; the doctor
+can open a returning patient's complete history by typing their mobile number, write a prescription showing before/after food and
+timing, print it on the clinic letterhead, record the patient's compliance percentage, issue a certificate, and see the day's income and
+expenses — all on an installed desktop application, running offline on the clinic's own computer, with a backup taken automatically every day.
+What can be added later (version 2)
+Pharmacy stock & medicine billing
+IPD / admission, bed and discharge summary
+Second computer at the doctor's cabin (LAN — see 2.8)
+Patient mobile app or WhatsApp bot for booking
+Online appointment booking page
+Lab machine / lab software integration
+Insurance and TPA claim tracking
+Multi-doctor and multi-branch, cloud sync
+Quick reference — module to requirement to day
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 21 of 22
+Module Covers client requirement Day Main screen
+Foundation & Login Desktop application 1–2 Login, Sidebar, Settings
+Patient Master & Search 1, 2 3 Patient list, registration, global
+search
+Medicine Master 7, 8 4 Medicine list & type-ahead search
+Visit / Consultation 5 5 Consultation screen
+Prescription 6 6 Prescription grid + print
+Patient All-Record 1, 2 7 History timeline
+Compliance 1, 4 8 Compliance entry + report
+Follow-up 9 9 Due list + call list
+Appointment, Notification, SMS 11, 12 10 Calendar, queue, SMS
+Certificate 3 11 Issue certificate + register
+Billing, Income & Expense 10 12 Receipt, expenses, day book
+Dashboard & Reports 12 13 Dashboard + all reports
+Roles, Backup, Audit Data safety 14 Settings, backup, audit log
+Testing & Installation Delivery 15 Installer + handover
+ClinicCare — Patient Management System | Complete 15-Day Build Guide, Phase 1 to Phase 8 | Prepared from the client's handwritten requirement sheet
+ClinicCare | Patient Management System | 15-Day Build Guide (Phase 1-8) Page 22 of 22

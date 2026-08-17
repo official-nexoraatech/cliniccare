@@ -1,0 +1,40 @@
+import axios from 'axios';
+import { useAuthStore } from '@/store/auth-store';
+
+// VITE_API_URL is set at build time when the web app is deployed separately from the
+// API (e.g. Vercel + Render, different origins) — point it at the Render API's public
+// URL. If unset: production same-origin deployments (API serves web/dist itself, see
+// apps/api/src/main.ts) use a relative path; dev talks to the local API on 4100.
+export const SERVER_ORIGIN = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL
+  : import.meta.env.PROD
+    ? ''
+    : 'http://localhost:4100';
+export const API_BASE_URL = `${SERVER_ORIGIN}/api`;
+
+/** Resolves a server-relative path (e.g. a patient photo's `/files/...` path) to a full URL. */
+export function resolveServerUrl(path: string): string {
+  return `${SERVER_ORIGIN}${path}`;
+}
+
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().accessToken;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      useAuthStore.getState().logout();
+    }
+    return Promise.reject(error);
+  },
+);
