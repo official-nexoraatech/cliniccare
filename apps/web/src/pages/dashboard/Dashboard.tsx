@@ -16,10 +16,6 @@ export function Dashboard() {
         <h1 className="text-xl font-semibold text-[var(--color-navy)]">
           Welcome back, {user?.name?.split(' ')[0] ?? 'there'}
         </h1>
-        <p className="text-sm text-gray-500">
-          Foundation module (Day 1) is live. Patient, Visit, Prescription and the rest of the
-          modules are built day by day per the roadmap.
-        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
