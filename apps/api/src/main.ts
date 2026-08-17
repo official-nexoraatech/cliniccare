@@ -48,7 +48,11 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: [/^http:\/\/localhost:\d+$/, 'file://', ...configuredOrigins],
+    // Vercel gives every deployment several URLs (production alias, git-branch
+    // preview, unique-per-deploy) — allow any *.vercel.app origin by pattern rather
+    // than chasing down each specific variant via FRONTEND_URL. This is a demo app
+    // gated by real login credentials, not something CORS alone is protecting.
+    origin: [/^http:\/\/localhost:\d+$/, 'file://', /\.vercel\.app$/, ...configuredOrigins],
     credentials: true,
   });
   app.useGlobalPipes(
