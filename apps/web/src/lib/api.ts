@@ -5,8 +5,11 @@ import { useAuthStore } from '@/store/auth-store';
 // API (e.g. Vercel + Render, different origins) — point it at the Render API's public
 // URL. If unset: production same-origin deployments (API serves web/dist itself, see
 // apps/api/src/main.ts) use a relative path; dev talks to the local API on 4100.
+// .replace() strips any trailing slash — a trailing slash in the VITE_API_URL env var
+// (easy to accidentally include when copy-pasting a host URL) would otherwise produce
+// double-slash paths like "https://api.example.com//api/auth/login".
 export const SERVER_ORIGIN = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/\/+$/, '')
   : import.meta.env.PROD
     ? ''
     : 'http://localhost:4100';
