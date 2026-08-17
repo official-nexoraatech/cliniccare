@@ -8,15 +8,16 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Free tier has no persistent disk (see project memory / chat history for the
+      # tradeoff) — this is a plain relative path inside the container's ephemeral
+      # filesystem, same convention as local dev. Data resets on every redeploy or
+      # spin-down from inactivity. To get real persistence, add a paid-plan disk
+      # (mountPath: /data) and change this to file:/data/clinic.db.
       - key: DATABASE_URL
-        value: file:/data/clinic.db
+        value: file:./data/clinic.db
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 12h
       - key: FRONTEND_URL
         sync: false
-    disk:
-      name: cliniccare-data
-      mountPath: /data
-      sizeGB: 1
