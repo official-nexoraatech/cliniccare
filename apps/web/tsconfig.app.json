@@ -20,7 +20,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@clinic-care/shared-types": ["../../packages/shared-types/src/index.ts"]
     }
   },
   "include": ["src"]
