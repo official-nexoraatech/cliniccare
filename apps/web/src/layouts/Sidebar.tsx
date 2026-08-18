@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Stethoscope,
   Pill,
-  ClipboardList,
   PhoneCall,
   Award,
   FileBadge,
@@ -14,17 +13,19 @@ import {
   BarChart3,
   Settings,
 } from 'lucide-react';
+import type { PermissionKey } from '@clinic-care/shared-types';
 import { cn } from '@/lib/utils';
+import { hasPermission } from '@/lib/permissions';
+import { useAuthStore } from '@/store/auth-store';
 
-const navItems = [
+const navItems: { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean; permission?: PermissionKey }[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/patients', label: 'Patients', icon: Users },
-  { to: '/appointments', label: 'Appointments', icon: CalendarDays },
-  { to: '/visits', label: 'Visits', icon: Stethoscope },
-  { to: '/prescriptions', label: 'Prescriptions', icon: ClipboardList },
-  { to: '/medicines', label: 'Medicines', icon: Pill },
-  { to: '/follow-up', label: 'Follow-up', icon: PhoneCall },
-  { to: '/compliance', label: 'Compliance', icon: Award },
+  { to: '/patients', label: 'Patients', icon: Users, permission: 'patients:view' },
+  { to: '/appointments', label: 'Appointments', icon: CalendarDays, permission: 'visits:view' },
+  { to: '/visits', label: 'Visits', icon: Stethoscope, permission: 'visits:view' },
+  { to: '/medicines', label: 'Medicines', icon: Pill, permission: 'medicines:view' },
+  { to: '/follow-up', label: 'Follow-up', icon: PhoneCall, permission: 'patients:view' },
+  { to: '/compliance', label: 'Compliance', icon: Award, permission: 'patients:view' },
   { to: '/certificates', label: 'Certificates', icon: FileBadge },
   { to: '/billing', label: 'Billing', icon: Receipt },
   { to: '/accounts', label: 'Accounts', icon: Wallet },
@@ -33,6 +34,9 @@ const navItems = [
 ];
 
 export function Sidebar() {
+  const currentUser = useAuthStore((state) => state.user);
+  const visibleItems = navItems.filter((item) => !item.permission || hasPermission(currentUser, item.permission));
+
   return (
     <aside className="flex h-screen w-60 flex-col border-r border-gray-200 bg-white">
       <div className="flex items-center gap-2 px-5 py-5">
@@ -43,7 +47,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-2">
-        {navItems.map(({ to, label, icon: Icon, end }) => (
+        {visibleItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

@@ -23,10 +23,18 @@ model Clinic {
   updatedAt DateTime @updatedAt
 }
 
-// ADMIN, DOCTOR, RECEPTIONIST, ASSISTANT
+// ADMIN, DOCTOR, RECEPTIONIST, ASSISTANT are seeded defaults — admin can rename,
+// reshape, delete (if unassigned) or create new roles from the Permissions tab.
 model Role {
-  id   String @id @default(cuid())
-  name String @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
+  // JSON-encoded PermissionKey[] (e.g. ["patients:view","patients:edit"]). SQLite
+  // has no native string-list column, so this is stored as a JSON string and
+  // parsed/serialized in RolesService rather than added as a join table.
+  permissions String  @default("[]")
+  // True only for ADMIN — can't be renamed, have its permissions edited, or be
+  // deleted, so the clinic can never lock itself out of its own admin panel.
+  isLocked    Boolean @default(false)
 
   users User[]
 }
@@ -40,6 +48,17 @@ model User {
   roleId       String
   role         Role     @relation(fields: [roleId], references: [id])
   isActive     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FeeType {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  amount    Int
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -91,7 +110,9 @@ model Patient {
   isActive        Boolean  @default(true)
   createdBy       String?
 
-  visits Visit[]
+  visits       Visit[]
+  followUps    FollowUp[]
+  appointments Appointment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,9 +202,11 @@ model Visit {
   remark              String?
   createdBy           String?
 
-  vital     Vital?
-  labTests  LabTest[]
-  followUps FollowUp[]
+  vital        Vital?
+  labTests     LabTest[]
+  followUps    FollowUp[]
+  prescription Prescription?
+  compliances  Compliance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -248,14 +271,43 @@ enum FollowUpStatus {
   CANCELLED
 }
 
-// Model only for now — Day 9 builds the due/overdue/call-list screens on top of this.
+enum ContactMode {
+  CALL
+  SMS
+  WHATSAPP
+  IN_PERSON
+}
+
+enum ContactResult {
+  WILL_COME
+  COMING_LATER
+  NOT_INTERESTED
+  NO_ANSWER
+  WRONG_NUMBER
+  RECOVERED
+}
+
 model FollowUp {
-  id       String         @id @default(cuid())
+  id        String         @id @default(cuid())
   patientId String
-  visitId  String
-  visit    Visit          @relation(fields: [visitId], references: [id])
-  dueDate  DateTime
-  status   FollowUpStatus @default(PENDING)
+  patient   Patient        @relation(fields: [patientId], references: [id])
+  visitId   String
+  visit     Visit          @relation(fields: [visitId], references: [id])
+  dueDate   DateTime
+  purpose   String?
+  status    FollowUpStatus @default(PENDING)
+
+  // MISSED is computed at read time (pending + >7 days overdue), not a stored transition —
+  // no cron/scheduler dependency needed and there's nothing yet (Day 10 notifications) that
+  // needs to react to the transition happening, only to read the current state.
+  contactedOn     DateTime?
+  contactedBy     String?
+  contactMode     ContactMode?
+  contactResult   ContactResult?
+  rescheduledTo   DateTime?
+  attendedOn      DateTime?
+  attendedVisitId String?
+  remark          String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -263,4 +315,154 @@ model FollowUp {
   @@index([patientId])
   @@index([dueDate])
   @@index([status])
+}
+
+model Prescription {
+  id                 String   @id @default(cuid())
+  visitId            String   @unique
+  visit              Visit    @relation(fields: [visitId], references: [id])
+  patientId          String
+  date               DateTime @default(now())
+  generalInstruction String?
+  printedAt          DateTime?
+  printCount         Int      @default(0)
+  createdBy          String?
+
+  items PrescriptionItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+}
+
+model PrescriptionItem {
+  id             String          @id @default(cuid())
+  prescriptionId String
+  prescription   Prescription    @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicineId     String
+  medicineName   String
+  strength       String?
+  form           MedicineForm
+  dose           String?
+  morning        Int             @default(0)
+  afternoon      Int             @default(0)
+  evening        Int             @default(0)
+  night          Int             @default(0)
+  beforeAfterFood BeforeAfterFood @default(ANYTIME)
+  durationDays   Int
+  totalQuantity  Int
+  instruction    String?
+  sortOrder      Int             @default(0)
+
+  @@index([prescriptionId])
+}
+
+enum DocumentCategory {
+  LAB_REPORT
+  XRAY
+  PRESCRIPTION_SCAN
+  DISCHARGE_SUMMARY
+  ID_PROOF
+  OTHER
+}
+
+model Document {
+  id          String           @id @default(cuid())
+  patientId   String
+  visitId     String?
+  fileName    String
+  filePath    String
+  fileType    String
+  fileSize    Int
+  category    DocumentCategory @default(OTHER)
+  description String?
+  uploadedOn  DateTime         @default(now())
+  uploadedBy  String?
+
+  @@index([patientId])
+  @@index([visitId])
+}
+
+enum ComplianceGrade {
+  GOOD
+  AVERAGE
+  POOR
+}
+
+enum ComplianceReasonForMissing {
+  FORGOT
+  COST
+  SIDE_EFFECT
+  FELT_BETTER
+  NOT_AVAILABLE
+  OTHER
+}
+
+// Formula lives in ComplianceService only (single source of truth) — see Info/ClinicCare guide 2.5.
+model Compliance {
+  id         String    @id @default(cuid())
+  patientId  String
+  visitId    String
+  visit      Visit     @relation(fields: [visitId], references: [id])
+  recordedOn DateTime  @default(now())
+
+  dosesPrescribed Int
+  dosesTaken      Int
+
+  medicinePercent Float
+  followUpsGiven    Int
+  followUpsAttended Int
+  followUpPercent   Float
+  overallPercent    Float
+  grade             ComplianceGrade
+
+  reasonForMissing ComplianceReasonForMissing?
+  remark           String?
+  recordedBy       String?
+
+  @@index([patientId])
+  @@index([visitId])
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CONFIRMED
+  ARRIVED
+  IN_CONSULTATION
+  DONE
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentSource {
+  WALK_IN
+  PHONE
+  ONLINE
+}
+
+model Appointment {
+  id              String            @id @default(cuid())
+  patientId       String?
+  patient         Patient?          @relation(fields: [patientId], references: [id])
+  patientName     String
+  mobile          String
+  appointmentDate DateTime
+  timeSlot        String
+  tokenNo         Int
+  doctorId        String?
+  doctorName      String?
+  purpose         String?
+  status          AppointmentStatus @default(BOOKED)
+  source          AppointmentSource @default(WALK_IN)
+  remark          String?
+  visitId         String?
+  createdBy       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([appointmentDate])
+  @@index([status])
+  @@index([patientId])
 }

@@ -5,12 +5,14 @@ import { z } from 'zod';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { KeyRound, Plus, ShieldOff, ShieldCheck } from 'lucide-react';
-import { ROLES, type UserSummary } from '@clinic-care/shared-types';
+import type { UserSummary } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useUserMutations, useUsersQuery } from '@/hooks/useUsers';
+import { useRolesQuery } from '@/hooks/useRoles';
 import { useAuthStore } from '@/store/auth-store';
+import { hasPermission } from '@/lib/permissions';
 import { getErrorMessage } from '@/lib/utils';
 
 const createUserSchema = z.object({
@@ -18,7 +20,7 @@ const createUserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
   password: z.string().min(4, 'Password must be at least 4 characters'),
   pin: z.union([z.string().length(4, 'PIN must be exactly 4 digits'), z.literal('')]).optional(),
-  role: z.enum(ROLES),
+  role: z.string().min(1, 'Role is required'),
 });
 
 type CreateUserFormValues = z.infer<typeof createUserSchema>;
@@ -32,6 +34,7 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 export function UsersPage() {
   const currentUser = useAuthStore((state) => state.user);
   const { data: users, isLoading } = useUsersQuery();
+  const { data: roles } = useRolesQuery();
   const { create, deactivate, reactivate, resetPassword } = useUserMutations();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -40,7 +43,7 @@ export function UsersPage() {
 
   const addForm = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { role: 'RECEPTIONIST' },
+    defaultValues: { role: '' },
   });
 
   const resetForm = useForm<ResetPasswordFormValues>({ resolver: zodResolver(resetPasswordSchema) });
@@ -51,7 +54,7 @@ export function UsersPage() {
     try {
       await create.mutateAsync({ ...values, pin: values.pin || undefined });
       toast.success(`${values.name} added as ${values.role}`);
-      addForm.reset({ role: 'RECEPTIONIST' });
+      addForm.reset({ role: '' });
       setIsAddOpen(false);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not add user.'));
@@ -86,6 +89,8 @@ export function UsersPage() {
     }
   };
 
+  const canEditUsers = hasPermission(currentUser, 'administration:edit');
+
   const columns: ColumnDef<UserSummary>[] = [
     { accessorKey: 'name', header: 'Name' },
     { accessorKey: 'username', header: 'Username' },
@@ -112,47 +117,51 @@ export function UsersPage() {
           </span>
         ),
     },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => {
-        const user = row.original;
-        const isOnlyActiveAdmin = user.role === 'ADMIN' && user.isActive && activeAdminCount <= 1;
-        return (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setResetTarget(user)}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-            >
-              <KeyRound className="h-3.5 w-3.5" /> Reset password
-            </button>
-            <button
-              onClick={() => setConfirmTarget(user)}
-              disabled={isOnlyActiveAdmin}
-              title={isOnlyActiveAdmin ? 'Cannot deactivate the only active admin' : undefined}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {user.isActive ? (
-                <>
-                  <ShieldOff className="h-3.5 w-3.5" /> Deactivate
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="h-3.5 w-3.5" /> Reactivate
-                </>
-              )}
-            </button>
-          </div>
-        );
-      },
-    },
+    ...(canEditUsers
+      ? [
+          {
+            id: 'actions',
+            header: 'Actions',
+            cell: ({ row }: { row: { original: UserSummary } }) => {
+              const user = row.original;
+              const isOnlyActiveAdmin = user.role === 'ADMIN' && user.isActive && activeAdminCount <= 1;
+              return (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setResetTarget(user)}
+                    className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    <KeyRound className="h-3.5 w-3.5" /> Reset password
+                  </button>
+                  <button
+                    onClick={() => setConfirmTarget(user)}
+                    disabled={isOnlyActiveAdmin}
+                    title={isOnlyActiveAdmin ? 'Cannot deactivate the only active admin' : undefined}
+                    className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {user.isActive ? (
+                      <>
+                        <ShieldOff className="h-3.5 w-3.5" /> Deactivate
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="h-3.5 w-3.5" /> Reactivate
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
-  if (currentUser && currentUser.role !== 'ADMIN') {
+  if (!hasPermission(currentUser, 'administration:view')) {
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white py-20 text-center">
         <h1 className="text-xl font-semibold text-[var(--color-navy)]">Users</h1>
-        <p className="mt-2 text-sm text-gray-400">Only Admin can manage user accounts.</p>
+        <p className="mt-2 text-sm text-gray-400">You don't have permission to manage user accounts.</p>
       </div>
     );
   }
@@ -164,12 +173,14 @@ export function UsersPage() {
           <h1 className="text-xl font-semibold text-[var(--color-navy)]">Users</h1>
           <p className="text-sm text-gray-500">Manage who can log in to ClinicCare and what they can do.</p>
         </div>
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" /> Add User
-        </button>
+        {hasPermission(currentUser, 'administration:edit') && (
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> Add User
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -251,11 +262,15 @@ export function UsersPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
             <select
               {...addForm.register('role')}
+              defaultValue=""
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             >
-              {ROLES.map((role) => (
-                <option key={role} value={role}>
-                  {role}
+              <option value="" disabled>
+                Select a role
+              </option>
+              {roles?.map((role) => (
+                <option key={role.id} value={role.name}>
+                  {role.name}
                 </option>
               ))}
             </select>

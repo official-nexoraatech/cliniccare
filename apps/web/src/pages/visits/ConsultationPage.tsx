@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { AlertTriangle, ArrowLeft, Plus, User, X } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, Plus, X } from 'lucide-react';
 import { COMMON_TESTS, FOLLOW_UP_QUICK_OPTIONS, QUICK_ADVICE_TEMPLATES } from '@clinic-care/shared-types';
 import {
   useComplaintSuggestions,
@@ -14,7 +14,8 @@ import {
   useVisitQuery,
 } from '@/hooks/useVisits';
 import { SuggestInput } from '@/components/SuggestInput';
-import { resolveServerUrl } from '@/lib/api';
+import { PatientStrip } from '@/components/PatientStrip';
+import { ComplianceEntryModal } from '@/components/ComplianceEntryModal';
 import { getErrorMessage } from '@/lib/utils';
 
 const BP_REGEX = /^\d{2,3}\/\d{2,3}$/;
@@ -57,6 +58,7 @@ export function ConsultationPage() {
 
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
   const [customTest, setCustomTest] = useState('');
+  const [complianceOpen, setComplianceOpen] = useState(false);
 
   const {
     register,
@@ -178,7 +180,7 @@ export function ConsultationPage() {
       }
 
       toast.success('Consultation saved');
-      navigate(andPrescribe ? '/prescriptions' : '/visits');
+      navigate(andPrescribe ? `/visits/${id}/prescription` : '/visits');
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not save consultation.'));
     }
@@ -199,7 +201,6 @@ export function ConsultationPage() {
     );
   }
 
-  const hasAlerts = Boolean(visit.patient.allergies || visit.patient.chronicDiseases);
   const otherVisits = (previousVisits ?? []).filter((v) => v.id !== visit.id).slice(0, 5);
 
   return (
@@ -214,48 +215,17 @@ export function ConsultationPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
         <div className="flex flex-col gap-4">
           {/* SECTION 1: Patient strip */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-400">
-                {visit.patient.photoPath ? (
-                  <img
-                    src={resolveServerUrl(visit.patient.photoPath)}
-                    alt={visit.patient.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <User className="h-6 w-6" />
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-[var(--color-navy)]">{visit.patient.name}</p>
-                <p className="text-xs text-gray-500">
-                  {visit.patient.age} yrs · {visit.patient.gender} · {visit.patient.patientId} ·{' '}
-                  {visit.patient.mobile}
-                </p>
-              </div>
-              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                {visit.visitNo}
-              </span>
-            </div>
-            {hasAlerts && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-                <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
-                <div>
-                  {visit.patient.allergies && (
-                    <p>
-                      <span className="font-semibold">Allergies:</span> {visit.patient.allergies}
-                    </p>
-                  )}
-                  {visit.patient.chronicDiseases && (
-                    <p>
-                      <span className="font-semibold">Chronic:</span> {visit.patient.chronicDiseases}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          <PatientStrip patient={visit.patient} visitNo={visit.visitNo} />
+
+          {visit.visitType === 'FOLLOW_UP' && (
+            <button
+              type="button"
+              onClick={() => setComplianceOpen(true)}
+              className="flex w-fit items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-[var(--color-primary)] hover:bg-teal-50"
+            >
+              <ClipboardCheck className="h-4 w-4" /> Record Compliance
+            </button>
+          )}
 
           <form className="flex flex-col gap-4">
             {/* SECTION 2: Clinical */}
@@ -477,6 +447,15 @@ export function ConsultationPage() {
           )}
         </div>
       </div>
+
+      {id && (
+        <ComplianceEntryModal
+          open={complianceOpen}
+          onClose={() => setComplianceOpen(false)}
+          patientId={visit.patientId}
+          visitId={id}
+        />
+      )}
     </div>
   );
 }

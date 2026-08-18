@@ -10,3 +10,13 @@ export interface ClinicProfile {
   logoPath: string | null;
   letterheadPath: string | null;
 }
+
+export interface UpdateClinicRequest {
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  doctorName?: string;
+  degree?: string;
+  regnNumber?: string;
+}

@@ -15,7 +15,9 @@ import {
 } from 'lucide-react';
 import { usePatientMutations, usePatientQuery } from '@/hooks/usePatients';
 import { useVisitMutations } from '@/hooks/useVisits';
+import { usePatientComplianceQuery } from '@/hooks/useCompliance';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ComplianceBadge } from '@/components/ComplianceBadge';
 import { resolveServerUrl } from '@/lib/api';
 import { getErrorMessage } from '@/lib/utils';
 
@@ -25,6 +27,7 @@ export function PatientProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: patient, isLoading } = usePatientQuery(id);
+  const { data: compliance } = usePatientComplianceQuery(id);
   const { deactivate, reactivate } = usePatientMutations();
   const { create: createVisit, start: startVisit } = useVisitMutations();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -122,6 +125,9 @@ export function PatientProfilePage() {
                   Inactive
                 </span>
               )}
+              {compliance?.records[0] && (
+                <ComplianceBadge percent={compliance.records[0].overallPercent} grade={compliance.records[0].grade} />
+              )}
             </div>
             <p className="text-sm text-gray-500">
               {patient.age} yrs · {GENDER_LABEL[patient.gender]} · {patient.patientId}
@@ -153,15 +159,13 @@ export function PatientProfilePage() {
           </button>
           <button
             onClick={() => navigate('/appointments')}
-            title="Appointment module is Day 10 — not built yet"
             className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
           >
             <CalendarPlus className="h-4 w-4" /> New Appointment
           </button>
           <button
-            disabled
-            title="Full history timeline is Day 7 — not built yet"
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-400 opacity-60"
+            onClick={() => navigate(`/patients/${patient.id}/history`)}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
           >
             <History className="h-4 w-4" /> View History
           </button>

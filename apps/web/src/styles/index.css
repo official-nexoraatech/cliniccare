@@ -32,3 +32,16 @@ body {
     overflow: visible !important;
   }
 }
+
+/* Chrome's native number-input spinner sits inside the input's own box — in a narrow
+   field (e.g. the M/A/E/N dose columns) it visually overlaps centered text, clipping
+   wide digits like "0" until they're misread as other characters. None of these fields
+   are used via the spinner arrows (values are typed), so drop it everywhere. */
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

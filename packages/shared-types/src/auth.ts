@@ -1,4 +1,5 @@
 import type { RoleName } from './roles';
+import type { PermissionKey } from './permissions';
 
 export interface LoginRequest {
   username: string;
@@ -16,6 +17,7 @@ export interface AuthUser {
   username: string;
   role: RoleName;
   isActive: boolean;
+  permissions: PermissionKey[];
 }
 
 export interface LoginResponse {

@@ -4,40 +4,45 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @RequiresPermission('administration:view')
   @Get()
   list() {
     return this.usersService.list();
   }
 
+  @RequiresPermission('administration:edit')
   @Post()
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
   }
 
+  @RequiresPermission('administration:edit')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
   }
 
+  @RequiresPermission('administration:edit')
   @Patch(':id/deactivate')
   deactivate(@Param('id') id: string) {
     return this.usersService.deactivate(id);
   }
 
+  @RequiresPermission('administration:edit')
   @Patch(':id/reactivate')
   reactivate(@Param('id') id: string) {
     return this.usersService.reactivate(id);
   }
 
+  @RequiresPermission('administration:edit')
   @Patch(':id/reset-password')
   resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) {
     return this.usersService.resetPassword(id, dto);

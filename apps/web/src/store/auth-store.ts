@@ -17,6 +17,19 @@ export const useAuthStore = create<AuthState>()(
       setSession: (accessToken, user) => set({ accessToken, user }),
       logout: () => set({ accessToken: null, user: null }),
     }),
-    { name: 'clinic-care-auth' },
+    {
+      name: 'clinic-care-auth',
+      // Bump this whenever AuthUser's shape changes — a session cached under an
+      // older shape (e.g. missing the `permissions` field added here) gets
+      // dropped instead of crashing every screen that reads the new field.
+      version: 1,
+      migrate: (persisted) => {
+        const state = persisted as Partial<AuthState> | undefined;
+        if (state?.user && !Array.isArray(state.user.permissions)) {
+          return { accessToken: null, user: null };
+        }
+        return state as AuthState;
+      },
+    },
   ),
 );

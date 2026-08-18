@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
 import { Download, Plus, Stethoscope } from 'lucide-react';
 import type { Gender, PatientSummary } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { usePatientsQuery } from '@/hooks/usePatients';
+import { useVisitMutations } from '@/hooks/useVisits';
 import { downloadCsv } from '@/lib/csv';
+import { getErrorMessage } from '@/lib/utils';
 
 const GENDER_LABEL: Record<Gender, string> = { MALE: 'M', FEMALE: 'F', OTHER: 'O' };
 
@@ -20,6 +23,17 @@ export function PatientListPage() {
     gender: gender || undefined,
     city: city || undefined,
   });
+  const { create: createVisit, start: startVisit } = useVisitMutations();
+
+  const onNewVisit = async (patientId: string) => {
+    try {
+      const visit = await createVisit.mutateAsync({ patientId });
+      await startVisit.mutateAsync(visit.id);
+      navigate(`/visits/${visit.id}`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not start a new visit.'));
+    }
+  };
 
   const columns = useMemo<ColumnDef<PatientSummary, any>[]>(
     () => [
@@ -50,8 +64,7 @@ export function PatientListPage() {
               Edit
             </button>
             <button
-              onClick={() => navigate('/visits')}
-              title="Visit module is Day 5 — not built yet"
+              onClick={() => onNewVisit(row.original.id)}
               className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
             >
               <Stethoscope className="h-3.5 w-3.5" /> New Visit
@@ -60,7 +73,7 @@ export function PatientListPage() {
         ),
       },
     ],
-    [navigate],
+    [navigate, onNewVisit],
   );
 
   const handleExport = () => {

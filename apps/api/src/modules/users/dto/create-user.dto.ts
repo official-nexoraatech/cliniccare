@@ -1,5 +1,5 @@
-import { IsIn, IsOptional, IsString, Length, MinLength } from 'class-validator';
-import { ROLES, type RoleName } from '@clinic-care/shared-types';
+import { IsOptional, IsString, Length, MinLength } from 'class-validator';
+import type { RoleName } from '@clinic-care/shared-types';
 
 export class CreateUserDto {
   @IsString()
@@ -17,6 +17,7 @@ export class CreateUserDto {
   @Length(4, 4)
   pin?: string;
 
-  @IsIn(ROLES)
+  @IsString()
+  @MinLength(1)
   role!: RoleName;
 }

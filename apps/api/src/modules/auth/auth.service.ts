@@ -3,8 +3,14 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { AuthUser, LoginResponse } from '@clinic-care/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
+import { parsePermissions } from '../../common/utils/parse-permissions';
 import { LoginDto } from './dto/login.dto';
 import { PinLoginDto } from './dto/pin-login.dto';
+
+interface UserRole {
+  name: string;
+  permissions: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -38,7 +44,7 @@ export class AuthService {
       );
     }
 
-    return this.issueToken(user.id, user.username, user.name, user.role.name, user.isActive);
+    return this.issueToken(user.id, user.username, user.name, user.role, user.isActive);
   }
 
   async pinLogin(dto: PinLoginDto): Promise<LoginResponse> {
@@ -62,7 +68,7 @@ export class AuthService {
       );
     }
 
-    return this.issueToken(user.id, user.username, user.name, user.role.name, user.isActive);
+    return this.issueToken(user.id, user.username, user.name, user.role, user.isActive);
   }
 
   async me(userId: string): Promise<AuthUser> {
@@ -71,33 +77,34 @@ export class AuthService {
       include: { role: true },
     });
 
-    return this.toAuthUser(user.id, user.username, user.name, user.role.name, user.isActive);
+    return this.toAuthUser(user.id, user.username, user.name, user.role, user.isActive);
   }
 
   private async issueToken(
     id: string,
     username: string,
     name: string,
-    role: string,
+    role: UserRole,
     isActive: boolean,
   ): Promise<LoginResponse> {
     const authUser = this.toAuthUser(id, username, name, role, isActive);
     const accessToken = await this.jwtService.signAsync({
       id,
       username,
-      role,
+      role: role.name,
     });
 
     return { accessToken, user: authUser };
   }
 
-  private toAuthUser(
-    id: string,
-    username: string,
-    name: string,
-    role: string,
-    isActive: boolean,
-  ): AuthUser {
-    return { id, username, name, role: role as AuthUser['role'], isActive };
+  private toAuthUser(id: string, username: string, name: string, role: UserRole, isActive: boolean): AuthUser {
+    return {
+      id,
+      username,
+      name,
+      role: role.name,
+      isActive,
+      permissions: parsePermissions(role.permissions),
+    };
   }
 }

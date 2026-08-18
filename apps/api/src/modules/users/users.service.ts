@@ -24,7 +24,10 @@ export class UsersService {
       throw new ConflictException('Username is already taken');
     }
 
-    const role = await this.prisma.role.findUniqueOrThrow({ where: { name: dto.role } });
+    const role = await this.prisma.role.findUnique({ where: { name: dto.role } });
+    if (!role) {
+      throw new BadRequestException(`Role "${dto.role}" does not exist`);
+    }
 
     const user = await this.prisma.user.create({
       data: {
@@ -45,7 +48,10 @@ export class UsersService {
 
     if (dto.role && dto.role !== user.role.name) {
       await this.assertNotLastActiveAdmin(user, 'change the role of');
-      const role = await this.prisma.role.findUniqueOrThrow({ where: { name: dto.role } });
+      const role = await this.prisma.role.findUnique({ where: { name: dto.role } });
+      if (!role) {
+        throw new BadRequestException(`Role "${dto.role}" does not exist`);
+      }
       await this.prisma.user.update({ where: { id }, data: { roleId: role.id } });
     }
 

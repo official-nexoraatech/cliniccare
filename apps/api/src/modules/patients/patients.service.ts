@@ -2,22 +2,40 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreatePatientResponse,
   PatientDetail,
+  PatientHistoryResponse,
+  PatientHistoryVisit,
   PatientListResponse,
   PatientSearchResult,
   PatientSummary,
 } from '@clinic-care/shared-types';
-import { Patient } from '@prisma/client';
+import { LabTest, Patient, Prescription, PrescriptionItem, Vital, Visit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberService } from '../number/number.service';
+import { DocumentsService } from '../documents/documents.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { ListPatientsQueryDto } from './dto/list-patients-query.dto';
+
+const HISTORY_INCLUDE = {
+  vital: true,
+  labTests: true,
+  prescription: { include: { items: true } },
+  patient: true,
+} as const;
+
+type HistoryVisitRow = Visit & {
+  patient: Patient;
+  vital: Vital | null;
+  labTests: LabTest[];
+  prescription: (Prescription & { items: PrescriptionItem[] }) | null;
+};
 
 @Injectable()
 export class PatientsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly numberService: NumberService,
+    private readonly documentsService: DocumentsService,
   ) {}
 
   async list(query: ListPatientsQueryDto): Promise<PatientListResponse> {
@@ -80,6 +98,44 @@ export class PatientsService {
       throw new NotFoundException('Patient not found');
     }
     return this.toDetail(patient);
+  }
+
+  /** Combined timeline the doctor opens before seeing a returning patient — everything built so far, newest first. */
+  async getHistory(patientId: string): Promise<PatientHistoryResponse> {
+    await this.assertExists(patientId);
+
+    const [visits, documents, topMedicines] = await Promise.all([
+      this.prisma.visit.findMany({
+        where: { patientId },
+        include: HISTORY_INCLUDE,
+        orderBy: { visitDate: 'desc' },
+      }),
+      this.documentsService.listByPatient(patientId),
+      this.prisma.prescriptionItem.groupBy({
+        by: ['medicineName'],
+        where: { prescription: { patientId } },
+        _count: { medicineName: true },
+        orderBy: { _count: { medicineName: 'desc' } },
+        take: 3,
+      }),
+    ]);
+
+    const visitDates = visits.map((v) => v.visitDate);
+    const summary = {
+      totalVisits: visits.length,
+      firstVisitDate: visitDates.length ? new Date(Math.min(...visitDates.map((d) => d.getTime()))).toISOString() : null,
+      lastVisitDate: visitDates.length ? new Date(Math.max(...visitDates.map((d) => d.getTime()))).toISOString() : null,
+      mostPrescribedMedicines: topMedicines.map((m) => ({
+        medicineName: m.medicineName,
+        count: m._count.medicineName,
+      })),
+    };
+
+    return {
+      summary,
+      visits: visits.map((visit) => this.toHistoryVisit(visit)),
+      documents,
+    };
   }
 
   async create(dto: CreatePatientDto, createdBy?: string): Promise<CreatePatientResponse> {
@@ -149,6 +205,71 @@ export class PatientsService {
     if (!exists) {
       throw new NotFoundException('Patient not found');
     }
+  }
+
+  private toHistoryVisit(visit: HistoryVisitRow): PatientHistoryVisit {
+    return {
+      id: visit.id,
+      visitNo: visit.visitNo,
+      visitDate: visit.visitDate.toISOString(),
+      visitType: visit.visitType as PatientHistoryVisit['visitType'],
+      status: visit.status as PatientHistoryVisit['status'],
+      complaint: visit.complaint,
+      diagnosis: visit.diagnosis,
+      patientId: visit.patientId,
+      patient: {
+        id: visit.patient.id,
+        patientId: visit.patient.patientId,
+        name: visit.patient.name,
+        age: visit.patient.age,
+        gender: visit.patient.gender as PatientHistoryVisit['patient']['gender'],
+        mobile: visit.patient.mobile,
+        photoPath: visit.patient.photoPath,
+        allergies: visit.patient.allergies,
+        chronicDiseases: visit.patient.chronicDiseases,
+      },
+      complaintDurationDays: visit.complaintDurationDays,
+      examination: visit.examination,
+      advice: visit.advice,
+      testsAdvised: visit.testsAdvised,
+      nextFollowUpDate: visit.nextFollowUpDate ? visit.nextFollowUpDate.toISOString() : null,
+      followUpAfterDays: visit.followUpAfterDays,
+      consultationFee: visit.consultationFee,
+      remark: visit.remark,
+      vital: visit.vital
+        ? {
+            id: visit.vital.id,
+            bp: visit.vital.bp ?? undefined,
+            pulse: visit.vital.pulse ?? undefined,
+            temperature: visit.vital.temperature ?? undefined,
+            weight: visit.vital.weight ?? undefined,
+            height: visit.vital.height ?? undefined,
+            bmi: visit.vital.bmi,
+            spo2: visit.vital.spo2 ?? undefined,
+            respiratoryRate: visit.vital.respiratoryRate ?? undefined,
+            sugarRandom: visit.vital.sugarRandom ?? undefined,
+            notes: visit.vital.notes ?? undefined,
+          }
+        : null,
+      labTests: visit.labTests.map((test) => ({
+        id: test.id,
+        testName: test.testName,
+        advisedOn: test.advisedOn.toISOString(),
+        resultValue: test.resultValue,
+        resultUnit: test.resultUnit,
+        normalRange: test.normalRange,
+        resultDate: test.resultDate ? test.resultDate.toISOString() : null,
+        remark: test.remark,
+        status: test.status as PatientHistoryVisit['labTests'][number]['status'],
+      })),
+      prescription: visit.prescription
+        ? {
+            id: visit.prescription.id,
+            itemCount: visit.prescription.items.length,
+            generalInstruction: visit.prescription.generalInstruction,
+          }
+        : null,
+    };
   }
 
   private toSummary(patient: Patient): PatientSummary {

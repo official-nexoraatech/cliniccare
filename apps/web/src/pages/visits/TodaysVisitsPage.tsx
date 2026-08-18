@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Play, Stethoscope } from 'lucide-react';
+import { ClipboardList, Play, Stethoscope } from 'lucide-react';
 import type { TodayVisitItem, VisitStatus } from '@clinic-care/shared-types';
 import { useTodaysVisitsQuery, useVisitMutations } from '@/hooks/useVisits';
 import { cn, getErrorMessage } from '@/lib/utils';
@@ -75,22 +75,32 @@ export function TodaysVisitsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {visit.status === 'COMPLETED' || visit.status === 'CANCELLED' ? (
-                      <button
-                        onClick={() => navigate(`/visits/${visit.id}`)}
-                        className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                      >
-                        View
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => onStart(visit)}
-                        className="flex items-center gap-1 rounded-lg bg-[var(--color-primary)] px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
-                      >
-                        <Play className="h-3 w-3" />
-                        {visit.status === 'WAITING' ? 'Start Consultation' : 'Continue'}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {visit.status === 'COMPLETED' || visit.status === 'CANCELLED' ? (
+                        <button
+                          onClick={() => navigate(`/visits/${visit.id}`)}
+                          className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        >
+                          View
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onStart(visit)}
+                          className="flex items-center gap-1 rounded-lg bg-[var(--color-primary)] px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
+                        >
+                          <Play className="h-3 w-3" />
+                          {visit.status === 'WAITING' ? 'Start Consultation' : 'Continue'}
+                        </button>
+                      )}
+                      {visit.status !== 'CANCELLED' && (
+                        <button
+                          onClick={() => navigate(`/visits/${visit.id}/prescription`)}
+                          className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        >
+                          <ClipboardList className="h-3 w-3" /> Prescription
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

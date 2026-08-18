@@ -1,5 +1,5 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
-import { ROLES, type RoleName } from '@clinic-care/shared-types';
+import { IsOptional, IsString, MinLength } from 'class-validator';
+import type { RoleName } from '@clinic-care/shared-types';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -7,6 +7,7 @@ export class UpdateUserDto {
   name?: string;
 
   @IsOptional()
-  @IsIn(ROLES)
+  @IsString()
+  @MinLength(1)
   role?: RoleName;
 }

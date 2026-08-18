@@ -4,7 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 
 const jwtModule = JwtModule.registerAsync({
   imports: [ConfigModule],
@@ -20,7 +20,7 @@ const jwtModule = JwtModule.registerAsync({
 @Module({
   imports: [jwtModule],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, RolesGuard],
-  exports: [jwtModule, JwtAuthGuard, RolesGuard],
+  providers: [AuthService, JwtAuthGuard, PermissionsGuard],
+  exports: [jwtModule, JwtAuthGuard, PermissionsGuard],
 })
 export class AuthModule {}

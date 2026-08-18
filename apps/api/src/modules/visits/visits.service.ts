@@ -10,6 +10,7 @@ import type {
 import { LabTest, Patient, Vital, Visit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberService } from '../number/number.service';
+import { FollowUpsService } from '../followups/followups.service';
 import { CreateVisitDto } from './dto/create-visit.dto';
 import { UpdateVisitDto } from './dto/update-visit.dto';
 import { SaveVitalsDto } from './dto/save-vitals.dto';
@@ -25,6 +26,7 @@ export class VisitsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly numberService: NumberService,
+    private readonly followUpsService: FollowUpsService,
   ) {}
 
   async listToday(): Promise<TodayVisitItem[]> {
@@ -77,6 +79,11 @@ export class VisitsService {
       },
       include: VISIT_INCLUDE,
     });
+
+    // Day 9 rule: a new visit within 7 days of a pending follow-up counts as that
+    // follow-up being kept, not missed — link it automatically.
+    await this.followUpsService.linkVisitIfFollowUpDue(dto.patientId, visit.id);
+
     return this.toDetail(visit);
   }
 

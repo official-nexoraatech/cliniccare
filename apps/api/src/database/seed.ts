@@ -1,17 +1,38 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { ALL_PERMISSION_KEYS, type PermissionKey } from '@clinic-care/shared-types';
 
 const prisma = new PrismaClient();
+
+const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
+  ADMIN: [...ALL_PERMISSION_KEYS],
+  DOCTOR: [
+    'patients:view',
+    'patients:edit',
+    'visits:view',
+    'visits:edit',
+    'prescriptions:view',
+    'prescriptions:edit',
+    'medicines:view',
+    'medicines:edit',
+  ],
+  RECEPTIONIST: ['patients:view', 'patients:edit', 'visits:view', 'medicines:view'],
+  ASSISTANT: ['patients:view', 'visits:view', 'medicines:view'],
+};
 
 async function main() {
   const roleNames = ['ADMIN', 'DOCTOR', 'RECEPTIONIST', 'ASSISTANT'] as const;
   const roles: Record<string, { id: string }> = {};
 
   for (const name of roleNames) {
+    const data = {
+      permissions: JSON.stringify(ROLE_PERMISSIONS[name]),
+      isLocked: name === 'ADMIN',
+    };
     roles[name] = await prisma.role.upsert({
       where: { name },
-      update: {},
-      create: { name },
+      update: data,
+      create: { name, ...data },
     });
   }
 
@@ -71,6 +92,21 @@ async function main() {
     });
   }
 
+  const feeTypes = [
+    { name: 'New Consultation', amount: 300, isDefault: true },
+    { name: 'Follow-up', amount: 150, isDefault: false },
+    { name: 'Dressing', amount: 200, isDefault: false },
+    { name: 'Injection', amount: 100, isDefault: false },
+  ];
+
+  for (const feeType of feeTypes) {
+    await prisma.feeType.upsert({
+      where: { name: feeType.name },
+      update: {},
+      create: feeType,
+    });
+  }
+
   const demoPatients = [
     { seq: 1, name: 'Ramesh Kumar', age: 45, gender: 'MALE', mobile: '9845012301', city: 'Bengaluru', bloodGroup: 'B+', allergies: null, chronicDiseases: 'Type 2 Diabetes' },
     { seq: 2, name: 'Sunita Sharma', age: 32, gender: 'FEMALE', mobile: '9845012302', city: 'Bengaluru', bloodGroup: 'O+', allergies: 'Penicillin', chronicDiseases: null },
@@ -90,7 +126,7 @@ async function main() {
   ] as const;
 
   for (const p of demoPatients) {
-    const patientId = `P-${financialYear}-${String(p.seq).padStart(5, '0')}`;
+    const patientId = `P-${financialYear}-${p.seq}`;
     await prisma.patient.upsert({
       where: { id: `demo-patient-${p.seq}` },
       update: {},
