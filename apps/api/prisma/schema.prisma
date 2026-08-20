@@ -113,6 +113,7 @@ model Patient {
   visits       Visit[]
   followUps    FollowUp[]
   appointments Appointment[]
+  certificates Certificate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -465,4 +466,47 @@ model Appointment {
   @@index([appointmentDate])
   @@index([status])
   @@index([patientId])
+}
+
+enum CertificateType {
+  FITNESS
+  SICK_LEAVE
+  MEDICAL
+  REFERRAL
+  VACCINATION
+  CUSTOM
+}
+
+enum CertificateStatus {
+  ISSUED
+  CANCELLED
+}
+
+model Certificate {
+  id            String            @id @default(cuid())
+  certificateNo String            @unique
+  patientId     String
+  patient       Patient           @relation(fields: [patientId], references: [id])
+  visitId       String?
+  type          CertificateType
+  issueDate     DateTime          @default(now())
+  fromDate      DateTime?
+  toDate        DateTime?
+  diagnosis     String?
+  // Auto-filled from a per-type wording template on the client (like the prescription's
+  // dose-in-words), then fully editable before saving — the exact wording is legally
+  // significant, so what gets printed is whatever text was actually saved here, never
+  // re-derived from the template at print time.
+  bodyText      String
+  status        CertificateStatus @default(ISSUED)
+  cancelReason  String?
+  issuedBy      String?
+  printedAt     DateTime?
+  printCount    Int               @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([issueDate])
 }

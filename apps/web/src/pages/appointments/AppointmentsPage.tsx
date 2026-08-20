@@ -15,10 +15,11 @@ import {
   Search,
   XCircle,
 } from 'lucide-react';
-import type { AppointmentDetail, AppointmentStatus } from '@clinic-care/shared-types';
+import { GENDERS } from '@clinic-care/shared-types';
+import type { AppointmentDetail, AppointmentStatus, Gender } from '@clinic-care/shared-types';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { usePatientSearchQuery } from '@/hooks/usePatients';
+import { usePatientMutations, usePatientSearchQuery } from '@/hooks/usePatients';
 import {
   useAppointmentMutations,
   useAppointmentQueueQuery,
@@ -71,6 +72,71 @@ function waitingMinutes(updatedAt: string): number {
 const inputClass =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
 const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+
+const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1); // 1..12
+const MINUTES_60 = Array.from({ length: 60 }, (_, i) => i);
+
+function parse24Hour(value: string): { hour12: number; minute: number; period: 'AM' | 'PM' } | null {
+  if (!value) return null;
+  const [hour, minute] = value.split(':').map(Number);
+  return { hour12: hour % 12 || 12, minute, period: hour >= 12 ? 'PM' : 'AM' };
+}
+
+function to24Hour(hour12: number, minute: number, period: 'AM' | 'PM'): string {
+  const hour = period === 'AM' ? hour12 % 12 : (hour12 % 12) + 12;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+/** 12-hour AM/PM time picker — native <input type="time"> renders in 24h or 12h
+ * depending on OS locale, so it can't be forced to show AM/PM consistently. */
+function TimeInput12h({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const parsed = parse24Hour(value);
+  const hour12 = parsed?.hour12 ?? '';
+  const minute = parsed?.minute ?? 0;
+  const period = parsed?.period ?? 'AM';
+
+  const commit = (nextHour: number | '', nextMinute: number, nextPeriod: 'AM' | 'PM') => {
+    onChange(nextHour === '' ? '' : to24Hour(nextHour, nextMinute, nextPeriod));
+  };
+
+  return (
+    <div className="flex gap-1">
+      <select
+        value={hour12}
+        onChange={(e) => commit(e.target.value ? Number(e.target.value) : '', minute, period)}
+        className={inputClass}
+      >
+        <option value="">--</option>
+        {HOURS_12.map((h) => (
+          <option key={h} value={h}>
+            {h}
+          </option>
+        ))}
+      </select>
+      <select
+        value={minute}
+        onChange={(e) => commit(hour12, Number(e.target.value), period)}
+        disabled={hour12 === ''}
+        className={inputClass}
+      >
+        {MINUTES_60.map((m) => (
+          <option key={m} value={m}>
+            {String(m).padStart(2, '0')}
+          </option>
+        ))}
+      </select>
+      <select
+        value={period}
+        onChange={(e) => commit(hour12, minute, e.target.value as 'AM' | 'PM')}
+        disabled={hour12 === ''}
+        className={inputClass}
+      >
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  );
+}
 
 function DoctorSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const { data: doctors = [] } = useDoctorsQuery();
@@ -300,7 +366,7 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Time</label>
-            <input type="time" value={timeSlot} onChange={(e) => setTimeSlot(e.target.value)} className={inputClass} />
+            <TimeInput12h value={timeSlot} onChange={setTimeSlot} />
           </div>
           <DoctorSelect value={doctorId} onChange={setDoctorId} />
         </div>
@@ -326,50 +392,143 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
 
 function LinkPatientModal({ open, onClose, appointment }: { open: boolean; onClose: () => void; appointment: AppointmentDetail }) {
   const { linkPatient } = useAppointmentMutations();
+  const { create: createPatient } = usePatientMutations();
+  const [mode, setMode] = useState<'search' | 'new'>('search');
   const [search, setSearch] = useState('');
   const { data: results = [] } = usePatientSearchQuery(search);
+
+  const [name, setName] = useState(appointment.patientName);
+  const [mobile, setMobile] = useState(appointment.mobile);
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState<Gender>('MALE');
+
+  const reset = () => {
+    setMode('search');
+    setSearch('');
+    setName(appointment.patientName);
+    setMobile(appointment.mobile);
+    setAge('');
+    setGender('MALE');
+  };
 
   const onLink = async (patientId: string) => {
     try {
       await linkPatient.mutateAsync({ id: appointment.id, patientId });
       toast.success('Appointment linked to patient');
-      setSearch('');
+      reset();
       onClose();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not link patient.'));
     }
   };
 
+  const onRegisterAndLink = async () => {
+    if (!name || !mobile || !age) {
+      toast.error('Name, mobile and age are required.');
+      return;
+    }
+    try {
+      const { patient } = await createPatient.mutateAsync({ name, mobile, age: Number(age), gender });
+      await onLink(patient.id);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not register patient.'));
+    }
+  };
+
+  const isPending = linkPatient.isPending || createPatient.isPending;
+
   return (
-    <FormModal open={open} title={`Link "${appointment.patientName}" to a patient record`} size="sm" onClose={onClose}>
+    <FormModal
+      open={open}
+      title={`Link "${appointment.patientName}" to a patient record`}
+      size="sm"
+      onClose={() => {
+        reset();
+        onClose();
+      }}
+    >
       <div className="flex flex-col gap-3">
         <p className="text-sm text-gray-500">
-          This appointment was booked for a new caller. Once they're registered as a patient, link this appointment to
-          their record so "Arrived" can start a visit.
+          This appointment was booked for a new caller. Link it to an existing patient, or register them now if this is
+          their first visit — either way "Arrived" can then start a visit.
         </p>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by mobile or name"
-            className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-          />
+
+        <div className="flex gap-1 rounded-lg border border-gray-200 p-1">
+          <button
+            onClick={() => setMode('search')}
+            className={`flex-1 rounded-md py-1.5 text-sm font-medium ${mode === 'search' ? 'bg-[var(--color-primary)] text-white' : 'text-gray-600'}`}
+          >
+            Existing Patient
+          </button>
+          <button
+            onClick={() => setMode('new')}
+            className={`flex-1 rounded-md py-1.5 text-sm font-medium ${mode === 'new' ? 'bg-[var(--color-primary)] text-white' : 'text-gray-600'}`}
+          >
+            First Visit
+          </button>
         </div>
-        {results.length > 0 && (
-          <div className="overflow-hidden rounded-lg border border-gray-200">
-            {results.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => onLink(p.id)}
-                disabled={linkPatient.isPending}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
-              >
-                <span>{p.name}</span>
-                <span className="text-gray-400">{p.mobile}</span>
-              </button>
-            ))}
-          </div>
+
+        {mode === 'search' ? (
+          <>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by mobile or name"
+                className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              />
+            </div>
+            {results.length > 0 && (
+              <div className="overflow-hidden rounded-lg border border-gray-200">
+                {results.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => onLink(p.id)}
+                    disabled={isPending}
+                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <span>{p.name}</span>
+                    <span className="text-gray-400">{p.mobile}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Name</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Mobile</label>
+                <input value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Age</label>
+                <input type="number" min={0} value={age} onChange={(e) => setAge(e.target.value)} className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Gender</label>
+                <select value={gender} onChange={(e) => setGender(e.target.value as Gender)} className={inputClass}>
+                  {GENDERS.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button
+              onClick={onRegisterAndLink}
+              disabled={isPending}
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {isPending ? 'Registering...' : 'Register & Link'}
+            </button>
+          </>
         )}
       </div>
     </FormModal>
@@ -516,7 +675,7 @@ function RescheduleAppointmentModal({ open, onClose, appointment }: { open: bool
         </div>
         <div>
           <label className={labelClass}>New time (optional — keeps current time if left blank)</label>
-          <input type="time" onChange={(e) => setNewTimeSlot(e.target.value)} className={inputClass} />
+          <TimeInput12h value={newTimeSlot} onChange={setNewTimeSlot} />
         </div>
       </div>
     </FormModal>

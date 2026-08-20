@@ -45,6 +45,9 @@ apps/api/files/
 Thumbs.db
 desktop.ini
 
+# Local planning doc, not part of the source
+info.md
+
 # Logs
 *.log
 npm-debug.log*

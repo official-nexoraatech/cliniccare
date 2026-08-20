@@ -47,6 +47,7 @@ export class VisitsService {
       visitDate: visit.visitDate.toISOString(),
       visitType: visit.visitType as TodayVisitItem['visitType'],
       status: visit.status as TodayVisitItem['status'],
+      consultationFee: visit.consultationFee,
       patient: this.toPatientSummary(visit.patient),
     }));
   }

@@ -14,3 +14,4 @@ export * from './patients';
 export * from './medicines';
 export * from './visits';
 export * from './prescriptions';
+export * from './certificates';
