@@ -1,14 +1,29 @@
 import { useAuthStore } from '@/store/auth-store';
+import { useTodaysVisitsQuery } from '@/hooks/useVisits';
+import { useAppointmentsByDayQuery } from '@/hooks/useAppointments';
+import { useFollowUpCountsQuery } from '@/hooks/useFollowUps';
 
-const cards = [
-  { label: "Today's Patients", value: '0' },
-  { label: 'Collection Today', value: '₹0' },
-  { label: 'Appointments Today', value: '0' },
-  { label: 'Follow-ups Due', value: '0' },
-];
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function Dashboard() {
   const user = useAuthStore((state) => state.user);
+  const { data: visits, isLoading: visitsLoading } = useTodaysVisitsQuery();
+  const { data: appointments, isLoading: appointmentsLoading } = useAppointmentsByDayQuery(todayIso());
+  const { data: followUpCounts, isLoading: followUpsLoading } = useFollowUpCountsQuery();
+
+  // Collection Today is a proxy from each visit's consultation fee, not a real payment
+  // ledger — Billing (income/expense) hasn't been built yet, so there is no receipt or
+  // payment-status data to sum instead. Revisit once Billing exists.
+  const collectionToday = (visits ?? []).reduce((sum, v) => sum + (v.consultationFee ?? 0), 0);
+
+  const cards = [
+    { label: "Today's Patients", value: visitsLoading ? '—' : String(visits?.length ?? 0) },
+    { label: 'Collection Today', value: visitsLoading ? '—' : `₹${collectionToday}` },
+    { label: 'Appointments Today', value: appointmentsLoading ? '—' : String(appointments?.length ?? 0) },
+    { label: 'Follow-ups Due', value: followUpsLoading ? '—' : String(followUpCounts?.dueToday ?? 0) },
+  ];
 
   return (
     <div className="flex flex-col gap-6">

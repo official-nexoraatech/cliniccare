@@ -17,6 +17,7 @@ import { MedicineForm } from '@/pages/medicines/MedicineForm';
 import { TodaysVisitsPage } from '@/pages/visits/TodaysVisitsPage';
 import { ConsultationPage } from '@/pages/visits/ConsultationPage';
 import { PrescriptionPage } from '@/pages/visits/PrescriptionPage';
+import { CertificatesPage } from '@/pages/certificates/CertificatesPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -41,7 +42,7 @@ export const router = createBrowserRouter([
           { path: '/medicines/:id/edit', element: <MedicineForm /> },
           { path: '/follow-up', element: <FollowUpPage /> },
           { path: '/compliance', element: <ComplianceReportPage /> },
-          { path: '/certificates', element: <PlaceholderPage title="Certificates" day="Day 11" /> },
+          { path: '/certificates', element: <CertificatesPage /> },
           { path: '/billing', element: <PlaceholderPage title="Billing" day="Day 12" /> },
           { path: '/accounts', element: <PlaceholderPage title="Accounts" day="Day 12" /> },
           { path: '/reports', element: <PlaceholderPage title="Reports" day="Day 13" /> },

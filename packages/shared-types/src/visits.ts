@@ -107,6 +107,7 @@ export interface TodayVisitItem {
   visitDate: string;
   visitType: VisitType;
   status: VisitStatus;
+  consultationFee: number | null;
   patient: VisitPatientSummary;
 }
 
