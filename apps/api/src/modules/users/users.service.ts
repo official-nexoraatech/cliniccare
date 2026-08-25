@@ -33,6 +33,7 @@ export class UsersService {
       data: {
         name: dto.name,
         username: dto.username,
+        mobile: dto.mobile || null,
         passwordHash: await bcrypt.hash(dto.password, 10),
         pin: dto.pin ? await bcrypt.hash(dto.pin, 10) : null,
         roleId: role.id,
@@ -123,6 +124,7 @@ export class UsersService {
     id: string;
     name: string;
     username: string;
+    mobile: string | null;
     isActive: boolean;
     pin: string | null;
     role: { name: string };
@@ -131,6 +133,7 @@ export class UsersService {
       id: user.id,
       name: user.name,
       username: user.username,
+      mobile: user.mobile,
       role: user.role.name as UserSummary['role'],
       isActive: user.isActive,
       hasPin: Boolean(user.pin),
