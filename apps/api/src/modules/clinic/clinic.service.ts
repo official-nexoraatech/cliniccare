@@ -51,6 +51,9 @@ export class ClinicService {
       regnNumber: clinic.regnNumber,
       logoPath: clinic.logoPath,
       letterheadPath: clinic.letterheadPath,
+      openTime: clinic.openTime,
+      closeTime: clinic.closeTime,
+      slotMinutes: clinic.slotMinutes,
     };
   }
 }

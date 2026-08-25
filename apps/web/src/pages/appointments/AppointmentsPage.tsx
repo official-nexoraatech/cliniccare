@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
+  Activity,
   AlertCircle,
   CalendarClock,
   CalendarDays,
@@ -27,6 +28,10 @@ import {
   useAppointmentsByDayQuery,
   useDoctorsQuery,
 } from '@/hooks/useAppointments';
+import { useClinicQuery } from '@/hooks/useClinic';
+import { useVisitMutations } from '@/hooks/useVisits';
+import { useAuthStore } from '@/store/auth-store';
+import { hasPermission } from '@/lib/permissions';
 import { getErrorMessage, cn } from '@/lib/utils';
 
 const EDITABLE_STATUSES: AppointmentStatus[] = ['BOOKED', 'CONFIRMED'];
@@ -134,6 +139,96 @@ function TimeInput12h({ value, onChange }: { value: string; onChange: (value: st
         <option value="AM">AM</option>
         <option value="PM">PM</option>
       </select>
+    </div>
+  );
+}
+
+/** "HH:mm" from openTime to closeTime, stepped by slotMinutes — all clinic-configurable
+ * (Settings > Clinic Profile > Scheduling), so a clinic that runs a 10-min-per-patient
+ * shift doesn't get stuck with 15-min slots baked into the UI. */
+function generateSlots(openTime: string, closeTime: string, slotMinutes: number): string[] {
+  const [openH, openM] = openTime.split(':').map(Number);
+  const [closeH, closeM] = closeTime.split(':').map(Number);
+  const start = openH * 60 + openM;
+  const end = closeH * 60 + closeM;
+  const slots: string[] = [];
+  for (let t = start; t < end; t += slotMinutes) {
+    slots.push(`${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`);
+  }
+  return slots;
+}
+
+/** Visual day-at-a-glance slot grid: red = booked (hover/tap for who), white = open,
+ * primary = currently selected. Clicking an open slot fills the time picker directly —
+ * this is the fix for "no clear idea which slot is booked, complete guessing". */
+function SlotGrid({
+  appointments,
+  excludeId,
+  value,
+  onSelect,
+  doctorId,
+}: {
+  appointments?: AppointmentDetail[];
+  excludeId?: string;
+  value: string;
+  onSelect: (time24: string) => void;
+  /** Same doctor bucket as the form's doctor field — a slot is only "taken" against the
+   * same doctor (or, if no doctor is picked, the shared no-doctor queue). Two different
+   * doctors can hold the same time without conflicting. */
+  doctorId: string;
+}) {
+  const { data: clinic } = useClinicQuery();
+
+  if (!clinic) return null;
+
+  const bookedByLabel = new Map<string, AppointmentDetail>();
+  for (const a of appointments ?? []) {
+    if (a.id !== excludeId && (a.doctorId ?? '') === doctorId && ACTIVE_STATUSES.includes(a.status)) {
+      bookedByLabel.set(a.timeSlot, a);
+    }
+  }
+  const slots = generateSlots(clinic.openTime, clinic.closeTime, clinic.slotMinutes);
+  const bookedCount = bookedByLabel.size;
+
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-gray-500">
+        {bookedCount > 0 ? `${bookedCount} already booked today — tap an open slot` : 'No appointments yet today — tap a slot'}
+      </p>
+      <div className="grid max-h-40 grid-cols-4 gap-1.5 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2 sm:grid-cols-6">
+        {slots.map((time24) => {
+          const label = formatTimeSlot(time24);
+          const booked = bookedByLabel.get(label);
+          const isSelected = value === time24;
+          return (
+            <button
+              key={time24}
+              type="button"
+              onClick={() => !booked && onSelect(time24)}
+              disabled={Boolean(booked)}
+              title={booked ? `${booked.patientName} · token #${booked.tokenNo}` : 'Available'}
+              className={cn(
+                'rounded-md px-1 py-1 text-[11px] font-medium transition-colors',
+                booked
+                  ? 'cursor-not-allowed bg-red-100 text-red-700'
+                  : isSelected
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:border-[var(--color-primary)]',
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-1.5 flex gap-3 text-[11px] text-gray-400">
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-red-200" /> Booked
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full border border-gray-300 bg-white" /> Open
+        </span>
+      </div>
     </div>
   );
 }
@@ -264,7 +359,9 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
       return;
     }
     const label = formatTimeSlot(timeSlot);
-    const slotConflict = dayAppointments?.find((a) => a.timeSlot === label && ACTIVE_STATUSES.includes(a.status));
+    const slotConflict = dayAppointments?.find(
+      (a) => a.timeSlot === label && (a.doctorId ?? '') === doctorId && ACTIVE_STATUSES.includes(a.status),
+    );
     if (slotConflict) {
       setConflictLabel(`${label} is already booked for ${slotConflict.patientName} (token #${slotConflict.tokenNo}).`);
       return;
@@ -374,6 +471,7 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
           <label className={labelClass}>Purpose (optional)</label>
           <input value={purpose} onChange={(e) => setPurpose(e.target.value)} className={inputClass} />
         </div>
+        <SlotGrid appointments={dayAppointments} value={timeSlot} onSelect={setTimeSlot} doctorId={doctorId} />
       </div>
     </FormModal>
 
@@ -428,7 +526,15 @@ function LinkPatientModal({ open, onClose, appointment }: { open: boolean; onClo
       return;
     }
     try {
-      const { patient } = await createPatient.mutateAsync({ name, mobile, age: Number(age), gender });
+      const { patient } = await createPatient.mutateAsync({
+        name,
+        mobile,
+        age: Number(age),
+        gender,
+        address: 'Not provided',
+        chronicDiseases: 'Not recorded',
+        stage: 'New',
+      });
       await onLink(patient.id);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not register patient.'));
@@ -627,7 +733,11 @@ function RescheduleAppointmentModal({ open, onClose, appointment }: { open: bool
   const onSave = () => {
     const label = newTimeSlot ? formatTimeSlot(newTimeSlot) : appointment.timeSlot;
     const slotConflict = targetDayAppointments?.find(
-      (a) => a.id !== appointment.id && a.timeSlot === label && ACTIVE_STATUSES.includes(a.status),
+      (a) =>
+        a.id !== appointment.id &&
+        a.timeSlot === label &&
+        (a.doctorId ?? '') === (appointment.doctorId ?? '') &&
+        ACTIVE_STATUSES.includes(a.status),
     );
     if (slotConflict) {
       setConflictLabel(`${label} on ${new Date(newDate).toLocaleDateString('en-IN')} is already booked for ${slotConflict.patientName} (token #${slotConflict.tokenNo}).`);
@@ -677,6 +787,13 @@ function RescheduleAppointmentModal({ open, onClose, appointment }: { open: bool
           <label className={labelClass}>New time (optional — keeps current time if left blank)</label>
           <TimeInput12h value={newTimeSlot} onChange={setNewTimeSlot} />
         </div>
+        <SlotGrid
+          appointments={targetDayAppointments}
+          excludeId={appointment.id}
+          value={newTimeSlot}
+          onSelect={setNewTimeSlot}
+          doctorId={appointment.doctorId ?? ''}
+        />
       </div>
     </FormModal>
 
@@ -907,12 +1024,122 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
   );
 }
 
+/** Nurse/reception vitals capture — happens after "Arrived" but before the doctor opens
+ * the consultation, so weight/BP/etc. don't get relayed to the doctor secondhand. Posts
+ * to the same /visits/:id/vitals endpoint the consultation screen uses (upsert, so
+ * whoever saves last wins — the doctor can still correct it there). */
+function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: () => void; appointment: AppointmentDetail }) {
+  const { saveVitals } = useVisitMutations();
+  const [bp, setBp] = useState('');
+  const [pulse, setPulse] = useState('');
+  const [temperature, setTemperature] = useState('');
+  const [weight, setWeight] = useState('');
+  const [height, setHeight] = useState('');
+  const [spo2, setSpo2] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const reset = () => {
+    setBp('');
+    setPulse('');
+    setTemperature('');
+    setWeight('');
+    setHeight('');
+    setSpo2('');
+    setNotes('');
+  };
+
+  const onSave = async () => {
+    if (!appointment.visitId) return;
+    try {
+      await saveVitals.mutateAsync({
+        id: appointment.visitId,
+        payload: {
+          bp: bp || undefined,
+          pulse: pulse ? Number(pulse) : undefined,
+          temperature: temperature ? Number(temperature) : undefined,
+          weight: weight ? Number(weight) : undefined,
+          height: height ? Number(height) : undefined,
+          spo2: spo2 ? Number(spo2) : undefined,
+          notes: notes || undefined,
+        },
+      });
+      toast.success(`Vitals recorded for ${appointment.patientName}`);
+      reset();
+      onClose();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not save vitals.'));
+    }
+  };
+
+  return (
+    <FormModal
+      open={open}
+      title={`Record Vitals — ${appointment.patientName}`}
+      size="sm"
+      onClose={() => {
+        reset();
+        onClose();
+      }}
+      footer={
+        <>
+          <button onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saveVitals.isPending}
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {saveVitals.isPending ? 'Saving...' : 'Save Vitals'}
+          </button>
+        </>
+      }
+    >
+      <p className="mb-3 text-xs text-gray-400">
+        Recorded before the doctor sees the patient — shown on the consultation screen.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>BP</label>
+          <input value={bp} onChange={(e) => setBp(e.target.value)} placeholder="120/80" className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Pulse</label>
+          <input type="number" value={pulse} onChange={(e) => setPulse(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Temperature (°C)</label>
+          <input type="number" step="0.1" value={temperature} onChange={(e) => setTemperature(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Weight (kg)</label>
+          <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>Height (cm)</label>
+          <input type="number" step="0.1" value={height} onChange={(e) => setHeight(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>SpO2 (%)</label>
+          <input type="number" value={spo2} onChange={(e) => setSpo2(e.target.value)} className={inputClass} />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>Notes</label>
+          <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
+        </div>
+      </div>
+    </FormModal>
+  );
+}
+
 function QueueView() {
   const navigate = useNavigate();
+  const currentUser = useAuthStore((state) => state.user);
   const { data: queue, isLoading } = useAppointmentQueueQuery();
   const { updateStatus, markArrived } = useAppointmentMutations();
   const [linkTarget, setLinkTarget] = useState<AppointmentDetail | null>(null);
   const [noShowTarget, setNoShowTarget] = useState<AppointmentDetail | null>(null);
+  const [vitalsTarget, setVitalsTarget] = useState<AppointmentDetail | null>(null);
 
   const onArrived = async (appointment: AppointmentDetail) => {
     try {
@@ -1040,6 +1267,15 @@ function QueueView() {
                         <Link2 className="h-3.5 w-3.5" /> Link Patient
                       </button>
                     ))}
+                  {a.status === 'ARRIVED' && a.visitId && hasPermission(currentUser, 'vitals:edit') && (
+                    <button
+                      onClick={() => setVitalsTarget(a)}
+                      className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      title="Record vitals before the doctor starts"
+                    >
+                      <Activity className="h-3.5 w-3.5" /> Vitals
+                    </button>
+                  )}
                   {a.status === 'ARRIVED' && (
                     <button
                       onClick={() => onStart(a)}
@@ -1073,6 +1309,9 @@ function QueueView() {
 
       {linkTarget && (
         <LinkPatientModal open={Boolean(linkTarget)} onClose={() => setLinkTarget(null)} appointment={linkTarget} />
+      )}
+      {vitalsTarget && (
+        <VitalsModal open={Boolean(vitalsTarget)} onClose={() => setVitalsTarget(null)} appointment={vitalsTarget} />
       )}
       <ReasonPromptModal
         open={Boolean(noShowTarget)}

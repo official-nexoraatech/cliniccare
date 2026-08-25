@@ -9,6 +9,10 @@ export interface ClinicProfile {
   regnNumber: string | null;
   logoPath: string | null;
   letterheadPath: string | null;
+  /** 24h "HH:mm" — drives the appointment slot grid on the booking screen. */
+  openTime: string;
+  closeTime: string;
+  slotMinutes: number;
 }
 
 export interface UpdateClinicRequest {
@@ -19,4 +23,7 @@ export interface UpdateClinicRequest {
   doctorName?: string;
   degree?: string;
   regnNumber?: string;
+  openTime?: string;
+  closeTime?: string;
+  slotMinutes?: number;
 }

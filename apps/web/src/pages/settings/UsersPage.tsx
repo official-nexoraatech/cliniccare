@@ -13,7 +13,7 @@ import { useUserMutations, useUsersQuery } from '@/hooks/useUsers';
 import { useRolesQuery } from '@/hooks/useRoles';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
-import { getErrorMessage } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 
 const createUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -137,7 +137,12 @@ export function UsersPage() {
                     onClick={() => setConfirmTarget(user)}
                     disabled={isOnlyActiveAdmin}
                     title={isOnlyActiveAdmin ? 'Cannot deactivate the only active admin' : undefined}
-                    className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className={cn(
+                      'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40',
+                      user.isActive
+                        ? 'border-red-200 text-red-600 hover:bg-red-50'
+                        : 'border-green-200 text-green-600 hover:bg-green-50',
+                    )}
                   >
                     {user.isActive ? (
                       <>

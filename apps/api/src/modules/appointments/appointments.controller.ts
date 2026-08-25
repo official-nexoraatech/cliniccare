@@ -16,67 +16,67 @@ import type { RequestUser } from '../../common/guards/jwt-auth.guard';
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
-  @RequiresPermission('visits:edit')
+  @RequiresPermission('appointments:edit')
   @Post()
   book(@Body() dto: CreateAppointmentDto, @CurrentUser() user: RequestUser) {
     return this.appointmentsService.book(dto, user.id);
   }
 
-  @RequiresPermission('visits:view')
+  @RequiresPermission('appointments:view')
   @Get('doctors')
   listDoctors() {
     return this.appointmentsService.listDoctors();
   }
 
-  @RequiresPermission('visits:view')
+  @RequiresPermission('appointments:view')
   @Get('search')
   search(@Query('q') q: string) {
     return this.appointmentsService.search(q ?? '');
   }
 
-  @RequiresPermission('visits:view')
+  @RequiresPermission('appointments:view')
   @Get('patient/:patientId')
   getForPatient(@Param('patientId') patientId: string) {
     return this.appointmentsService.getForPatient(patientId);
   }
 
-  @RequiresPermission('visits:view')
+  @RequiresPermission('appointments:view')
   @Get('day/:date')
   listByDay(@Param('date') date: string) {
     return this.appointmentsService.listByDay(date);
   }
 
-  @RequiresPermission('visits:view')
+  @RequiresPermission('appointments:view')
   @Get('queue')
   getQueue() {
     return this.appointmentsService.getQueue();
   }
 
-  @RequiresPermission('visits:edit')
+  @RequiresPermission('appointments:edit')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateAppointmentDto) {
     return this.appointmentsService.update(id, dto);
   }
 
-  @RequiresPermission('visits:edit')
+  @RequiresPermission('appointments:edit')
   @Patch(':id/reschedule')
   reschedule(@Param('id') id: string, @Body() dto: RescheduleAppointmentDto) {
     return this.appointmentsService.reschedule(id, dto);
   }
 
-  @RequiresPermission('visits:edit')
+  @RequiresPermission('appointments:edit')
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body() dto: UpdateAppointmentStatusDto) {
     return this.appointmentsService.updateStatus(id, dto.status, dto.reason);
   }
 
-  @RequiresPermission('visits:edit')
+  @RequiresPermission('appointments:edit')
   @Patch(':id/link-patient')
   linkPatient(@Param('id') id: string, @Body() dto: LinkPatientDto) {
     return this.appointmentsService.linkPatient(id, dto.patientId);
   }
 
-  @RequiresPermission('visits:edit')
+  @RequiresPermission('appointments:edit')
   @Post(':id/arrived')
   markArrived(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.appointmentsService.markArrived(id, user.id, user.id);

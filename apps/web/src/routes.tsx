@@ -8,7 +8,6 @@ import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { PatientListPage } from '@/pages/patients/PatientListPage';
 import { PatientForm } from '@/pages/patients/PatientForm';
 import { PatientProfilePage } from '@/pages/patients/PatientProfilePage';
-import { PatientHistoryPage } from '@/pages/patients/PatientHistoryPage';
 import { ComplianceReportPage } from '@/pages/compliance/ComplianceReportPage';
 import { FollowUpPage } from '@/pages/followups/FollowUpPage';
 import { AppointmentsPage } from '@/pages/appointments/AppointmentsPage';
@@ -31,8 +30,6 @@ export const router = createBrowserRouter([
           { path: '/patients', element: <PatientListPage /> },
           { path: '/patients/new', element: <PatientForm /> },
           { path: '/patients/:id', element: <PatientProfilePage /> },
-          { path: '/patients/:id/edit', element: <PatientForm /> },
-          { path: '/patients/:id/history', element: <PatientHistoryPage /> },
           { path: '/appointments', element: <AppointmentsPage /> },
           { path: '/visits', element: <TodaysVisitsPage /> },
           { path: '/visits/:id', element: <ConsultationPage /> },

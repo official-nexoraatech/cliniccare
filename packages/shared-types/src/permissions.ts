@@ -1,6 +1,8 @@
 export const PERMISSION_MODULES = [
   'patients',
+  'appointments',
   'visits',
+  'vitals',
   'prescriptions',
   'medicines',
   'clinic',

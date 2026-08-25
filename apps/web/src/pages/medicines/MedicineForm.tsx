@@ -1,12 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
+import type { MedicineCustomFieldValues } from '@clinic-care/shared-types';
 import { medicineSchema, MEDICINE_FORM_DEFAULTS, type MedicineFormValues } from '@/lib/medicineSchema';
 import { MedicineFormFields } from '@/components/MedicineFormFields';
+import { MedicineCustomFields, validateMedicineFields } from '@/components/MedicineCustomFields';
 import { useMedicineMutations, useMedicineQuery } from '@/hooks/useMedicines';
+import { useMedicineFieldsQuery } from '@/hooks/useMedicineFields';
 import { getErrorMessage } from '@/lib/utils';
 
 export function MedicineForm() {
@@ -15,6 +18,12 @@ export function MedicineForm() {
   const navigate = useNavigate();
   const { data: existing } = useMedicineQuery(id);
   const { create, update } = useMedicineMutations();
+  const { data: allFieldDefs } = useMedicineFieldsQuery();
+  const coreFieldDefs = allFieldDefs?.filter((f) => f.isCore);
+  const customFieldDefs = allFieldDefs?.filter((f) => !f.isCore);
+
+  const [customFieldValues, setCustomFieldValues] = useState<MedicineCustomFieldValues>({});
+  const [customFieldErrors, setCustomFieldErrors] = useState<Record<string, string>>({});
 
   const {
     register,
@@ -44,11 +53,24 @@ export function MedicineForm() {
         defaultDurationDays: existing.defaultDurationDays ?? '',
         defaultInstruction: existing.defaultInstruction ?? '',
       });
+      setCustomFieldValues(existing.customFields ?? {});
     }
   }, [existing, reset]);
 
   const onSubmit = async (values: MedicineFormValues) => {
-    const payload = { ...values, defaultDurationDays: values.defaultDurationDays || undefined };
+    const fieldErrors = validateMedicineFields(allFieldDefs ?? [], { ...values, ...customFieldValues });
+    if (Object.keys(fieldErrors).length > 0) {
+      const customKeys = new Set((customFieldDefs ?? []).map((f) => f.key));
+      setCustomFieldErrors(Object.fromEntries(Object.entries(fieldErrors).filter(([key]) => customKeys.has(key))));
+      toast.error(Object.values(fieldErrors).join(' '));
+      return;
+    }
+
+    const payload = {
+      ...values,
+      defaultDurationDays: values.defaultDurationDays || undefined,
+      customFields: customFieldValues,
+    };
 
     try {
       if (isEdit && id) {
@@ -79,7 +101,26 @@ export function MedicineForm() {
       </h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-        <MedicineFormFields register={register} errors={errors} />
+        <MedicineFormFields register={register} errors={errors} coreFieldDefs={coreFieldDefs} />
+
+        {(customFieldDefs?.length ?? 0) > 0 && (
+          <div>
+            <h2 className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Additional Details</h2>
+            <MedicineCustomFields
+              fields={customFieldDefs ?? []}
+              values={customFieldValues}
+              errors={customFieldErrors}
+              onChange={(key, value) => {
+                setCustomFieldValues((prev) => ({ ...prev, [key]: value }));
+                setCustomFieldErrors((prev) => {
+                  if (!prev[key]) return prev;
+                  const { [key]: _removed, ...rest } = prev;
+                  return rest;
+                });
+              }}
+            />
+          </div>
+        )}
 
         <div className="flex justify-end gap-3">
           <button

@@ -34,7 +34,7 @@ export function ComplianceReportPage() {
       header: 'Actions',
       cell: ({ row }) => (
         <button
-          onClick={() => navigate(`/patients/${row.original.patientId}/history`)}
+          onClick={() => navigate(`/patients/${row.original.patientId}`)}
           className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
         >
           View Patient

@@ -1,4 +1,9 @@
-export const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
+import type { PatientCustomFieldValues } from './patient-fields';
+
+// UNSPECIFIED is a storage sentinel, not a real choice — used when admin has
+// switched off collecting gender via Settings → Patient Fields. Filter it out of
+// any UI that lets someone actually pick a gender.
+export const GENDERS = ['MALE', 'FEMALE', 'OTHER', 'UNSPECIFIED'] as const;
 export type Gender = (typeof GENDERS)[number];
 
 export const MARITAL_STATUSES = ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED'] as const;
@@ -16,6 +21,8 @@ export interface PatientSummary {
   mobile: string;
   city: string | null;
   isActive: boolean;
+  visitCount: number;
+  stage: string | null;
 }
 
 export interface PatientDetail extends PatientSummary {
@@ -33,6 +40,8 @@ export interface PatientDetail extends PatientSummary {
   referredBy: string | null;
   notes: string | null;
   registeredOn: string;
+  nextFollowUp: { dueDate: string; purpose: string | null } | null;
+  customFields: PatientCustomFieldValues;
 }
 
 export interface PatientSearchResult {
@@ -44,12 +53,15 @@ export interface PatientSearchResult {
   mobile: string;
 }
 
+// Every field here is optional at the type level — which of them are actually
+// mandatory is decided at runtime by Settings → Patient Fields (see
+// PatientsService.resolveRequiredFields), not by this interface.
 export interface CreatePatientRequest {
-  name: string;
-  age: number;
+  name?: string;
+  age?: number;
   dob?: string;
-  gender: Gender;
-  mobile: string;
+  gender?: Gender;
+  mobile?: string;
   altMobile?: string;
   email?: string;
   address?: string;
@@ -60,8 +72,10 @@ export interface CreatePatientRequest {
   occupation?: string;
   allergies?: string;
   chronicDiseases?: string;
+  stage?: string;
   referredBy?: string;
   notes?: string;
+  customFields?: PatientCustomFieldValues;
 }
 
 export type UpdatePatientRequest = Partial<CreatePatientRequest>;
@@ -72,6 +86,9 @@ export interface PatientListQuery {
   gender?: Gender;
   city?: string;
   isActive?: boolean;
+  search?: string;
+  registeredFrom?: string;
+  registeredTo?: string;
 }
 
 export interface PatientListResponse {

@@ -45,7 +45,7 @@ export class AppointmentsService {
     this.assertValidDate(dto.appointmentDate);
     const { start, end } = istDayBounds(parseIstDate(dto.appointmentDate));
     const [duplicateSlotWarning, duplicatePatientWarning, doctor] = await Promise.all([
-      this.hasActiveConflict(start, end, dto.timeSlot),
+      this.hasActiveConflict(start, end, dto.timeSlot, dto.doctorId),
       dto.patientId ? this.hasActivePatientConflict(start, end, dto.patientId) : Promise.resolve(false),
       this.resolveDoctor(dto.doctorId),
     ]);
@@ -88,7 +88,7 @@ export class AppointmentsService {
     const { start, end } = istDayBounds(parseIstDate(dto.newDate));
     const timeSlot = dto.newTimeSlot ?? existing.timeSlot;
     const [duplicateSlotWarning, duplicatePatientWarning] = await Promise.all([
-      this.hasActiveConflict(start, end, timeSlot, id),
+      this.hasActiveConflict(start, end, timeSlot, existing.doctorId, id),
       existing.patientId ? this.hasActivePatientConflict(start, end, existing.patientId, id) : Promise.resolve(false),
     ]);
 
@@ -273,11 +273,22 @@ export class AppointmentsService {
     }
   }
 
-  private async hasActiveConflict(start: Date, end: Date, timeSlot: string, excludeId?: string): Promise<boolean> {
+  // Per-doctor: a slot is only "taken" against the same doctor's calendar, so two
+  // patients can share a time across different doctors. Appointments with no doctor
+  // assigned form their own shared bucket (single-doctor clinics that never set
+  // doctorId still get correct conflict detection against each other).
+  private async hasActiveConflict(
+    start: Date,
+    end: Date,
+    timeSlot: string,
+    doctorId: string | null | undefined,
+    excludeId?: string,
+  ): Promise<boolean> {
     const conflict = await this.prisma.appointment.findFirst({
       where: {
         appointmentDate: { gte: start, lte: end },
         timeSlot,
+        doctorId: doctorId ?? null,
         status: { notIn: ['CANCELLED', 'NO_SHOW'] },
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },

@@ -1,15 +1,20 @@
-import { IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsObject, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 import {
   BEFORE_AFTER_FOOD_OPTIONS,
   MEDICINE_FORMS,
   type BeforeAfterFood,
+  type MedicineCustomFieldValues,
   type MedicineForm,
 } from '@clinic-care/shared-types';
 
+// brandName/form are @IsOptional() here — which fields are actually mandatory is
+// decided at runtime by Settings → Medicine Fields (see
+// MedicinesService.resolveRequiredFields), not by this DTO.
 export class CreateMedicineDto {
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  brandName!: string;
+  brandName?: string;
 
   @IsOptional()
   @IsString()
@@ -19,8 +24,9 @@ export class CreateMedicineDto {
   @IsString()
   strength?: string;
 
+  @IsOptional()
   @IsIn(MEDICINE_FORMS)
-  form!: MedicineForm;
+  form?: MedicineForm;
 
   @IsOptional()
   @IsString()
@@ -71,4 +77,8 @@ export class CreateMedicineDto {
   @IsOptional()
   @IsString()
   defaultInstruction?: string;
+
+  @IsOptional()
+  @IsObject()
+  customFields?: MedicineCustomFieldValues;
 }

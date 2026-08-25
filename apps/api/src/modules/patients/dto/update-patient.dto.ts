@@ -3,6 +3,7 @@ import {
   IsIn,
   IsInt,
   IsISO8601,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
@@ -17,6 +18,7 @@ import {
   type BloodGroup,
   type Gender,
   type MaritalStatus,
+  type PatientCustomFieldValues,
 } from '@clinic-care/shared-types';
 
 const MOBILE_REGEX = /^\d{10}$/;
@@ -87,9 +89,17 @@ export class UpdatePatientDto {
 
   @IsOptional()
   @IsString()
+  stage?: string;
+
+  @IsOptional()
+  @IsString()
   referredBy?: string;
 
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsObject()
+  customFields?: PatientCustomFieldValues;
 }

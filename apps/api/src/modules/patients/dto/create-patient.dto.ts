@@ -3,6 +3,7 @@ import {
   IsIn,
   IsInt,
   IsISO8601,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
@@ -17,29 +18,38 @@ import {
   type BloodGroup,
   type Gender,
   type MaritalStatus,
+  type PatientCustomFieldValues,
 } from '@clinic-care/shared-types';
 
 const MOBILE_REGEX = /^\d{10}$/;
 
+// Every field is @IsOptional() here — which ones are actually mandatory is decided
+// at runtime by Settings → Patient Fields (see PatientsService.resolveRequiredFields),
+// not by this DTO. Format validators (regex, enum membership, etc.) still apply
+// whenever a value is actually submitted.
 export class CreatePatientDto {
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  name!: string;
+  name?: string;
 
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(150)
-  age!: number;
+  age?: number;
 
   @IsOptional()
   @IsISO8601()
   dob?: string;
 
+  @IsOptional()
   @IsIn(GENDERS)
-  gender!: Gender;
+  gender?: Gender;
 
+  @IsOptional()
   @Matches(MOBILE_REGEX, { message: 'Mobile number must be exactly 10 digits' })
-  mobile!: string;
+  mobile?: string;
 
   @IsOptional()
   @Matches(MOBILE_REGEX, { message: 'Alternate mobile number must be exactly 10 digits' })
@@ -51,6 +61,7 @@ export class CreatePatientDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
   address?: string;
 
   @IsOptional()
@@ -79,7 +90,13 @@ export class CreatePatientDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
   chronicDiseases?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  stage?: string;
 
   @IsOptional()
   @IsString()
@@ -88,4 +105,8 @@ export class CreatePatientDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsObject()
+  customFields?: PatientCustomFieldValues;
 }

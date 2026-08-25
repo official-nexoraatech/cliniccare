@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   type ColumnDef,
+  type PaginationState,
   type SortingState,
   flexRender,
   getCoreRowModel,
@@ -12,11 +13,17 @@ import {
 import { ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react';
 import { SearchBox } from './SearchBox';
 
+const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
 interface DataTableProps<TData> {
   columns: ColumnDef<TData, any>[];
   data: TData[];
   searchable?: boolean;
   pageSize?: number;
+  /** Rows-per-page choices offered in the footer selector. Defaults to 10/20/50/100. */
+  pageSizeOptions?: number[];
+  /** Set false when the page already paginates server-side and drives its own page-size control (see PatientListPage). */
+  showPageSizeSelector?: boolean;
   emptyMessage?: string;
 }
 
@@ -25,22 +32,25 @@ export function DataTable<TData>({
   data,
   searchable = true,
   pageSize = 10,
+  pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
+  showPageSizeSelector = true,
   emptyMessage = 'No records found.',
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize });
 
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, pagination },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize } },
   });
 
   return (
@@ -97,10 +107,28 @@ export function DataTable<TData>({
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>
-          Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
+        <div className="flex items-center gap-3">
+          <span>
+            Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
+          </span>
+          {showPageSizeSelector && (
+            <label className="flex items-center gap-1.5">
+              Rows per page
+              <select
+                value={table.getState().pagination.pageSize}
+                onChange={(e) => table.setPageSize(Number(e.target.value))}
+                className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
+              >
+                {pageSizeOptions.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => table.previousPage()}

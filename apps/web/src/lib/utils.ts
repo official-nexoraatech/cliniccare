@@ -6,6 +6,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** "Field Xyz" → "field_xyz". Used to suggest a field key from its label (Patient/Medicine Fields). */
+export function slugify(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 /** Surfaces the API's actual error message instead of a generic fallback. */
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong.'): string {
   if (isAxiosError(error)) {

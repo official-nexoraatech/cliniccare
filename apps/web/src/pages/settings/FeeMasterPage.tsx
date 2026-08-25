@@ -8,10 +8,11 @@ import { Plus, ShieldOff, ShieldCheck, Star } from 'lucide-react';
 import type { FeeType } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useFeeTypeMutations, useFeeTypesQuery } from '@/hooks/useFeeTypes';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
-import { getErrorMessage } from '@/lib/utils';
+import { cn, getErrorMessage } from '@/lib/utils';
 
 const feeTypeSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -29,6 +30,7 @@ export function FeeMasterPage() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<FeeType | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<FeeType | null>(null);
 
   const form = useForm<FeeTypeFormValues>({
     resolver: zodResolver(feeTypeSchema),
@@ -72,6 +74,8 @@ export function FeeMasterPage() {
       }
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not update fee type.'));
+    } finally {
+      setConfirmTarget(null);
     }
   };
 
@@ -117,8 +121,13 @@ export function FeeMasterPage() {
                     Edit
                   </button>
                   <button
-                    onClick={() => onToggleActive(feeType)}
-                    className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    onClick={() => setConfirmTarget(feeType)}
+                    className={cn(
+                      'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium',
+                      feeType.isActive
+                        ? 'border-red-200 text-red-600 hover:bg-red-50'
+                        : 'border-green-200 text-green-600 hover:bg-green-50',
+                    )}
                   >
                     {feeType.isActive ? (
                       <>
@@ -222,6 +231,20 @@ export function FeeMasterPage() {
           </label>
         </form>
       </FormModal>
+
+      <ConfirmDialog
+        open={Boolean(confirmTarget)}
+        title={confirmTarget?.isActive ? `Deactivate "${confirmTarget?.name}"?` : `Reactivate "${confirmTarget?.name}"?`}
+        description={
+          confirmTarget?.isActive
+            ? "It won't be offered when billing new visits. This can be reversed any time."
+            : 'It will be offered when billing again immediately.'
+        }
+        confirmLabel={confirmTarget?.isActive ? 'Deactivate' : 'Reactivate'}
+        destructive={confirmTarget?.isActive}
+        onConfirm={() => confirmTarget && onToggleActive(confirmTarget)}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

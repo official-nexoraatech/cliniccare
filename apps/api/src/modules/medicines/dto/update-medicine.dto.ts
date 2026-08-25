@@ -1,8 +1,9 @@
-import { IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsObject, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 import {
   BEFORE_AFTER_FOOD_OPTIONS,
   MEDICINE_FORMS,
   type BeforeAfterFood,
+  type MedicineCustomFieldValues,
   type MedicineForm,
 } from '@clinic-care/shared-types';
 
@@ -73,4 +74,8 @@ export class UpdateMedicineDto {
   @IsOptional()
   @IsString()
   defaultInstruction?: string;
+
+  @IsOptional()
+  @IsObject()
+  customFields?: MedicineCustomFieldValues;
 }

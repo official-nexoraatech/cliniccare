@@ -64,7 +64,9 @@ export class VisitsController {
     return this.visitsService.start(id);
   }
 
-  @RequiresPermission('visits:edit')
+  // Narrower than visits:edit on purpose — a nurse/assistant records vitals before the
+  // doctor ever opens the visit, without gaining rights to diagnose or prescribe.
+  @RequiresPermission('vitals:edit')
   @Post(':id/vitals')
   saveVitals(@Param('id') id: string, @Body() dto: SaveVitalsDto) {
     return this.visitsService.saveVitals(id, dto);

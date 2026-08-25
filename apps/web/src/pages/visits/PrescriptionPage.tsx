@@ -39,6 +39,7 @@ const UNIT_WORDS: Record<MedicineForm, string> = {
   DROPS: 'drop',
   POWDER: 'sachet',
   OTHER: 'dose',
+  UNSPECIFIED: 'dose',
 };
 
 const TIME_SLOTS: Array<{ key: 'morning' | 'afternoon' | 'evening' | 'night'; label: string }> = [
