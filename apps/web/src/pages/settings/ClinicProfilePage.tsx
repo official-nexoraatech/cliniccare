@@ -29,6 +29,10 @@ const clinicSchema = z.object({
   openTime: z.string().regex(TIME_REGEX, 'Enter a valid time'),
   closeTime: z.string().regex(TIME_REGEX, 'Enter a valid time'),
   slotMinutes: z.coerce.number().int(),
+  taxEnabled: z.boolean(),
+  taxLabel: z.string().min(1, 'Tax label is required'),
+  gstNumber: z.string().optional(),
+  discountEnabled: z.boolean(),
 });
 
 type ClinicFormValues = z.infer<typeof clinicSchema>;
@@ -50,8 +54,10 @@ export function ClinicProfilePage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ClinicFormValues>({ resolver: zodResolver(clinicSchema) });
+  const taxEnabled = watch('taxEnabled');
 
   useEffect(() => {
     if (clinic) {
@@ -66,6 +72,10 @@ export function ClinicProfilePage() {
         openTime: clinic.openTime,
         closeTime: clinic.closeTime,
         slotMinutes: clinic.slotMinutes,
+        taxEnabled: clinic.taxEnabled,
+        taxLabel: clinic.taxLabel,
+        gstNumber: clinic.gstNumber ?? '',
+        discountEnabled: clinic.discountEnabled,
       });
     }
   }, [clinic, reset]);
@@ -82,6 +92,10 @@ export function ClinicProfilePage() {
       openTime: values.openTime,
       closeTime: values.closeTime,
       slotMinutes: values.slotMinutes,
+      taxEnabled: values.taxEnabled,
+      taxLabel: values.taxLabel,
+      gstNumber: values.gstNumber || undefined,
+      discountEnabled: values.discountEnabled,
     });
   };
 
@@ -256,6 +270,36 @@ export function ClinicProfilePage() {
                 ))}
               </select>
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Billing</p>
+          <p className="mb-3 text-xs text-gray-500">
+            Toggle what the bill form shows — a clinic that doesn't charge GST never needs a tax field.
+          </p>
+          <div className="flex flex-col gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" {...register('discountEnabled')} className="h-4 w-4 rounded border-gray-300" />
+              Allow a discount field on bills
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" {...register('taxEnabled')} className="h-4 w-4 rounded border-gray-300" />
+              Charge tax (GST) on bills
+            </label>
+            {taxEnabled && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Tax label</label>
+                  <input {...register('taxLabel')} placeholder="GST" className={inputClass} />
+                  {errors.taxLabel && <p className="mt-1 text-xs text-red-600">{errors.taxLabel.message}</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>GSTIN (printed on bills)</label>
+                  <input {...register('gstNumber')} className={inputClass} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -77,8 +77,7 @@ function doseInWords(row: Row): string {
   const parts = TIME_SLOTS.filter((slot) => row[slot.key] > 0).map((slot) => `${row[slot.key]} ${unit} ${slot.label}`);
   const timing = parts.length > 0 ? parts.join(' and ') : 'As directed';
   const food = FOOD_LABELS[row.beforeAfterFood];
-  const days = row.durationDays === 1 ? '1 day' : `${row.durationDays} days`;
-  return `${timing} - ${food} - for ${days}`;
+  return `${timing} - ${food}`;
 }
 
 const inputClass =
@@ -130,6 +129,10 @@ export function PrescriptionPage() {
   };
 
   const selectMedicine = (key: string, medicine: MedicineSearchResult) => {
+    if (items.some((row) => row.key !== key && row.medicineId === medicine.id)) {
+      toast.error(`${medicine.brandName} is already added to this prescription.`);
+      return;
+    }
     updateRow(key, {
       medicineId: medicine.id,
       medicineName: medicine.brandName,

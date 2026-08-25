@@ -27,8 +27,8 @@ const navItems: { to: string; label: string; icon: typeof LayoutDashboard; end?:
   { to: '/follow-up', label: 'Follow-up', icon: PhoneCall, permission: 'patients:view' },
   { to: '/compliance', label: 'Compliance', icon: Award, permission: 'patients:view' },
   { to: '/certificates', label: 'Certificates', icon: FileBadge, permission: 'prescriptions:view' },
-  { to: '/billing', label: 'Billing', icon: Receipt },
-  { to: '/accounts', label: 'Accounts', icon: Wallet },
+  { to: '/billing', label: 'Billing', icon: Receipt, permission: 'billing:view' },
+  { to: '/accounts', label: 'Accounts', icon: Wallet, permission: 'billing:view' },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];

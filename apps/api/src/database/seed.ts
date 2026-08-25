@@ -35,6 +35,8 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     'appointments:edit',
     'visits:view',
     'medicines:view',
+    'billing:view',
+    'billing:edit',
   ],
   ASSISTANT: [
     'patients:view',

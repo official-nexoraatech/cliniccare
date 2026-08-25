@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -167,6 +167,7 @@ function SlotGrid({
   value,
   onSelect,
   doctorId,
+  date,
 }: {
   appointments?: AppointmentDetail[];
   excludeId?: string;
@@ -176,6 +177,9 @@ function SlotGrid({
    * same doctor (or, if no doctor is picked, the shared no-doctor queue). Two different
    * doctors can hold the same time without conflicting. */
   doctorId: string;
+  /** "YYYY-MM-DD" of the day being booked — used to gray out already-passed times when
+   * that day is today. */
+  date: string;
 }) {
   const { data: clinic } = useClinicQuery();
 
@@ -189,6 +193,9 @@ function SlotGrid({
   }
   const slots = generateSlots(clinic.openTime, clinic.closeTime, clinic.slotMinutes);
   const bookedCount = bookedByLabel.size;
+  const now = new Date();
+  const isToday = date === now.toISOString().slice(0, 10);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   return (
     <div>
@@ -199,21 +206,25 @@ function SlotGrid({
         {slots.map((time24) => {
           const label = formatTimeSlot(time24);
           const booked = bookedByLabel.get(label);
+          const [h, m] = time24.split(':').map(Number);
+          const isPast = isToday && h * 60 + m < nowMinutes;
           const isSelected = value === time24;
           return (
             <button
               key={time24}
               type="button"
-              onClick={() => !booked && onSelect(time24)}
-              disabled={Boolean(booked)}
-              title={booked ? `${booked.patientName} · token #${booked.tokenNo}` : 'Available'}
+              onClick={() => !booked && !isPast && onSelect(time24)}
+              disabled={Boolean(booked) || isPast}
+              title={booked ? `${booked.patientName} · token #${booked.tokenNo}` : isPast ? 'Time has passed' : 'Available'}
               className={cn(
                 'rounded-md px-1 py-1 text-[11px] font-medium transition-colors',
                 booked
                   ? 'cursor-not-allowed bg-red-100 text-red-700'
-                  : isSelected
-                    ? 'bg-[var(--color-primary)] text-white'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:border-[var(--color-primary)]',
+                  : isPast
+                    ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                    : isSelected
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'border border-gray-200 bg-white text-gray-600 hover:border-[var(--color-primary)]',
               )}
             >
               {label}
@@ -227,6 +238,9 @@ function SlotGrid({
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full border border-gray-300 bg-white" /> Open
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-gray-200" /> Past
         </span>
       </div>
     </div>
@@ -307,7 +321,8 @@ function ReasonPromptModal({
 
 function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose: () => void; date: string }) {
   const { book } = useAppointmentMutations();
-  const { data: dayAppointments } = useAppointmentsByDayQuery(date);
+  const [bookDate, setBookDate] = useState(date);
+  const { data: dayAppointments } = useAppointmentsByDayQuery(bookDate);
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
   const [search, setSearch] = useState('');
   const [patientId, setPatientId] = useState<string | undefined>();
@@ -317,6 +332,10 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
   const [doctorId, setDoctorId] = useState('');
   const [purpose, setPurpose] = useState('');
   const [conflictLabel, setConflictLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) setBookDate(date);
+  }, [open, date]);
 
   const { data: results = [] } = usePatientSearchQuery(mode === 'existing' ? search : '');
 
@@ -337,7 +356,7 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
         patientId,
         patientName,
         mobile,
-        appointmentDate: date,
+        appointmentDate: bookDate,
         timeSlot: formatTimeSlot(timeSlot),
         doctorId: doctorId || undefined,
         purpose: purpose || undefined,
@@ -460,6 +479,10 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
           </div>
         )}
 
+        <div>
+          <label className={labelClass}>Date</label>
+          <input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} className={inputClass} />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>Time</label>
@@ -471,7 +494,7 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
           <label className={labelClass}>Purpose (optional)</label>
           <input value={purpose} onChange={(e) => setPurpose(e.target.value)} className={inputClass} />
         </div>
-        <SlotGrid appointments={dayAppointments} value={timeSlot} onSelect={setTimeSlot} doctorId={doctorId} />
+        <SlotGrid appointments={dayAppointments} value={timeSlot} onSelect={setTimeSlot} doctorId={doctorId} date={bookDate} />
       </div>
     </FormModal>
 
@@ -793,6 +816,7 @@ function RescheduleAppointmentModal({ open, onClose, appointment }: { open: bool
           value={newTimeSlot}
           onSelect={setNewTimeSlot}
           doctorId={appointment.doctorId ?? ''}
+          date={newDate}
         />
       </div>
     </FormModal>

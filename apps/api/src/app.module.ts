@@ -17,6 +17,8 @@ import { ComplianceModule } from './modules/compliance/compliance.module';
 import { FollowUpsModule } from './modules/followups/followups.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { CertificatesModule } from './modules/certificates/certificates.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { AccountsModule } from './modules/accounts/accounts.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { CertificatesModule } from './modules/certificates/certificates.module';
     FollowUpsModule,
     AppointmentsModule,
     CertificatesModule,
+    BillingModule,
+    AccountsModule,
   ],
 })
 export class AppModule {}

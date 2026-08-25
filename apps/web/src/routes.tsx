@@ -17,6 +17,8 @@ import { TodaysVisitsPage } from '@/pages/visits/TodaysVisitsPage';
 import { ConsultationPage } from '@/pages/visits/ConsultationPage';
 import { PrescriptionPage } from '@/pages/visits/PrescriptionPage';
 import { CertificatesPage } from '@/pages/certificates/CertificatesPage';
+import { BillingPage } from '@/pages/billing/BillingPage';
+import { AccountsPage } from '@/pages/accounts/AccountsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -40,8 +42,8 @@ export const router = createBrowserRouter([
           { path: '/follow-up', element: <FollowUpPage /> },
           { path: '/compliance', element: <ComplianceReportPage /> },
           { path: '/certificates', element: <CertificatesPage /> },
-          { path: '/billing', element: <PlaceholderPage title="Billing" day="Day 12" /> },
-          { path: '/accounts', element: <PlaceholderPage title="Accounts" day="Day 12" /> },
+          { path: '/billing', element: <BillingPage /> },
+          { path: '/accounts', element: <AccountsPage /> },
           { path: '/reports', element: <PlaceholderPage title="Reports" day="Day 13" /> },
           { path: '/settings', element: <SettingsPage /> },
         ],
