@@ -17,13 +17,11 @@ export class UpdateClinicDto {
   @IsString()
   address?: string;
 
-  @IsOptional()
   @Matches(PHONE_REGEX, { message: 'Enter a valid phone number' })
-  phone?: string;
+  phone!: string;
 
-  @IsOptional()
   @IsEmail()
-  email?: string;
+  email!: string;
 
   @IsOptional()
   @IsString()

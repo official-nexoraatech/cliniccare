@@ -21,8 +21,8 @@ const SLOT_MINUTES_OPTIONS = [10, 15, 20, 30, 60] as const;
 const clinicSchema = z.object({
   name: z.string().min(1, 'Clinic name is required'),
   address: z.string().optional(),
-  phone: z.union([z.string().regex(PHONE_REGEX, 'Enter a valid phone number'), z.literal('')]).optional(),
-  email: z.union([z.string().email('Enter a valid email'), z.literal('')]).optional(),
+  phone: z.string().regex(PHONE_REGEX, 'Enter a valid phone number'),
+  email: z.string().email('Enter a valid email'),
   doctorName: z.string().optional(),
   degree: z.string().optional(),
   regnNumber: z.string().optional(),
@@ -84,8 +84,8 @@ export function ClinicProfilePage() {
     setPendingValues({
       name: values.name,
       address: values.address || undefined,
-      phone: values.phone || undefined,
-      email: values.email || undefined,
+      phone: values.phone,
+      email: values.email,
       doctorName: values.doctorName || undefined,
       degree: values.degree || undefined,
       regnNumber: values.regnNumber || undefined,
