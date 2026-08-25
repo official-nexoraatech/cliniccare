@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   CreatePatientResponse,
+  PatientCustomFieldValues,
   PatientDetail,
   PatientHistoryResponse,
   PatientHistoryVisit,
@@ -41,15 +42,28 @@ export class PatientsService {
   async list(query: ListPatientsQueryDto): Promise<PatientListResponse> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
+    const search = query.search?.trim();
     const where = {
       isActive: query.isActive === undefined ? true : query.isActive === 'true',
       ...(query.gender ? { gender: query.gender } : {}),
       ...(query.city ? { city: { contains: query.city } } : {}),
+      ...(search
+        ? { OR: [{ name: { contains: search } }, { mobile: { contains: search } }, { patientId: { contains: search } }] }
+        : {}),
+      ...(query.registeredFrom || query.registeredTo
+        ? {
+            registeredOn: {
+              ...(query.registeredFrom ? { gte: new Date(query.registeredFrom) } : {}),
+              ...(query.registeredTo ? { lte: new Date(query.registeredTo) } : {}),
+            },
+          }
+        : {}),
     };
 
     const [rows, total] = await Promise.all([
       this.prisma.patient.findMany({
         where,
+        include: { _count: { select: { visits: true } } },
         orderBy: { registeredOn: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -57,7 +71,7 @@ export class PatientsService {
       this.prisma.patient.count({ where }),
     ]);
 
-    return { items: rows.map((row) => this.toSummary(row)), total, page, pageSize };
+    return { items: rows.map((row) => this.toSummary(row, row._count.visits)), total, page, pageSize };
   }
 
   /** Type mobile first: an all-digit query matches mobile first, otherwise name/patientId/mobile all match. */
@@ -97,7 +111,7 @@ export class PatientsService {
     if (!patient) {
       throw new NotFoundException('Patient not found');
     }
-    return this.toDetail(patient);
+    return this.toDetailWithCounts(patient);
   }
 
   /** Combined timeline the doctor opens before seeing a returning patient — everything built so far, newest first. */
@@ -139,19 +153,27 @@ export class PatientsService {
   }
 
   async create(dto: CreatePatientDto, createdBy?: string): Promise<CreatePatientResponse> {
-    const [duplicateMobile, patientId] = await Promise.all([
-      this.prisma.patient.findFirst({ where: { mobile: dto.mobile, isActive: true } }),
+    const [duplicateMobile, patientId, defs] = await Promise.all([
+      dto.mobile ? this.prisma.patient.findFirst({ where: { mobile: dto.mobile, isActive: true } }) : null,
       this.numberService.getNext('PATIENT'),
+      this.prisma.patientFieldDefinition.findMany({ where: { isActive: true } }),
     ]);
+
+    const validKeys = new Set(defs.map((d) => d.key));
+    const customFields = this.mergeCustomFields(dto.customFields, null, validKeys);
+    this.assertRequiredFieldsSatisfied(defs, { ...this.buildCoreFieldValues(dto), ...customFields });
 
     const patient = await this.prisma.patient.create({
       data: {
         patientId,
-        name: dto.name,
-        age: dto.age,
+        // name/age/gender/mobile are NOT NULL columns — fall back to a sentinel
+        // ("", 0, UNSPECIFIED) when admin has made the field optional/hidden and it
+        // was left blank, so every existing display site keeps a real value to read.
+        name: dto.name || '',
+        age: dto.age ?? 0,
         dob: dto.dob ? new Date(dto.dob) : undefined,
-        gender: dto.gender,
-        mobile: dto.mobile,
+        gender: dto.gender ?? 'UNSPECIFIED',
+        mobile: dto.mobile || '',
         altMobile: dto.altMobile,
         email: dto.email,
         address: dto.address,
@@ -162,42 +184,137 @@ export class PatientsService {
         occupation: dto.occupation,
         allergies: dto.allergies,
         chronicDiseases: dto.chronicDiseases,
+        stage: dto.stage,
         referredBy: dto.referredBy,
         notes: dto.notes,
         createdBy,
+        customFields: JSON.stringify(customFields),
       },
     });
 
-    return { duplicateMobileWarning: Boolean(duplicateMobile), patient: this.toDetail(patient) };
+    return { duplicateMobileWarning: Boolean(duplicateMobile), patient: await this.toDetailWithCounts(patient) };
   }
 
   async update(id: string, dto: UpdatePatientDto): Promise<PatientDetail> {
-    await this.assertExists(id);
+    const { customFields, ...rest } = dto;
+    const existing = await this.prisma.patient.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Patient not found');
+    }
+
+    const defs = await this.prisma.patientFieldDefinition.findMany({ where: { isActive: true } });
+    const validKeys = new Set(defs.map((d) => d.key));
+    const mergedCustomFields = this.mergeCustomFields(customFields, existing.customFields, validKeys);
+    this.assertRequiredFieldsSatisfied(defs, { ...this.mergeCoreFieldValues(dto, existing), ...mergedCustomFields });
 
     const patient = await this.prisma.patient.update({
       where: { id },
-      data: { ...dto, dob: dto.dob ? new Date(dto.dob) : undefined },
+      data: {
+        ...rest,
+        dob: dto.dob ? new Date(dto.dob) : undefined,
+        customFields: JSON.stringify(mergedCustomFields),
+      },
     });
 
-    return this.toDetail(patient);
+    return this.toDetailWithCounts(patient);
   }
 
   async deactivate(id: string): Promise<PatientDetail> {
     await this.assertExists(id);
     const patient = await this.prisma.patient.update({ where: { id }, data: { isActive: false } });
-    return this.toDetail(patient);
+    return this.toDetailWithCounts(patient);
   }
 
   async reactivate(id: string): Promise<PatientDetail> {
     await this.assertExists(id);
     const patient = await this.prisma.patient.update({ where: { id }, data: { isActive: true } });
-    return this.toDetail(patient);
+    return this.toDetailWithCounts(patient);
   }
 
   async setPhoto(id: string, photoPath: string): Promise<PatientDetail> {
     await this.assertExists(id);
     const patient = await this.prisma.patient.update({ where: { id }, data: { photoPath } });
-    return this.toDetail(patient);
+    return this.toDetailWithCounts(patient);
+  }
+
+  /**
+   * Merges submitted custom values into whatever's already stored (so a field that
+   * got deactivated after being set isn't silently dropped on the next edit) and
+   * drops keys that don't match an active field definition.
+   */
+  private mergeCustomFields(
+    input: PatientCustomFieldValues | undefined,
+    existingJson: string | null,
+    validKeys: Set<string>,
+  ): PatientCustomFieldValues {
+    const merged: PatientCustomFieldValues = existingJson ? JSON.parse(existingJson) : {};
+    for (const [key, value] of Object.entries(input ?? {})) {
+      if (validKeys.has(key)) merged[key] = value;
+    }
+    return merged;
+  }
+
+  /** Raw submitted values for every built-in (isCore) field, keyed the same as PatientFieldDefinition.key. */
+  private buildCoreFieldValues(dto: CreatePatientDto | UpdatePatientDto): Record<string, unknown> {
+    return {
+      name: dto.name,
+      gender: dto.gender,
+      dob: dto.dob,
+      age: dto.age,
+      mobile: dto.mobile,
+      altMobile: dto.altMobile,
+      email: dto.email,
+      address: dto.address,
+      city: dto.city,
+      pincode: dto.pincode,
+      bloodGroup: dto.bloodGroup,
+      maritalStatus: dto.maritalStatus,
+      occupation: dto.occupation,
+      referredBy: dto.referredBy,
+      stage: dto.stage,
+      allergies: dto.allergies,
+      chronicDiseases: dto.chronicDiseases,
+      notes: dto.notes,
+    };
+  }
+
+  /** Same as buildCoreFieldValues, but a field the dto didn't touch falls back to what's already stored. */
+  private mergeCoreFieldValues(dto: UpdatePatientDto, existing: Patient): Record<string, unknown> {
+    return {
+      name: dto.name ?? existing.name,
+      gender: dto.gender ?? existing.gender,
+      dob: dto.dob ?? existing.dob,
+      age: dto.age ?? existing.age,
+      mobile: dto.mobile ?? existing.mobile,
+      altMobile: dto.altMobile ?? existing.altMobile,
+      email: dto.email ?? existing.email,
+      address: dto.address ?? existing.address,
+      city: dto.city ?? existing.city,
+      pincode: dto.pincode ?? existing.pincode,
+      bloodGroup: dto.bloodGroup ?? existing.bloodGroup,
+      maritalStatus: dto.maritalStatus ?? existing.maritalStatus,
+      occupation: dto.occupation ?? existing.occupation,
+      referredBy: dto.referredBy ?? existing.referredBy,
+      stage: dto.stage ?? existing.stage,
+      allergies: dto.allergies ?? existing.allergies,
+      chronicDiseases: dto.chronicDiseases ?? existing.chronicDiseases,
+      notes: dto.notes ?? existing.notes,
+    };
+  }
+
+  /**
+   * Enforces admin-marked required fields (core or custom alike) against the final
+   * merged state — not just what was submitted this call — so a required field can't
+   * be bypassed by simply omitting it from the request.
+   */
+  private assertRequiredFieldsSatisfied(
+    defs: { key: string; label: string; required: boolean }[],
+    values: Record<string, unknown>,
+  ): void {
+    const missingLabels = defs.filter((d) => d.required && !String(values[d.key] ?? '').trim()).map((d) => d.label);
+    if (missingLabels.length) {
+      throw new BadRequestException(`Missing required field(s): ${missingLabels.join(', ')}`);
+    }
   }
 
   private async assertExists(id: string) {
@@ -272,7 +389,7 @@ export class PatientsService {
     };
   }
 
-  private toSummary(patient: Patient): PatientSummary {
+  private toSummary(patient: Patient, visitCount: number): PatientSummary {
     return {
       id: patient.id,
       patientId: patient.patientId,
@@ -282,12 +399,23 @@ export class PatientsService {
       mobile: patient.mobile,
       city: patient.city,
       isActive: patient.isActive,
+      visitCount,
+      stage: patient.stage,
     };
   }
 
-  private toDetail(patient: Patient): PatientDetail {
+  /** Adds visit count + soonest pending follow-up — a single extra query, run only for one patient at a time. */
+  private async toDetailWithCounts(patient: Patient): Promise<PatientDetail> {
+    const [visitCount, nextFollowUp] = await Promise.all([
+      this.prisma.visit.count({ where: { patientId: patient.id } }),
+      this.prisma.followUp.findFirst({
+        where: { patientId: patient.id, status: 'PENDING' },
+        orderBy: { dueDate: 'asc' },
+      }),
+    ]);
+
     return {
-      ...this.toSummary(patient),
+      ...this.toSummary(patient, visitCount),
       dob: patient.dob ? patient.dob.toISOString() : null,
       altMobile: patient.altMobile,
       email: patient.email,
@@ -302,6 +430,10 @@ export class PatientsService {
       referredBy: patient.referredBy,
       notes: patient.notes,
       registeredOn: patient.registeredOn.toISOString(),
+      nextFollowUp: nextFollowUp
+        ? { dueDate: nextFollowUp.dueDate.toISOString(), purpose: nextFollowUp.purpose }
+        : null,
+      customFields: patient.customFields ? JSON.parse(patient.customFields) : {},
     };
   }
 }

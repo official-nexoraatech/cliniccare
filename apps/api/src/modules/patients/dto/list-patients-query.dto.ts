@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsBooleanString, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBooleanString, IsIn, IsISO8601, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { GENDERS, type Gender } from '@clinic-care/shared-types';
 
 export class ListPatientsQueryDto {
@@ -27,4 +27,16 @@ export class ListPatientsQueryDto {
   @IsOptional()
   @IsBooleanString()
   isActive?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  registeredFrom?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  registeredTo?: string;
 }

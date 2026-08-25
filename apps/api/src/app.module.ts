@@ -10,6 +10,8 @@ import { VisitsModule } from './modules/visits/visits.module';
 import { PrescriptionsModule } from './modules/prescriptions/prescriptions.module';
 import { ClinicModule } from './modules/clinic/clinic.module';
 import { FeeTypesModule } from './modules/fee-types/fee-types.module';
+import { PatientFieldsModule } from './modules/patient-fields/patient-fields.module';
+import { MedicineFieldsModule } from './modules/medicine-fields/medicine-fields.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { FollowUpsModule } from './modules/followups/followups.module';
@@ -29,6 +31,8 @@ import { CertificatesModule } from './modules/certificates/certificates.module';
     PrescriptionsModule,
     ClinicModule,
     FeeTypesModule,
+    PatientFieldsModule,
+    MedicineFieldsModule,
     DocumentsModule,
     ComplianceModule,
     FollowUpsModule,

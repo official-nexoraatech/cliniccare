@@ -6,7 +6,7 @@ async function main() {
   await waitOn({
     resources: ['http://localhost:5173', 'http-get://localhost:4100/api/auth/me'],
     validateStatus: (status) => status > 0,
-    timeout: 60000,
+    timeout: 180000,
   });
 
   const tscBin = path.join(__dirname, '..', '..', '..', 'node_modules', '.bin', 'tsc');

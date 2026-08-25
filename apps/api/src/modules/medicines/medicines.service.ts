@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
+  MedicineCustomFieldValues,
   MedicineDetail,
   MedicineListResponse,
   MedicineSearchResult,
@@ -77,13 +78,43 @@ export class MedicinesService {
   }
 
   async create(dto: CreateMedicineDto): Promise<MedicineDetail> {
-    const medicine = await this.prisma.medicine.create({ data: dto });
+    const { customFields, ...rest } = dto;
+    const defs = await this.prisma.medicineFieldDefinition.findMany({ where: { isActive: true } });
+
+    const validKeys = new Set(defs.map((d) => d.key));
+    const mergedCustomFields = this.mergeCustomFields(customFields, null, validKeys);
+    this.assertRequiredFieldsSatisfied(defs, { ...rest, ...mergedCustomFields });
+
+    const medicine = await this.prisma.medicine.create({
+      data: {
+        ...rest,
+        // brandName/form are NOT NULL columns — fall back to a sentinel ("", UNSPECIFIED)
+        // when admin has made the field optional/hidden and it was left blank, so every
+        // existing display site keeps a real value to read.
+        brandName: dto.brandName || '',
+        form: dto.form ?? 'UNSPECIFIED',
+        customFields: JSON.stringify(mergedCustomFields),
+      },
+    });
     return this.toDetail(medicine);
   }
 
   async update(id: string, dto: UpdateMedicineDto): Promise<MedicineDetail> {
-    await this.assertExists(id);
-    const medicine = await this.prisma.medicine.update({ where: { id }, data: dto });
+    const { customFields, ...rest } = dto;
+    const existing = await this.prisma.medicine.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Medicine not found');
+    }
+
+    const defs = await this.prisma.medicineFieldDefinition.findMany({ where: { isActive: true } });
+    const validKeys = new Set(defs.map((d) => d.key));
+    const mergedCustomFields = this.mergeCustomFields(customFields, existing.customFields, validKeys);
+    this.assertRequiredFieldsSatisfied(defs, { ...this.mergeCoreFieldValues(dto, existing), ...mergedCustomFields });
+
+    const medicine = await this.prisma.medicine.update({
+      where: { id },
+      data: { ...rest, customFields: JSON.stringify(mergedCustomFields) },
+    });
     return this.toDetail(medicine);
   }
 
@@ -114,6 +145,58 @@ export class MedicinesService {
   /** Called when a medicine is actually used in a prescription (Day 6), to rank it higher in search. */
   async incrementUsage(id: string): Promise<void> {
     await this.prisma.medicine.update({ where: { id }, data: { usageCount: { increment: 1 } } });
+  }
+
+  /**
+   * Merges submitted custom values into whatever's already stored (so a field that
+   * got deactivated after being set isn't silently dropped on the next edit) and
+   * drops keys that don't match an active field definition.
+   */
+  private mergeCustomFields(
+    input: MedicineCustomFieldValues | undefined,
+    existingJson: string | null,
+    validKeys: Set<string>,
+  ): MedicineCustomFieldValues {
+    const merged: MedicineCustomFieldValues = existingJson ? JSON.parse(existingJson) : {};
+    for (const [key, value] of Object.entries(input ?? {})) {
+      if (validKeys.has(key)) merged[key] = value;
+    }
+    return merged;
+  }
+
+  /** Raw core field values for an update — a field the dto didn't touch falls back to what's already stored. */
+  private mergeCoreFieldValues(dto: UpdateMedicineDto, existing: Medicine): Record<string, unknown> {
+    return {
+      brandName: dto.brandName ?? existing.brandName,
+      genericName: dto.genericName ?? existing.genericName,
+      strength: dto.strength ?? existing.strength,
+      form: dto.form ?? existing.form,
+      company: dto.company ?? existing.company,
+      category: dto.category ?? existing.category,
+      defaultDose: dto.defaultDose ?? existing.defaultDose,
+      defaultMorning: dto.defaultMorning ?? existing.defaultMorning,
+      defaultAfternoon: dto.defaultAfternoon ?? existing.defaultAfternoon,
+      defaultEvening: dto.defaultEvening ?? existing.defaultEvening,
+      defaultNight: dto.defaultNight ?? existing.defaultNight,
+      defaultBeforeAfterFood: dto.defaultBeforeAfterFood ?? existing.defaultBeforeAfterFood,
+      defaultDurationDays: dto.defaultDurationDays ?? existing.defaultDurationDays,
+      defaultInstruction: dto.defaultInstruction ?? existing.defaultInstruction,
+    };
+  }
+
+  /**
+   * Enforces admin-marked required fields (core or custom alike) against the final
+   * merged state — not just what was submitted this call — so a required field can't
+   * be bypassed by simply omitting it from the request.
+   */
+  private assertRequiredFieldsSatisfied(
+    defs: { key: string; label: string; required: boolean }[],
+    values: Record<string, unknown>,
+  ): void {
+    const missingLabels = defs.filter((d) => d.required && !String(values[d.key] ?? '').trim()).map((d) => d.label);
+    if (missingLabels.length) {
+      throw new BadRequestException(`Missing required field(s): ${missingLabels.join(', ')}`);
+    }
   }
 
   private async assertExists(id: string) {
@@ -149,6 +232,7 @@ export class MedicinesService {
       defaultDurationDays: medicine.defaultDurationDays,
       defaultInstruction: medicine.defaultInstruction,
       usageCount: medicine.usageCount,
+      customFields: medicine.customFields ? JSON.parse(medicine.customFields) : {},
     };
   }
 }

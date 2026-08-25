@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuthStore } from '@/store/auth-store';
 import { GlobalPatientSearch } from '@/components/GlobalPatientSearch';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export function MainLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
   const today = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',
     day: 'numeric',
@@ -40,7 +43,7 @@ export function MainLayout() {
               <p className="text-xs uppercase tracking-wide text-gray-400">{user?.role}</p>
             </div>
             <button
-              onClick={handleLogout}
+              onClick={() => setConfirmLogoutOpen(true)}
               className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
             >
               <LogOut className="h-4 w-4" /> Logout
@@ -52,6 +55,16 @@ export function MainLayout() {
           <Outlet />
         </main>
       </div>
+
+      <ConfirmDialog
+        open={confirmLogoutOpen}
+        title="Log out?"
+        description="You'll need to sign in again to continue."
+        confirmLabel="Log out"
+        destructive
+        onConfirm={handleLogout}
+        onCancel={() => setConfirmLogoutOpen(false)}
+      />
     </div>
   );
 }

@@ -1,3 +1,8 @@
+// UNSPECIFIED is a storage sentinel, not a real choice — used when admin has
+// switched off collecting form via Settings → Medicine Fields. Filter it out of
+// any UI that lets someone actually pick a form.
+import type { MedicineCustomFieldValues } from './medicine-fields';
+
 export const MEDICINE_FORMS = [
   'TABLET',
   'CAPSULE',
@@ -7,6 +12,7 @@ export const MEDICINE_FORMS = [
   'DROPS',
   'POWDER',
   'OTHER',
+  'UNSPECIFIED',
 ] as const;
 export type MedicineForm = (typeof MEDICINE_FORMS)[number];
 
@@ -41,6 +47,7 @@ export interface MedicineDetail extends MedicineSummary {
   defaultDurationDays: number | null;
   defaultInstruction: string | null;
   usageCount: number;
+  customFields: MedicineCustomFieldValues;
 }
 
 export interface MedicineSearchResult {
@@ -58,11 +65,13 @@ export interface MedicineSearchResult {
   defaultDose: string | null;
 }
 
+// brandName/form are optional at the type level — which fields are actually
+// mandatory is decided at runtime by Settings → Medicine Fields, not by this interface.
 export interface CreateMedicineRequest {
-  brandName: string;
+  brandName?: string;
   genericName?: string;
   strength?: string;
-  form: MedicineForm;
+  form?: MedicineForm;
   company?: string;
   category?: string;
   defaultDose?: string;
@@ -73,6 +82,7 @@ export interface CreateMedicineRequest {
   defaultBeforeAfterFood?: BeforeAfterFood;
   defaultDurationDays?: number;
   defaultInstruction?: string;
+  customFields?: MedicineCustomFieldValues;
 }
 
 export type UpdateMedicineRequest = Partial<CreateMedicineRequest>;

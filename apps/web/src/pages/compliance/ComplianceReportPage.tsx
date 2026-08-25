@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Download } from 'lucide-react';
+import { Download, Eye } from 'lucide-react';
 import type { ComplianceGrade, ComplianceReportRow } from '@clinic-care/shared-types';
 import { COMPLIANCE_GRADES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
@@ -34,10 +34,10 @@ export function ComplianceReportPage() {
       header: 'Actions',
       cell: ({ row }) => (
         <button
-          onClick={() => navigate(`/patients/${row.original.patientId}/history`)}
-          className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          onClick={() => navigate(`/patients/${row.original.patientId}`)}
+          className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
         >
-          View Patient
+          <Eye className="h-3.5 w-3.5" /> View Patient
         </button>
       ),
     },

@@ -19,6 +19,12 @@ model Clinic {
   logoPath       String?
   letterheadPath String?
 
+  // Drives the appointment slot grid on the booking screen — HH:mm 24h strings and a
+  // slot length in minutes, all with sane defaults so existing clinics need no migration data.
+  openTime    String @default("09:00")
+  closeTime   String @default("20:00")
+  slotMinutes Int    @default(15)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -64,6 +70,30 @@ model FeeType {
   updatedAt DateTime @updatedAt
 }
 
+// Admin-defined extra patient fields — lets each clinic collect what it actually
+// needs (e.g. "Insurance ID") without a code change. fieldType: TEXT | NUMBER |
+// DATE | SELECT | BOOLEAN. Values live in Patient.customFields, keyed by `key`.
+//
+// isCore rows are seeded for every built-in Patient column (name, mobile, age, ...)
+// so admin can toggle visibility/required-ness of those too, the same way as custom
+// ones — their `key` matches the real Patient column and isCore locks fieldType/key
+// from being edited (the column's real type can't change), but required/isActive
+// stay fully admin-controlled like any other row.
+model PatientFieldDefinition {
+  id        String  @id @default(cuid())
+  key       String  @unique
+  label     String
+  fieldType String  @default("TEXT")
+  options   String? // JSON string array, only meaningful for SELECT
+  required  Boolean @default(false)
+  isActive  Boolean @default(true)
+  isCore    Boolean @default(false)
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // key: PATIENT | VISIT | BILL | CERTIFICATE
 model Counter {
   id            String @id @default(cuid())
@@ -83,6 +113,10 @@ enum Gender {
   MALE
   FEMALE
   OTHER
+  // Sentinel for when admin has switched off collecting gender via Settings → Patient
+  // Fields — keeps the column non-nullable so every existing read site (prints,
+  // lists, search) that assumes a real Gender string keeps working unchanged.
+  UNSPECIFIED
 }
 
 model Patient {
@@ -104,11 +138,13 @@ model Patient {
   photoPath       String?
   allergies       String?
   chronicDiseases String?
+  stage           String?
   referredBy      String?
   notes           String?
   registeredOn    DateTime @default(now())
   isActive        Boolean  @default(true)
   createdBy       String?
+  customFields    String? // JSON blob of {[PatientFieldDefinition.key]: value}, admin-configured
 
   visits       Visit[]
   followUps    FollowUp[]
@@ -132,6 +168,27 @@ enum MedicineForm {
   DROPS
   POWDER
   OTHER
+  // Sentinel for when admin has switched off collecting form via Settings → Medicine
+  // Fields — keeps the column non-nullable so every existing read site keeps working.
+  UNSPECIFIED
+}
+
+// Same pattern as PatientFieldDefinition — lets admin add extra medicine fields and
+// toggle visibility/required-ness of the built-in ones. Values live in
+// Medicine.customFields, keyed by `key`.
+model MedicineFieldDefinition {
+  id        String  @id @default(cuid())
+  key       String  @unique
+  label     String
+  fieldType String  @default("TEXT")
+  options   String? // JSON string array, only meaningful for SELECT
+  required  Boolean @default(false)
+  isActive  Boolean @default(true)
+  isCore    Boolean @default(false)
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum BeforeAfterFood {
@@ -161,6 +218,7 @@ model Medicine {
   isFavourite            Boolean         @default(false)
   isActive               Boolean         @default(true)
   usageCount             Int             @default(0)
+  customFields           String? // JSON blob of {[MedicineFieldDefinition.key]: value}, admin-configured
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

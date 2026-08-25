@@ -1,13 +1,15 @@
 import { z } from 'zod';
 import { BEFORE_AFTER_FOOD_OPTIONS, MEDICINE_FORMS } from '@clinic-care/shared-types';
 
-// Mirrors apps/api/src/modules/medicines/dto/create-medicine.dto.ts field-for-field —
-// see feedback_dual_validation: frontend and backend must independently reject the same bad input.
+// Format validators mirror apps/api/src/modules/medicines/dto/create-medicine.dto.ts —
+// see feedback_dual_validation: frontend and backend must independently reject the
+// same bad input. Presence is deliberately NOT enforced here: which fields are
+// actually mandatory is decided at runtime by Settings → Medicine Fields.
 export const medicineSchema = z.object({
-  brandName: z.string().min(1, 'Brand name is required'),
+  brandName: z.string().optional(),
   genericName: z.string().optional(),
   strength: z.string().optional(),
-  form: z.enum(MEDICINE_FORMS),
+  form: z.enum(MEDICINE_FORMS).optional(),
   company: z.string().optional(),
   category: z.string().optional(),
   defaultDose: z.string().optional(),

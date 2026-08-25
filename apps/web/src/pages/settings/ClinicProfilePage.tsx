@@ -13,6 +13,8 @@ import { getErrorMessage } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/;
+const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+const SLOT_MINUTES_OPTIONS = [10, 15, 20, 30, 60] as const;
 
 // Mirrors apps/api/src/modules/clinic/dto/update-clinic.dto.ts field-for-field
 // (see feedback_dual_validation).
@@ -24,6 +26,9 @@ const clinicSchema = z.object({
   doctorName: z.string().optional(),
   degree: z.string().optional(),
   regnNumber: z.string().optional(),
+  openTime: z.string().regex(TIME_REGEX, 'Enter a valid time'),
+  closeTime: z.string().regex(TIME_REGEX, 'Enter a valid time'),
+  slotMinutes: z.coerce.number().int(),
 });
 
 type ClinicFormValues = z.infer<typeof clinicSchema>;
@@ -58,6 +63,9 @@ export function ClinicProfilePage() {
         doctorName: clinic.doctorName ?? '',
         degree: clinic.degree ?? '',
         regnNumber: clinic.regnNumber ?? '',
+        openTime: clinic.openTime,
+        closeTime: clinic.closeTime,
+        slotMinutes: clinic.slotMinutes,
       });
     }
   }, [clinic, reset]);
@@ -71,6 +79,9 @@ export function ClinicProfilePage() {
       doctorName: values.doctorName || undefined,
       degree: values.degree || undefined,
       regnNumber: values.regnNumber || undefined,
+      openTime: values.openTime,
+      closeTime: values.closeTime,
+      slotMinutes: values.slotMinutes,
     });
   };
 
@@ -215,6 +226,35 @@ export function ClinicProfilePage() {
             <div>
               <label className={labelClass}>Registration No.</label>
               <input {...register('regnNumber')} className={inputClass} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Scheduling</p>
+          <p className="mb-3 text-xs text-gray-500">
+            Drives the booking screen's slot grid — the hours and slot size patients can be booked into.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className={labelClass}>Opens at</label>
+              <input type="time" {...register('openTime')} className={inputClass} />
+              {errors.openTime && <p className="mt-1 text-xs text-red-600">{errors.openTime.message}</p>}
+            </div>
+            <div>
+              <label className={labelClass}>Closes at</label>
+              <input type="time" {...register('closeTime')} className={inputClass} />
+              {errors.closeTime && <p className="mt-1 text-xs text-red-600">{errors.closeTime.message}</p>}
+            </div>
+            <div>
+              <label className={labelClass}>Slot length</label>
+              <select {...register('slotMinutes')} className={inputClass}>
+                {SLOT_MINUTES_OPTIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {m} minutes
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

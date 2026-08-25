@@ -7,12 +7,16 @@ import { ClinicProfilePage } from './ClinicProfilePage';
 import { RolesPermissionsPage } from './RolesPermissionsPage';
 import { FeeMasterPage } from './FeeMasterPage';
 import { NumberingSettingsPage } from './NumberingSettingsPage';
+import { PatientFieldsPage } from './PatientFieldsPage';
+import { MedicineFieldsPage } from './MedicineFieldsPage';
 
 const TABS = [
   { key: 'users', label: 'Users', permission: 'administration:view' as const },
   { key: 'roles', label: 'Roles & Permissions', permission: 'administration:view' as const },
   { key: 'clinic', label: 'Clinic Profile', permission: null },
   { key: 'fees', label: 'Fee Master', permission: null },
+  { key: 'patientFields', label: 'Patient Fields', permission: null },
+  { key: 'medicineFields', label: 'Medicine Fields', permission: null },
   { key: 'numbering', label: 'Numbering', permission: null },
 ] as const;
 
@@ -46,6 +50,8 @@ export function SettingsPage() {
       {tab === 'roles' && <RolesPermissionsPage />}
       {tab === 'clinic' && <ClinicProfilePage />}
       {tab === 'fees' && <FeeMasterPage />}
+      {tab === 'patientFields' && <PatientFieldsPage />}
+      {tab === 'medicineFields' && <MedicineFieldsPage />}
       {tab === 'numbering' && <NumberingSettingsPage />}
     </div>
   );

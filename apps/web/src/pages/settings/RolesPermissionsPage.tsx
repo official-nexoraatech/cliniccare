@@ -16,7 +16,9 @@ import { getErrorMessage } from '@/lib/utils';
 
 const MODULE_LABELS: Record<PermissionModule, string> = {
   patients: 'Patients',
+  appointments: 'Appointments',
   visits: 'Visits / Consultation',
+  vitals: 'Vitals (Nurse)',
   prescriptions: 'Prescriptions',
   medicines: 'Medicines',
   clinic: 'Clinic Settings',

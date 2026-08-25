@@ -1,23 +1,49 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { ALL_PERMISSION_KEYS, type PermissionKey } from '@clinic-care/shared-types';
+import {
+  ALL_PERMISSION_KEYS,
+  BEFORE_AFTER_FOOD_OPTIONS,
+  MEDICINE_FORMS,
+  type PermissionKey,
+} from '@clinic-care/shared-types';
 
 const prisma = new PrismaClient();
 
+// Mirrors the real front-desk / nurse / doctor split: reception books and runs the
+// queue but never touches clinical records; the nurse (ASSISTANT) records vitals but
+// can't diagnose or prescribe; only the doctor edits the actual visit.
 const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
   ADMIN: [...ALL_PERMISSION_KEYS],
   DOCTOR: [
     'patients:view',
     'patients:edit',
+    'appointments:view',
+    'appointments:edit',
     'visits:view',
     'visits:edit',
+    'vitals:view',
+    'vitals:edit',
     'prescriptions:view',
     'prescriptions:edit',
     'medicines:view',
     'medicines:edit',
   ],
-  RECEPTIONIST: ['patients:view', 'patients:edit', 'visits:view', 'medicines:view'],
-  ASSISTANT: ['patients:view', 'visits:view', 'medicines:view'],
+  RECEPTIONIST: [
+    'patients:view',
+    'patients:edit',
+    'appointments:view',
+    'appointments:edit',
+    'visits:view',
+    'medicines:view',
+  ],
+  ASSISTANT: [
+    'patients:view',
+    'appointments:view',
+    'visits:view',
+    'vitals:view',
+    'vitals:edit',
+    'medicines:view',
+  ],
 };
 
 async function main() {
@@ -89,6 +115,111 @@ async function main() {
       where: { key: counter.key },
       update: {},
       create: { ...counter, currentValue: 0, financialYear },
+    });
+  }
+
+  // Seeds one PatientFieldDefinition per built-in Patient form field so admin can
+  // toggle their visibility/required-ness from Settings → Patient Fields the same
+  // way as custom ones. isCore locks key/fieldType (tied to the real column); label,
+  // required and isActive stay editable. required here mirrors today's hardcoded
+  // behavior so nothing changes until admin actually touches a toggle.
+  const coreFields = [
+    { key: 'name', label: 'Full Name', fieldType: 'TEXT', required: true, order: 0 },
+    { key: 'gender', label: 'Gender', fieldType: 'SELECT', options: ['MALE', 'FEMALE', 'OTHER'], required: true, order: 1 },
+    { key: 'dob', label: 'Date of Birth', fieldType: 'DATE', required: false, order: 2 },
+    { key: 'age', label: 'Age', fieldType: 'NUMBER', required: true, order: 3 },
+    { key: 'mobile', label: 'Mobile Number', fieldType: 'TEXT', required: true, order: 4 },
+    { key: 'altMobile', label: 'Alternate Mobile', fieldType: 'TEXT', required: false, order: 5 },
+    { key: 'email', label: 'Email', fieldType: 'TEXT', required: false, order: 6 },
+    { key: 'address', label: 'Address', fieldType: 'TEXT', required: true, order: 7 },
+    { key: 'city', label: 'City', fieldType: 'TEXT', required: false, order: 8 },
+    { key: 'pincode', label: 'Pincode', fieldType: 'TEXT', required: false, order: 9 },
+    {
+      key: 'bloodGroup',
+      label: 'Blood Group',
+      fieldType: 'SELECT',
+      options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+      required: false,
+      order: 10,
+    },
+    {
+      key: 'maritalStatus',
+      label: 'Marital Status',
+      fieldType: 'SELECT',
+      options: ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED'],
+      required: false,
+      order: 11,
+    },
+    { key: 'occupation', label: 'Occupation', fieldType: 'TEXT', required: false, order: 12 },
+    { key: 'referredBy', label: 'Referred By', fieldType: 'TEXT', required: false, order: 13 },
+    { key: 'stage', label: 'Stage', fieldType: 'TEXT', required: true, order: 14 },
+    { key: 'allergies', label: 'Allergies', fieldType: 'TEXT', required: false, order: 15 },
+    { key: 'chronicDiseases', label: 'Diseases / Conditions', fieldType: 'TEXT', required: true, order: 16 },
+    { key: 'notes', label: 'Notes', fieldType: 'TEXT', required: false, order: 17 },
+  ];
+
+  for (const field of coreFields) {
+    await prisma.patientFieldDefinition.upsert({
+      where: { key: field.key },
+      update: {},
+      create: {
+        key: field.key,
+        label: field.label,
+        fieldType: field.fieldType,
+        options: 'options' in field ? JSON.stringify(field.options) : null,
+        required: field.required,
+        order: field.order,
+        isCore: true,
+      },
+    });
+  }
+
+  // Same idea as coreFields above, but for the Medicine master. Only brandName and
+  // form are required today; everything else already defaults or is nullable.
+  const coreMedicineFields = [
+    { key: 'brandName', label: 'Brand Name', fieldType: 'TEXT', required: true, order: 0 },
+    { key: 'genericName', label: 'Generic Name (Salt)', fieldType: 'TEXT', required: false, order: 1 },
+    { key: 'strength', label: 'Strength', fieldType: 'TEXT', required: false, order: 2 },
+    {
+      key: 'form',
+      label: 'Form',
+      fieldType: 'SELECT',
+      options: MEDICINE_FORMS.filter((f) => f !== 'UNSPECIFIED'),
+      required: true,
+      order: 3,
+    },
+    { key: 'company', label: 'Company', fieldType: 'TEXT', required: false, order: 4 },
+    { key: 'category', label: 'Category', fieldType: 'TEXT', required: false, order: 5 },
+    { key: 'defaultDose', label: 'Default Dose Text', fieldType: 'TEXT', required: false, order: 6 },
+    { key: 'defaultMorning', label: 'Default Morning Dose', fieldType: 'NUMBER', required: false, order: 7 },
+    { key: 'defaultAfternoon', label: 'Default Afternoon Dose', fieldType: 'NUMBER', required: false, order: 8 },
+    { key: 'defaultEvening', label: 'Default Evening Dose', fieldType: 'NUMBER', required: false, order: 9 },
+    { key: 'defaultNight', label: 'Default Night Dose', fieldType: 'NUMBER', required: false, order: 10 },
+    {
+      key: 'defaultBeforeAfterFood',
+      label: 'Before/After Food',
+      fieldType: 'SELECT',
+      options: BEFORE_AFTER_FOOD_OPTIONS,
+      required: false,
+      order: 11,
+    },
+    { key: 'defaultDurationDays', label: 'Default Duration (Days)', fieldType: 'NUMBER', required: false, order: 12 },
+    { key: 'defaultInstruction', label: 'Default Instruction', fieldType: 'TEXT', required: false, order: 13 },
+  ];
+
+  for (const field of coreMedicineFields) {
+    await prisma.medicineFieldDefinition.upsert({
+      where: { key: field.key },
+      update: {},
+      create: {
+        key: field.key,
+        label: field.label,
+        fieldType: field.fieldType,
+        options: 'options' in field ? JSON.stringify(field.options) : null,
+        required: field.required,
+        order: field.order,
+        isCore: true,
+      },
     });
   }
 
