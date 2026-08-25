@@ -6,6 +6,7 @@ export const PERMISSION_MODULES = [
   'prescriptions',
   'medicines',
   'clinic',
+  'billing',
   'administration',
 ] as const;
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

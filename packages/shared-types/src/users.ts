@@ -21,6 +21,7 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   name?: string;
+  mobile?: string;
   role?: RoleName;
 }
 

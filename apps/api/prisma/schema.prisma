@@ -25,6 +25,14 @@ model Clinic {
   closeTime   String @default("20:00")
   slotMinutes Int    @default(15)
 
+  // Billing form toggles — a clinic that doesn't charge GST never sees a tax field,
+  // same idea as PatientFieldDefinition.required: config, not a code change. Columns
+  // always exist (0-cost when unused) so no schema branching is needed either way.
+  taxEnabled      Boolean @default(false)
+  taxLabel        String  @default("GST")
+  gstNumber       String?
+  discountEnabled Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -46,15 +54,15 @@ model Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   name         String
-  username     String   @unique
+  username     String  @unique
   mobile       String?
   passwordHash String
   pin          String?
   roleId       String
-  role         Role     @relation(fields: [roleId], references: [id])
-  isActive     Boolean  @default(true)
+  role         Role    @relation(fields: [roleId], references: [id])
+  isActive     Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -121,8 +129,8 @@ enum Gender {
 }
 
 model Patient {
-  id              String   @id @default(cuid())
-  patientId       String   @unique
+  id              String    @id @default(cuid())
+  patientId       String    @unique
   name            String
   age             Int
   dob             DateTime?
@@ -142,8 +150,8 @@ model Patient {
   stage           String?
   referredBy      String?
   notes           String?
-  registeredOn    DateTime @default(now())
-  isActive        Boolean  @default(true)
+  registeredOn    DateTime  @default(now())
+  isActive        Boolean   @default(true)
   createdBy       String?
   customFields    String? // JSON blob of {[PatientFieldDefinition.key]: value}, admin-configured
 
@@ -151,6 +159,7 @@ model Patient {
   followUps    FollowUp[]
   appointments Appointment[]
   certificates Certificate[]
+  bills        Bill[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -242,31 +251,32 @@ enum VisitStatus {
 }
 
 model Visit {
-  id                  String      @id @default(cuid())
-  visitNo             String      @unique
-  patientId           String
-  patient             Patient     @relation(fields: [patientId], references: [id])
-  doctorId            String?
-  visitDate           DateTime    @default(now())
-  visitType           VisitType   @default(NEW)
-  complaint           String?
+  id                    String      @id @default(cuid())
+  visitNo               String      @unique
+  patientId             String
+  patient               Patient     @relation(fields: [patientId], references: [id])
+  doctorId              String?
+  visitDate             DateTime    @default(now())
+  visitType             VisitType   @default(NEW)
+  complaint             String?
   complaintDurationDays Int?
-  examination         String?
-  diagnosis           String?
-  advice              String?
-  testsAdvised        String?
-  nextFollowUpDate    DateTime?
-  followUpAfterDays    Int?
-  consultationFee     Int?
-  status              VisitStatus @default(WAITING)
-  remark              String?
-  createdBy           String?
+  examination           String?
+  diagnosis             String?
+  advice                String?
+  testsAdvised          String?
+  nextFollowUpDate      DateTime?
+  followUpAfterDays     Int?
+  consultationFee       Int?
+  status                VisitStatus @default(WAITING)
+  remark                String?
+  createdBy             String?
 
   vital        Vital?
   labTests     LabTest[]
   followUps    FollowUp[]
   prescription Prescription?
   compliances  Compliance[]
+  bill         Bill?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -378,14 +388,14 @@ model FollowUp {
 }
 
 model Prescription {
-  id                 String   @id @default(cuid())
-  visitId            String   @unique
-  visit              Visit    @relation(fields: [visitId], references: [id])
+  id                 String    @id @default(cuid())
+  visitId            String    @unique
+  visit              Visit     @relation(fields: [visitId], references: [id])
   patientId          String
-  date               DateTime @default(now())
+  date               DateTime  @default(now())
   generalInstruction String?
   printedAt          DateTime?
-  printCount         Int      @default(0)
+  printCount         Int       @default(0)
   createdBy          String?
 
   items PrescriptionItem[]
@@ -397,23 +407,23 @@ model Prescription {
 }
 
 model PrescriptionItem {
-  id             String          @id @default(cuid())
-  prescriptionId String
-  prescription   Prescription    @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
-  medicineId     String
-  medicineName   String
-  strength       String?
-  form           MedicineForm
-  dose           String?
-  morning        Int             @default(0)
-  afternoon      Int             @default(0)
-  evening        Int             @default(0)
-  night          Int             @default(0)
+  id              String          @id @default(cuid())
+  prescriptionId  String
+  prescription    Prescription    @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicineId      String
+  medicineName    String
+  strength        String?
+  form            MedicineForm
+  dose            String?
+  morning         Int             @default(0)
+  afternoon       Int             @default(0)
+  evening         Int             @default(0)
+  night           Int             @default(0)
   beforeAfterFood BeforeAfterFood @default(ANYTIME)
-  durationDays   Int
-  totalQuantity  Int
-  instruction    String?
-  sortOrder      Int             @default(0)
+  durationDays    Int
+  totalQuantity   Int
+  instruction     String?
+  sortOrder       Int             @default(0)
 
   @@index([prescriptionId])
 }
@@ -461,16 +471,16 @@ enum ComplianceReasonForMissing {
 
 // Formula lives in ComplianceService only (single source of truth) — see Info/ClinicCare guide 2.5.
 model Compliance {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   patientId  String
   visitId    String
-  visit      Visit     @relation(fields: [visitId], references: [id])
-  recordedOn DateTime  @default(now())
+  visit      Visit    @relation(fields: [visitId], references: [id])
+  recordedOn DateTime @default(now())
 
   dosesPrescribed Int
   dosesTaken      Int
 
-  medicinePercent Float
+  medicinePercent   Float
   followUpsGiven    Int
   followUpsAttended Int
   followUpPercent   Float
@@ -568,4 +578,85 @@ model Certificate {
 
   @@index([patientId])
   @@index([issueDate])
+}
+
+enum BillStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+model Bill {
+  id           String     @id @default(cuid())
+  billNo       String     @unique
+  patientId    String
+  patient      Patient    @relation(fields: [patientId], references: [id])
+  // Optional — a bill can stand alone (lab-only charge, product sale) instead of
+  // always coming from a completed visit.
+  visitId      String?    @unique
+  visit        Visit?     @relation(fields: [visitId], references: [id])
+  date         DateTime   @default(now())
+  subtotal     Int
+  discount     Int        @default(0)
+  taxPercent   Float?
+  taxAmount    Int        @default(0)
+  totalAmount  Int
+  paidAmount   Int        @default(0)
+  dueAmount    Int
+  status       BillStatus @default(UNPAID)
+  remark       String?
+  cancelReason String?
+  printedAt    DateTime?
+  printCount   Int        @default(0)
+  createdBy    String?
+
+  items    BillItem[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([date])
+  @@index([status])
+}
+
+model BillItem {
+  id         String  @id @default(cuid())
+  billId     String
+  bill       Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+  // Nullable — an ad-hoc line typed free-hand isn't required to come from the FeeType
+  // master. name/unitAmount are a snapshot at bill time either way (same idea as
+  // PrescriptionItem.medicineName), so a later FeeType rename/price change never
+  // silently rewrites an already-saved bill.
+  feeTypeId  String?
+  name       String
+  quantity   Int     @default(1)
+  unitAmount Int
+  amount     Int
+  sortOrder  Int     @default(0)
+
+  @@index([billId])
+}
+
+enum PaymentMode {
+  CASH
+  CARD
+  UPI
+  BANK_TRANSFER
+}
+
+model Payment {
+  id        String      @id @default(cuid())
+  billId    String
+  bill      Bill        @relation(fields: [billId], references: [id], onDelete: Cascade)
+  amount    Int
+  mode      PaymentMode
+  reference String?
+  paidOn    DateTime    @default(now())
+  createdBy String?
+
+  @@index([billId])
+  @@index([paidOn])
 }

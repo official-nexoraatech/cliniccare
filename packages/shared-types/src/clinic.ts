@@ -13,6 +13,11 @@ export interface ClinicProfile {
   openTime: string;
   closeTime: string;
   slotMinutes: number;
+  /** Billing form toggles — a clinic with no GST never sees a tax field. */
+  taxEnabled: boolean;
+  taxLabel: string;
+  gstNumber: string | null;
+  discountEnabled: boolean;
 }
 
 export interface UpdateClinicRequest {
@@ -26,4 +31,8 @@ export interface UpdateClinicRequest {
   openTime?: string;
   closeTime?: string;
   slotMinutes?: number;
+  taxEnabled?: boolean;
+  taxLabel?: string;
+  gstNumber?: string;
+  discountEnabled?: boolean;
 }

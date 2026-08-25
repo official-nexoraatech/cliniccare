@@ -56,8 +56,11 @@ export class UsersService {
       await this.prisma.user.update({ where: { id }, data: { roleId: role.id } });
     }
 
-    if (dto.name) {
-      await this.prisma.user.update({ where: { id }, data: { name: dto.name } });
+    if (dto.name || dto.mobile) {
+      await this.prisma.user.update({
+        where: { id },
+        data: { ...(dto.name ? { name: dto.name } : {}), ...(dto.mobile ? { mobile: dto.mobile } : {}) },
+      });
     }
 
     const updated = await this.prisma.user.findUniqueOrThrow({ where: { id }, include: { role: true } });

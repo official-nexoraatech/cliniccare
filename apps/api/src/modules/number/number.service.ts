@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Counter } from '@clinic-care/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCounterDto } from './dto/update-counter.dto';
@@ -18,6 +18,21 @@ export class NumberService {
     if (!counter) {
       throw new NotFoundException(`Counter "${key}" is not configured`);
     }
+
+    if (dto.currentValue !== undefined && dto.currentValue < counter.currentValue) {
+      throw new BadRequestException(
+        `Last number issued can't be lowered below ${counter.currentValue} — doing so would let the next generated number collide with one already issued.`,
+      );
+    }
+
+    if (dto.prefix !== undefined) {
+      const others = await this.prisma.counter.findMany({ where: { key: { not: key } } });
+      const clash = others.find((other) => other.prefix.toLowerCase() === dto.prefix!.toLowerCase());
+      if (clash) {
+        throw new ConflictException(`Prefix "${dto.prefix}" is already used by ${clash.key}`);
+      }
+    }
+
     return this.prisma.counter.update({
       where: { key },
       data: {

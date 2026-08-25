@@ -15,8 +15,8 @@ import { hasPermission } from '@/lib/permissions';
 import { cn, getErrorMessage } from '@/lib/utils';
 
 const feeTypeSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  amount: z.coerce.number().int().min(0, 'Amount must be 0 or more'),
+  name: z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or fewer'),
+  amount: z.coerce.number().int().min(0, 'Amount must be 0 or more').max(10000000, 'Amount must be 1,00,00,000 or less'),
   isDefault: z.boolean().optional(),
 });
 
@@ -204,6 +204,7 @@ export function FeeMasterPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
             <input
               {...form.register('name')}
+              maxLength={100}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             />
             {form.formState.errors.name && (
@@ -214,6 +215,7 @@ export function FeeMasterPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Amount (₹)</label>
             <input
               type="number"
+              max={10000000}
               {...form.register('amount')}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             />

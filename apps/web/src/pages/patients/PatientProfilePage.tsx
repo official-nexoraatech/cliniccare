@@ -32,6 +32,7 @@ import { useDocumentMutations } from '@/hooks/useDocuments';
 import { usePatientComplianceQuery } from '@/hooks/useCompliance';
 import { usePatientFollowUpsQuery } from '@/hooks/useFollowUps';
 import { usePatientAppointmentsQuery } from '@/hooks/useAppointments';
+import { useBillsByPatientQuery } from '@/hooks/useBilling';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ComplianceBadge } from '@/components/ComplianceBadge';
 import { resolveServerUrl } from '@/lib/api';
@@ -140,6 +141,7 @@ export function PatientProfilePage() {
   const { data: compliance } = usePatientComplianceQuery(id);
   const { data: followUps } = usePatientFollowUpsQuery(id);
   const { data: appointments } = usePatientAppointmentsQuery(id);
+  const { data: bills } = useBillsByPatientQuery(id);
   const { deactivate, reactivate, update, uploadPhoto } = usePatientMutations();
   const { create: createVisit, start: startVisit } = useVisitMutations();
   const { upload, remove } = useDocumentMutations();
@@ -523,6 +525,37 @@ export function PatientProfilePage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {bills && bills.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="font-semibold text-[var(--color-navy)]">Billing</p>
+                <button onClick={() => navigate('/billing')} className="text-xs font-medium text-[var(--color-primary)]">
+                  View all
+                </button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {bills.slice(0, 3).map((b) => (
+                  <div key={b.id} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">
+                      {b.billNo} · {new Date(b.date).toLocaleDateString('en-IN')}
+                    </span>
+                    <span className={b.dueAmount > 0 && b.status !== 'CANCELLED' ? 'font-medium text-red-600' : 'text-gray-600'}>
+                      {b.dueAmount > 0 && b.status !== 'CANCELLED' ? `Due ₹${b.dueAmount.toLocaleString('en-IN')}` : b.status === 'CANCELLED' ? 'Cancelled' : 'Paid'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {(() => {
+                const totalDue = bills.filter((b) => b.status !== 'CANCELLED').reduce((sum, b) => sum + b.dueAmount, 0);
+                return totalDue > 0 ? (
+                  <p className="mt-2 border-t border-gray-100 pt-2 text-xs font-medium text-red-600">
+                    Total outstanding: ₹{totalDue.toLocaleString('en-IN')}
+                  </p>
+                ) : null;
+              })()}
             </div>
           )}
 

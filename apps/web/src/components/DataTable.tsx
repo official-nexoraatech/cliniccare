@@ -65,7 +65,7 @@ export function DataTable<TData>({
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
         <table className="w-full min-w-max text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+          <thead className="bg-gray-100 text-left text-xs uppercase tracking-wide text-gray-700">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -77,7 +77,7 @@ export function DataTable<TData>({
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {header.column.getCanSort() && (
-                          <ChevronsUpDown className="h-3.5 w-3.5 text-gray-400" />
+                          <ChevronsUpDown className="h-3.5 w-3.5 text-gray-500" />
                         )}
                       </button>
                     )}
@@ -94,8 +94,8 @@ export function DataTable<TData>({
                 </td>
               </tr>
             )}
-            {table.getRowModel().rows.map((row, i) => (
-              <tr key={row.id} className={i % 2 === 1 ? 'bg-gray-50/60 hover:bg-gray-100' : 'bg-white hover:bg-gray-100'}>
+            {table.getRowModel().rows.map((row) => (
+              <tr key={row.id} className="bg-white hover:bg-gray-100">
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="whitespace-nowrap px-4 py-3">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -47,7 +47,8 @@ function CounterRow({ counter, canEdit }: { counter: Counter; canEdit: boolean }
           <input
             value={prefix}
             disabled={!canEdit}
-            onChange={(e) => setPrefix(e.target.value)}
+            maxLength={10}
+            onChange={(e) => setPrefix(e.target.value.replace(/[^A-Za-z]/g, ''))}
             className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] disabled:bg-gray-50"
           />
         </div>

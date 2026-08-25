@@ -54,6 +54,10 @@ export class ClinicService {
       openTime: clinic.openTime,
       closeTime: clinic.closeTime,
       slotMinutes: clinic.slotMinutes,
+      taxEnabled: clinic.taxEnabled,
+      taxLabel: clinic.taxLabel,
+      gstNumber: clinic.gstNumber,
+      discountEnabled: clinic.discountEnabled,
     };
   }
 }
