@@ -94,8 +94,8 @@ export function DataTable<TData>({
                 </td>
               </tr>
             )}
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50">
+            {table.getRowModel().rows.map((row, i) => (
+              <tr key={row.id} className={i % 2 === 1 ? 'bg-gray-50/60 hover:bg-gray-100' : 'bg-white hover:bg-gray-100'}>
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="whitespace-nowrap px-4 py-3">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

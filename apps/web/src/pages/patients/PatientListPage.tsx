@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Download, Plus, Stethoscope } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Eye, Pencil, Plus, Stethoscope } from 'lucide-react';
 import type { Gender, PatientSummary } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { SearchBox } from '@/components/SearchBox';
@@ -96,15 +96,15 @@ export function PatientListPage() {
           <div className="flex gap-2">
             <button
               onClick={() => navigate(`/patients/${row.original.id}`)}
-              className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
             >
-              View
+              <Eye className="h-3.5 w-3.5" /> View
             </button>
             <button
               onClick={() => navigate(`/patients/${row.original.id}?edit=1`)}
-              className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
             >
-              Edit
+              <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
             <button
               onClick={() => onNewVisit(row.original.id)}

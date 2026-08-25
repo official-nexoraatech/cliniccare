@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Plus, Star } from 'lucide-react';
+import { Pencil, Plus, Star } from 'lucide-react';
 import type { MedicineForm, MedicineSummary } from '@clinic-care/shared-types';
 import { MEDICINE_FORMS } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
@@ -71,9 +71,9 @@ export function MedicineListPage() {
         cell: ({ row }) => (
           <button
             onClick={() => navigate(`/medicines/${row.original.id}/edit`)}
-            className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
           >
-            Edit
+            <Pencil className="h-3.5 w-3.5" /> Edit
           </button>
         ),
       },

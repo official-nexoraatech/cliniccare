@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { Plus, ShieldOff, ShieldCheck, Star } from 'lucide-react';
+import { Pencil, Plus, ShieldOff, ShieldCheck, Star } from 'lucide-react';
 import type { FeeType } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
@@ -116,9 +116,9 @@ export function FeeMasterPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => openEdit(feeType)}
-                    className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
                   >
-                    Edit
+                    <Pencil className="h-3.5 w-3.5" /> Edit
                   </button>
                   <button
                     onClick={() => setConfirmTarget(feeType)}

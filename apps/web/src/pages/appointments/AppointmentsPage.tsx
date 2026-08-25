@@ -1135,6 +1135,7 @@ function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: (
 function QueueView() {
   const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.user);
+  const { data: clinic } = useClinicQuery();
   const { data: queue, isLoading } = useAppointmentQueueQuery();
   const { updateStatus, markArrived } = useAppointmentMutations();
   const [linkTarget, setLinkTarget] = useState<AppointmentDetail | null>(null);
@@ -1241,7 +1242,10 @@ function QueueView() {
                     <Phone className="h-4 w-4" />
                   </a>
                   <a
-                    href={waLink(a.mobile, `Dear ${a.patientName}, your appointment is confirmed at ${a.timeSlot}.`)}
+                    href={waLink(
+                      a.mobile,
+                      `Dear ${a.patientName}, your appointment is confirmed at ${a.timeSlot}${clinic ? ` at ${clinic.name}` : ''}.`,
+                    )}
                     target="_blank"
                     rel="noreferrer"
                     className="rounded-lg border border-gray-300 p-1.5 text-green-600 hover:bg-green-50"
