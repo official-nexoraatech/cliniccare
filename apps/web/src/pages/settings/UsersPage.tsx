@@ -9,15 +9,22 @@ import type { UserSummary } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { PasswordInput } from '@/components/PasswordInput';
 import { useUserMutations, useUsersQuery } from '@/hooks/useUsers';
 import { useRolesQuery } from '@/hooks/useRoles';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
 import { cn, getErrorMessage } from '@/lib/utils';
 
+const NAME_REGEX = /^[A-Za-z ]+$/;
+const USERNAME_REGEX = /^[A-Za-z0-9]+$/;
+
 const createUserSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  username: z.string().min(3, 'Username must be at least 3 characters'),
+  name: z.string().min(1, 'Name is required').regex(NAME_REGEX, 'Name can only contain letters and spaces'),
+  username: z
+    .string()
+    .min(3, 'Username must be at least 3 characters')
+    .regex(USERNAME_REGEX, 'Username can only contain letters and numbers, no spaces or special characters'),
   password: z.string().min(4, 'Password must be at least 4 characters'),
   pin: z.union([z.string().length(4, 'PIN must be exactly 4 digits'), z.literal('')]).optional(),
   role: z.string().min(1, 'Role is required'),
@@ -50,12 +57,21 @@ export function UsersPage() {
 
   const activeAdminCount = users?.filter((u) => u.role === 'ADMIN' && u.isActive).length ?? 0;
 
+  const closeAddModal = () => {
+    addForm.reset({ role: '' });
+    setIsAddOpen(false);
+  };
+
+  const closeResetModal = () => {
+    resetForm.reset();
+    setResetTarget(null);
+  };
+
   const onAddSubmit = async (values: CreateUserFormValues) => {
     try {
       await create.mutateAsync({ ...values, pin: values.pin || undefined });
       toast.success(`${values.name} added as ${values.role}`);
-      addForm.reset({ role: '' });
-      setIsAddOpen(false);
+      closeAddModal();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not add user.'));
     }
@@ -197,11 +213,11 @@ export function UsersPage() {
       <FormModal
         open={isAddOpen}
         title="Add User"
-        onClose={() => setIsAddOpen(false)}
+        onClose={closeAddModal}
         footer={
           <>
             <button
-              onClick={() => setIsAddOpen(false)}
+              onClick={closeAddModal}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
             >
               Cancel
@@ -241,11 +257,7 @@ export function UsersPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              {...addForm.register('password')}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-            />
+            <PasswordInput {...addForm.register('password')} />
             {addForm.formState.errors.password && (
               <p className="mt-1 text-xs text-red-600">{addForm.formState.errors.password.message}</p>
             )}
@@ -286,12 +298,12 @@ export function UsersPage() {
       <FormModal
         open={Boolean(resetTarget)}
         title={`Reset password for ${resetTarget?.name ?? ''}`}
-        onClose={() => setResetTarget(null)}
+        onClose={closeResetModal}
         size="sm"
         footer={
           <>
             <button
-              onClick={() => setResetTarget(null)}
+              onClick={closeResetModal}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
             >
               Cancel
@@ -307,11 +319,7 @@ export function UsersPage() {
         }
       >
         <label className="mb-1 block text-sm font-medium text-gray-700">New password</label>
-        <input
-          type="password"
-          {...resetForm.register('newPassword')}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-        />
+        <PasswordInput {...resetForm.register('newPassword')} />
         {resetForm.formState.errors.newPassword && (
           <p className="mt-1 text-xs text-red-600">{resetForm.formState.errors.newPassword.message}</p>
         )}
