@@ -18,6 +18,7 @@ import { cn, getErrorMessage } from '@/lib/utils';
 
 const NAME_REGEX = /^[A-Za-z ]+$/;
 const USERNAME_REGEX = /^[A-Za-z0-9]+$/;
+const MOBILE_REGEX = /^\d{10}$/;
 
 const createUserSchema = z.object({
   name: z.string().min(1, 'Name is required').regex(NAME_REGEX, 'Name can only contain letters and spaces'),
@@ -25,6 +26,7 @@ const createUserSchema = z.object({
     .string()
     .min(3, 'Username must be at least 3 characters')
     .regex(USERNAME_REGEX, 'Username can only contain letters and numbers, no spaces or special characters'),
+  mobile: z.union([z.string().regex(MOBILE_REGEX, 'Mobile number must be exactly 10 digits'), z.literal('')]).optional(),
   password: z.string().min(4, 'Password must be at least 4 characters'),
   pin: z.union([z.string().length(4, 'PIN must be exactly 4 digits'), z.literal('')]).optional(),
   role: z.string().min(1, 'Role is required'),
@@ -69,7 +71,7 @@ export function UsersPage() {
 
   const onAddSubmit = async (values: CreateUserFormValues) => {
     try {
-      await create.mutateAsync({ ...values, pin: values.pin || undefined });
+      await create.mutateAsync({ ...values, pin: values.pin || undefined, mobile: values.mobile || undefined });
       toast.success(`${values.name} added as ${values.role}`);
       closeAddModal();
     } catch (error) {
@@ -252,6 +254,18 @@ export function UsersPage() {
             />
             {addForm.formState.errors.username && (
               <p className="mt-1 text-xs text-red-600">{addForm.formState.errors.username.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Mobile Number</label>
+            <input
+              {...addForm.register('mobile')}
+              maxLength={10}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            />
+            {addForm.formState.errors.mobile && (
+              <p className="mt-1 text-xs text-red-600">{addForm.formState.errors.mobile.message}</p>
             )}
           </div>
 

@@ -4,6 +4,7 @@ export interface UserSummary {
   id: string;
   name: string;
   username: string;
+  mobile: string | null;
   role: RoleName;
   isActive: boolean;
   hasPin: boolean;
@@ -12,6 +13,7 @@ export interface UserSummary {
 export interface CreateUserRequest {
   name: string;
   username: string;
+  mobile?: string;
   password: string;
   pin?: string;
   role: RoleName;

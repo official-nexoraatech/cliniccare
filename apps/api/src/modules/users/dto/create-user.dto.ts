@@ -12,6 +12,11 @@ export class CreateUserDto {
   @Matches(/^[A-Za-z0-9]+$/, { message: 'Username can only contain letters and numbers, no spaces or special characters' })
   username!: string;
 
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{10}$/, { message: 'Mobile number must be exactly 10 digits' })
+  mobile?: string;
+
   @IsString()
   @MinLength(4)
   password!: string;
