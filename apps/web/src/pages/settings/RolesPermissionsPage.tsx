@@ -35,6 +35,20 @@ function key(mod: PermissionModule, action: PermissionAction): PermissionKey {
   return `${mod}:${action}`;
 }
 
+// Mirrors apps/api/src/modules/roles/dto/{create,update}-role.dto.ts — must contain
+// at least one letter, and only letters/numbers/spaces (blocks number-only or
+// special-character-only names, and anything with symbols).
+const ROLE_NAME_MAX = 30;
+const ROLE_NAME_REGEX = /^(?=.*[A-Za-z])[A-Za-z0-9 ]+$/;
+
+function validateRoleName(name: string): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) return 'Role name is required.';
+  if (trimmed.length > ROLE_NAME_MAX) return `Role name must be ${ROLE_NAME_MAX} characters or fewer.`;
+  if (!ROLE_NAME_REGEX.test(trimmed)) return 'Role name must contain letters, and only letters, numbers or spaces.';
+  return null;
+}
+
 function PermissionMatrix({
   value,
   onChange,
@@ -91,10 +105,12 @@ export function RolesPermissionsPage() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newNameError, setNewNameError] = useState<string | null>(null);
   const [newPermissions, setNewPermissions] = useState<Set<PermissionKey>>(new Set());
 
   const [editTarget, setEditTarget] = useState<RoleSummary | null>(null);
   const [editName, setEditName] = useState('');
+  const [editNameError, setEditNameError] = useState<string | null>(null);
   const [editPermissions, setEditPermissions] = useState<Set<PermissionKey>>(new Set());
 
   const [deleteTarget, setDeleteTarget] = useState<RoleSummary | null>(null);
@@ -102,19 +118,22 @@ export function RolesPermissionsPage() {
   useEffect(() => {
     if (editTarget) {
       setEditName(editTarget.name);
+      setEditNameError(null);
       setEditPermissions(new Set(editTarget.permissions));
     }
   }, [editTarget]);
 
   const onCreate = async () => {
-    if (!newName.trim()) {
-      toast.error('Role name is required.');
+    const error = validateRoleName(newName);
+    if (error) {
+      setNewNameError(error);
       return;
     }
     try {
       await create.mutateAsync({ name: newName.trim(), permissions: [...newPermissions] });
       toast.success(`Role "${newName.trim()}" created`);
       setNewName('');
+      setNewNameError(null);
       setNewPermissions(new Set());
       setIsAddOpen(false);
     } catch (error) {
@@ -124,6 +143,11 @@ export function RolesPermissionsPage() {
 
   const onSaveEdit = async () => {
     if (!editTarget) return;
+    const error = validateRoleName(editName);
+    if (error) {
+      setEditNameError(error);
+      return;
+    }
     try {
       await update.mutateAsync({
         id: editTarget.id,
@@ -240,10 +264,15 @@ export function RolesPermissionsPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Role name</label>
             <input
               value={newName}
-              onChange={(e) => setNewName(e.target.value)}
+              onChange={(e) => {
+                setNewName(e.target.value);
+                setNewNameError(null);
+              }}
+              maxLength={ROLE_NAME_MAX}
               placeholder="e.g. Nurse"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             />
+            {newNameError && <p className="mt-1 text-xs text-red-600">{newNameError}</p>}
           </div>
           <PermissionMatrix value={newPermissions} onChange={setNewPermissions} />
         </div>
@@ -277,9 +306,14 @@ export function RolesPermissionsPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Role name</label>
             <input
               value={editName}
-              onChange={(e) => setEditName(e.target.value)}
+              onChange={(e) => {
+                setEditName(e.target.value);
+                setEditNameError(null);
+              }}
+              maxLength={ROLE_NAME_MAX}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             />
+            {editNameError && <p className="mt-1 text-xs text-red-600">{editNameError}</p>}
           </div>
           <PermissionMatrix value={editPermissions} onChange={setEditPermissions} />
         </div>
