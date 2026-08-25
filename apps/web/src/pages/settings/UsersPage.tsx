@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { KeyRound, Plus, ShieldOff, ShieldCheck } from 'lucide-react';
+import { KeyRound, Pencil, Plus, ShieldOff, ShieldCheck } from 'lucide-react';
 import type { UserSummary } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
@@ -34,6 +34,14 @@ const createUserSchema = z.object({
 
 type CreateUserFormValues = z.infer<typeof createUserSchema>;
 
+const editUserSchema = z.object({
+  name: z.string().min(1, 'Name is required').regex(NAME_REGEX, 'Name can only contain letters and spaces'),
+  mobile: z.union([z.string().regex(MOBILE_REGEX, 'Mobile number must be exactly 10 digits'), z.literal('')]).optional(),
+  role: z.string().min(1, 'Role is required'),
+});
+
+type EditUserFormValues = z.infer<typeof editUserSchema>;
+
 const resetPasswordSchema = z.object({
   newPassword: z.string().min(4, 'Password must be at least 4 characters'),
 });
@@ -44,18 +52,27 @@ export function UsersPage() {
   const currentUser = useAuthStore((state) => state.user);
   const { data: users, isLoading } = useUsersQuery();
   const { data: roles } = useRolesQuery();
-  const { create, deactivate, reactivate, resetPassword } = useUserMutations();
+  const { create, update, deactivate, reactivate, resetPassword } = useUserMutations();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<UserSummary | null>(null);
   const [resetTarget, setResetTarget] = useState<UserSummary | null>(null);
+  const [editTarget, setEditTarget] = useState<UserSummary | null>(null);
 
   const addForm = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserSchema),
     defaultValues: { role: '' },
   });
 
+  const editForm = useForm<EditUserFormValues>({ resolver: zodResolver(editUserSchema) });
+
   const resetForm = useForm<ResetPasswordFormValues>({ resolver: zodResolver(resetPasswordSchema) });
+
+  useEffect(() => {
+    if (editTarget) {
+      editForm.reset({ name: editTarget.name, mobile: editTarget.mobile ?? '', role: editTarget.role });
+    }
+  }, [editTarget]);
 
   const activeAdminCount = users?.filter((u) => u.role === 'ADMIN' && u.isActive).length ?? 0;
 
@@ -67,6 +84,11 @@ export function UsersPage() {
   const closeResetModal = () => {
     resetForm.reset();
     setResetTarget(null);
+  };
+
+  const closeEditModal = () => {
+    editForm.reset();
+    setEditTarget(null);
   };
 
   const onAddSubmit = async (values: CreateUserFormValues) => {
@@ -95,6 +117,20 @@ export function UsersPage() {
     }
   };
 
+  const onEditSubmit = async (values: EditUserFormValues) => {
+    if (!editTarget) return;
+    try {
+      await update.mutateAsync({
+        id: editTarget.id,
+        payload: { name: values.name, mobile: values.mobile || undefined, role: values.role },
+      });
+      toast.success(`${values.name} updated`);
+      closeEditModal();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not update user.'));
+    }
+  };
+
   const onResetSubmit = async (values: ResetPasswordFormValues) => {
     if (!resetTarget) return;
     try {
@@ -112,6 +148,11 @@ export function UsersPage() {
   const columns: ColumnDef<UserSummary>[] = [
     { accessorKey: 'name', header: 'Name' },
     { accessorKey: 'username', header: 'Username' },
+    {
+      accessorKey: 'mobile',
+      header: 'Mobile',
+      cell: ({ getValue }) => getValue<string | null>() || '—',
+    },
     {
       accessorKey: 'role',
       header: 'Role',
@@ -145,6 +186,12 @@ export function UsersPage() {
               const isOnlyActiveAdmin = user.role === 'ADMIN' && user.isActive && activeAdminCount <= 1;
               return (
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditTarget(user)}
+                    className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
                   <button
                     onClick={() => setResetTarget(user)}
                     className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
@@ -305,6 +352,71 @@ export function UsersPage() {
                 </option>
               ))}
             </select>
+          </div>
+        </form>
+      </FormModal>
+
+      <FormModal
+        open={Boolean(editTarget)}
+        title={`Edit ${editTarget?.name ?? ''}`}
+        onClose={closeEditModal}
+        footer={
+          <>
+            <button
+              onClick={closeEditModal}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={editForm.handleSubmit(onEditSubmit)}
+              disabled={update.isPending}
+              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {update.isPending ? 'Saving...' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        <form className="flex flex-col gap-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+            <input
+              {...editForm.register('name')}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            />
+            {editForm.formState.errors.name && (
+              <p className="mt-1 text-xs text-red-600">{editForm.formState.errors.name.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Mobile Number</label>
+            <input
+              {...editForm.register('mobile')}
+              maxLength={10}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            />
+            {editForm.formState.errors.mobile && (
+              <p className="mt-1 text-xs text-red-600">{editForm.formState.errors.mobile.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
+            <select
+              {...editForm.register('role')}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            >
+              {roles?.map((role) => (
+                <option key={role.id} value={role.name}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+            {editForm.formState.errors.role && (
+              <p className="mt-1 text-xs text-red-600">{editForm.formState.errors.role.message}</p>
+            )}
           </div>
         </form>
       </FormModal>
