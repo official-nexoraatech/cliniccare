@@ -12,18 +12,25 @@ import { resolveServerUrl } from '@/lib/api';
 import { getErrorMessage } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
-const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/;
+const PHONE_REGEX = /^(?=(?:\D*\d){10,})[+]?[\d\s()-]{7,20}$/;
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+const NAME_WITH_LETTER_REGEX = /^(?=.*[A-Za-z])[A-Za-z .'-]+$/;
 const SLOT_MINUTES_OPTIONS = [10, 15, 20, 30, 60] as const;
 
 // Mirrors apps/api/src/modules/clinic/dto/update-clinic.dto.ts field-for-field
 // (see feedback_dual_validation).
 const clinicSchema = z.object({
-  name: z.string().min(1, 'Clinic name is required'),
+  name: z.string().trim().min(1, 'Clinic name is required'),
   address: z.string().optional(),
-  phone: z.string().regex(PHONE_REGEX, 'Enter a valid phone number'),
+  phone: z
+    .string()
+    .regex(PHONE_REGEX, 'Enter a valid phone number with at least 10 digits'),
   email: z.string().email('Enter a valid email'),
-  doctorName: z.string().optional(),
+  doctorName: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || NAME_WITH_LETTER_REGEX.test(v), 'Doctor name must contain letters, and only letters, spaces, periods, apostrophes or hyphens'),
   degree: z.string().optional(),
   regnNumber: z.string().optional(),
   openTime: z.string().regex(TIME_REGEX, 'Enter a valid time'),
@@ -56,7 +63,7 @@ export function ClinicProfilePage() {
     reset,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<ClinicFormValues>({ resolver: zodResolver(clinicSchema) });
+  } = useForm<ClinicFormValues>({ resolver: zodResolver(clinicSchema), mode: 'onBlur' });
   const taxEnabled = watch('taxEnabled');
 
   useEffect(() => {
@@ -232,6 +239,7 @@ export function ClinicProfilePage() {
             <div>
               <label className={labelClass}>Doctor Name</label>
               <input {...register('doctorName')} className={inputClass} />
+              {errors.doctorName && <p className="mt-1 text-xs text-red-600">{errors.doctorName.message}</p>}
             </div>
             <div>
               <label className={labelClass}>Degree</label>

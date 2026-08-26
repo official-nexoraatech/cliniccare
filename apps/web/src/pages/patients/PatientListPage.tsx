@@ -242,7 +242,7 @@ export function PatientListPage() {
             data={data?.items ?? []}
             searchable={false}
             pageSize={Math.max(data?.items.length ?? 1, 1)}
-            showPageSizeSelector={false}
+            showPagination={false}
             emptyMessage="No patients found."
           />
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
