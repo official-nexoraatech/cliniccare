@@ -22,8 +22,8 @@ interface DataTableProps<TData> {
   pageSize?: number;
   /** Rows-per-page choices offered in the footer selector. Defaults to 10/20/50/100. */
   pageSizeOptions?: number[];
-  /** Set false when the page already paginates server-side and drives its own page-size control (see PatientListPage). */
-  showPageSizeSelector?: boolean;
+  /** Set false when the page already paginates server-side and renders its own pagination footer (see PatientListPage). */
+  showPagination?: boolean;
   emptyMessage?: string;
 }
 
@@ -33,7 +33,7 @@ export function DataTable<TData>({
   searchable = true,
   pageSize = 10,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
-  showPageSizeSelector = true,
+  showPagination = true,
   emptyMessage = 'No records found.',
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -107,12 +107,12 @@ export function DataTable<TData>({
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
-        <div className="flex items-center gap-3">
-          <span>
-            Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
-          </span>
-          {showPageSizeSelector && (
+      {showPagination && (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
+          <div className="flex items-center gap-3">
+            <span>
+              Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
+            </span>
             <label className="flex items-center gap-1.5">
               Rows per page
               <select
@@ -127,25 +127,25 @@ export function DataTable<TData>({
                 ))}
               </select>
             </label>
-          )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" /> Prev
+            </button>
+            <button
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 disabled:opacity-40"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 disabled:opacity-40"
-          >
-            <ChevronLeft className="h-4 w-4" /> Prev
-          </button>
-          <button
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 disabled:opacity-40"
-          >
-            Next <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
