@@ -4,6 +4,7 @@ import { CreateBillDto } from './dto/create-bill.dto';
 import { UpdateBillDto } from './dto/update-bill.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { CancelBillDto } from './dto/cancel-bill.dto';
+import { BillItemDto } from './dto/bill-item.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -49,6 +50,15 @@ export class BillingController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateBillDto) {
     return this.billingService.update(id, dto);
+  }
+
+  // Unlike update() above, allowed at any time — including after payments exist — so a
+  // charge that only becomes known partway through a visit (an injection, dressing, etc.)
+  // can be added to the same bill instead of being stuck with no way to bill it at all.
+  @RequiresPermission('billing:edit')
+  @Post(':id/items')
+  addItem(@Param('id') id: string, @Body() dto: BillItemDto) {
+    return this.billingService.addItem(id, dto);
   }
 
   @RequiresPermission('billing:edit')

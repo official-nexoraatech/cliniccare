@@ -137,6 +137,36 @@ export class BillingService {
     return this.toDetail(bill);
   }
 
+  /** The real-world gap update() can't cover: a charge (injection, dressing, ...) that only
+   * becomes known partway through a visit, after the consultation fee is already paid.
+   * Appends one item and recomputes totals off the existing discount/tax — existing items
+   * and payments are untouched, so nothing already paid for is ever rewritten. */
+  async addItem(id: string, item: BillItemInput): Promise<BillDetail> {
+    const existing = await this.findOrThrow(id);
+    if (existing.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot add items to a cancelled bill');
+    }
+
+    const [newItemData] = this.buildItemsData([item]);
+    const allAmounts = [...existing.items.map((i) => ({ amount: i.amount })), newItemData];
+    const { subtotal, taxAmount, totalAmount } = this.computeTotals(allAmounts, existing.discount, existing.taxPercent);
+    const dueAmount = totalAmount - existing.paidAmount;
+
+    const bill = await this.prisma.bill.update({
+      where: { id },
+      data: {
+        subtotal,
+        taxAmount,
+        totalAmount,
+        dueAmount,
+        status: dueAmount === 0 ? 'PAID' : existing.paidAmount > 0 ? 'PARTIAL' : 'UNPAID',
+        items: { create: newItemData },
+      },
+      include: BILL_INCLUDE,
+    });
+    return this.toDetail(bill);
+  }
+
   async recordPayment(id: string, dto: RecordPaymentDto, createdBy: string): Promise<BillDetail> {
     const existing = await this.findOrThrow(id);
     if (existing.status === 'CANCELLED') {
