@@ -44,9 +44,9 @@ export class NumberService {
 
   /**
    * Atomically increments the named counter and returns the formatted number,
-   * e.g. PATIENT -> "P-2526-1". A single `UPDATE ... SET value = value + 1`
-   * is itself atomic in SQLite, so concurrent callers can never be handed the
-   * same number without needing an extra transaction wrapper.
+   * e.g. PATIENT -> "P-2526-1". Prisma's `increment` maps to a Mongo `$inc` on
+   * a single document, which is itself atomic, so concurrent callers can never
+   * be handed the same number without needing an extra transaction wrapper.
    */
   async getNext(key: CounterKey): Promise<string> {
     try {

@@ -1,6 +1,6 @@
 import type { PermissionKey } from '@clinic-care/shared-types';
 
-/** Role.permissions is stored as a JSON string (SQLite has no native string-list column). */
+/** Role.permissions is stored as a JSON string, carried over from before the Mongo migration. */
 export function parsePermissions(json: string): PermissionKey[] {
   try {
     const parsed: unknown = JSON.parse(json);

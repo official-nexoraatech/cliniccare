@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { hasPermission } from '@/lib/permissions';
 import { useAuthStore } from '@/store/auth-store';
@@ -9,6 +10,7 @@ import { FeeMasterPage } from './FeeMasterPage';
 import { NumberingSettingsPage } from './NumberingSettingsPage';
 import { PatientFieldsPage } from './PatientFieldsPage';
 import { MedicineFieldsPage } from './MedicineFieldsPage';
+import { BackupSettingsPage } from './BackupSettingsPage';
 
 const TABS = [
   { key: 'users', label: 'Users', permission: 'administration:view' as const },
@@ -18,14 +20,48 @@ const TABS = [
   { key: 'patientFields', label: 'Patient Fields', permission: null },
   { key: 'medicineFields', label: 'Medicine Fields', permission: null },
   { key: 'numbering', label: 'Numbering', permission: null },
+  // Host-only (see the isHost check below) — a Client machine has no local Mongo of its
+  // own to back up, so the tab would just be a dead control pointed at the Host's DB.
+  { key: 'backup', label: 'Backup & Sync', permission: 'administration:view' as const },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
 
+// Which tab is active lives in the URL (/settings/:tab), not component state — so a browser
+// refresh (or a bookmarked/shared link) lands back on the same tab instead of resetting to
+// the first one.
 export function SettingsPage() {
   const currentUser = useAuthStore((state) => state.user);
-  const visibleTabs = TABS.filter((t) => !t.permission || hasPermission(currentUser, t.permission));
-  const [tab, setTab] = useState<TabKey>(visibleTabs[0]?.key ?? 'clinic');
+  const navigate = useNavigate();
+  const { tab } = useParams<{ tab?: string }>();
+  // null = not resolved yet. Kept distinct from `false` so a refresh landing directly on
+  // /settings/backup doesn't get bounced away before the (async, Electron-only) role check
+  // has had a chance to come back true.
+  const [isHost, setIsHost] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    window.clinicCare
+      ?.getRole()
+      .then((role) => setIsHost(role === 'HOST'))
+      .catch(() => setIsHost(false));
+    if (!window.clinicCare) setIsHost(false);
+  }, []);
+
+  const visibleTabs = TABS.filter((t) => {
+    if (t.key === 'backup' && !isHost) return false;
+    return !t.permission || hasPermission(currentUser, t.permission);
+  });
+
+  const isValidTab = (value: string | undefined): value is TabKey => visibleTabs.some((t) => t.key === value);
+
+  if (tab === 'backup' && isHost === null) {
+    return <p className="text-sm text-gray-400">Loading...</p>;
+  }
+
+  if (!isValidTab(tab)) {
+    const fallback = visibleTabs[0]?.key ?? 'clinic';
+    return <Navigate to={`/settings/${fallback}`} replace />;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -33,7 +69,7 @@ export function SettingsPage() {
         {visibleTabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => navigate(`/settings/${t.key}`, { replace: true })}
             className={cn(
               'border-b-2 px-4 py-2.5 text-sm font-medium',
               tab === t.key
@@ -53,6 +89,7 @@ export function SettingsPage() {
       {tab === 'patientFields' && <PatientFieldsPage />}
       {tab === 'medicineFields' && <MedicineFieldsPage />}
       {tab === 'numbering' && <NumberingSettingsPage />}
+      {tab === 'backup' && <BackupSettingsPage />}
     </div>
   );
 }

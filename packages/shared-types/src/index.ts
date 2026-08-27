@@ -19,3 +19,4 @@ export * from './prescriptions';
 export * from './certificates';
 export * from './billing';
 export * from './accounts';
+export * from './backup';

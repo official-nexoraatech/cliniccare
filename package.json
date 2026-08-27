@@ -14,8 +14,9 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "seed": "npm run seed -w apps/api",
-    "migrate:deploy": "npm run prisma:deploy -w apps/api",
-    "start:prod": "npm run start:prod -w apps/api"
+    "migrate:deploy": "npm run prisma:push -w apps/api",
+    "start:prod": "npm run start:prod -w apps/api",
+    "package:desktop": "npm run build && npm run dist -w apps/desktop"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

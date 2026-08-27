@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import type { AuthUser, LoginResponse } from '@clinic-care/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { parsePermissions } from '../../common/utils/parse-permissions';

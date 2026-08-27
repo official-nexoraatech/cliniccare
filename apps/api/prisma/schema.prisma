@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model Clinic {
-  id             String  @id @default(cuid())
+  id             String  @id @default(cuid()) @map("_id")
   name           String
   address        String?
   phone          String?
@@ -40,11 +40,11 @@ model Clinic {
 // ADMIN, DOCTOR, RECEPTIONIST, ASSISTANT are seeded defaults — admin can rename,
 // reshape, delete (if unassigned) or create new roles from the Permissions tab.
 model Role {
-  id          String  @id @default(cuid())
+  id          String  @id @default(cuid()) @map("_id")
   name        String  @unique
-  // JSON-encoded PermissionKey[] (e.g. ["patients:view","patients:edit"]). SQLite
-  // has no native string-list column, so this is stored as a JSON string and
-  // parsed/serialized in RolesService rather than added as a join table.
+  // JSON-encoded PermissionKey[] (e.g. ["patients:view","patients:edit"]), carried over
+  // from before the Mongo migration — parsed/serialized in RolesService rather than
+  // added as a join table.
   permissions String  @default("[]")
   // True only for ADMIN — can't be renamed, have its permissions edited, or be
   // deleted, so the clinic can never lock itself out of its own admin panel.
@@ -54,7 +54,7 @@ model Role {
 }
 
 model User {
-  id           String  @id @default(cuid())
+  id           String  @id @default(cuid()) @map("_id")
   name         String
   username     String  @unique
   mobile       String?
@@ -69,7 +69,7 @@ model User {
 }
 
 model FeeType {
-  id        String  @id @default(cuid())
+  id        String  @id @default(cuid()) @map("_id")
   name      String  @unique
   amount    Int
   isDefault Boolean @default(false)
@@ -89,7 +89,7 @@ model FeeType {
 // from being edited (the column's real type can't change), but required/isActive
 // stay fully admin-controlled like any other row.
 model PatientFieldDefinition {
-  id        String  @id @default(cuid())
+  id        String  @id @default(cuid()) @map("_id")
   key       String  @unique
   label     String
   fieldType String  @default("TEXT")
@@ -105,17 +105,53 @@ model PatientFieldDefinition {
 
 // key: PATIENT | VISIT | BILL | CERTIFICATE
 model Counter {
-  id            String @id @default(cuid())
+  id            String @id @default(cuid()) @map("_id")
   key           String @unique
   prefix        String
   currentValue  Int    @default(0)
   financialYear String
 }
 
+// Generic key/value store — currently used only for backup config: "backup_enabled",
+// "atlas_connection_string", "local_retention_count". See modules/backup.
 model Setting {
-  id    String @id @default(cuid())
+  id    String @id @default(cuid()) @map("_id")
   key   String @unique
   value String
+}
+
+enum BackupStage {
+  LOCAL_DUMP
+  ATLAS_SYNC
+  // Atlas -> local, the reverse direction — triggered from Settings, always preceded by a
+  // safety dump of whatever was locally there first (see BackupService.restoreFromAtlas).
+  RESTORE
+}
+
+enum BackupStatus {
+  SUCCESS
+  FAILED
+  RETRYING
+  // Atlas sync attempted (nightly cron, or a manual "Backup Now") while no connection
+  // string was configured — logged explicitly rather than silently doing nothing, so
+  // "Recent attempts" never leaves the admin guessing whether cloud sync ran.
+  SKIPPED
+}
+
+// One row per backup attempt (not just a single "last backup" timestamp) — so the admin UI
+// can show real history, including failures, not just the last success. See modules/backup.
+model BackupLog {
+  id          String       @id @default(cuid()) @map("_id")
+  startedAt   DateTime     @default(now())
+  finishedAt  DateTime?
+  stage       BackupStage
+  status      BackupStatus
+  message     String?
+  archivePath String?
+  localCount  Int?
+  atlasCount  Int?
+
+  @@index([startedAt])
 }
 
 enum Gender {
@@ -129,7 +165,7 @@ enum Gender {
 }
 
 model Patient {
-  id              String    @id @default(cuid())
+  id              String    @id @default(cuid()) @map("_id")
   patientId       String    @unique
   name            String
   age             Int
@@ -166,7 +202,6 @@ model Patient {
 
   @@index([mobile])
   @@index([name])
-  @@index([patientId])
 }
 
 enum MedicineForm {
@@ -187,7 +222,7 @@ enum MedicineForm {
 // toggle visibility/required-ness of the built-in ones. Values live in
 // Medicine.customFields, keyed by `key`.
 model MedicineFieldDefinition {
-  id        String  @id @default(cuid())
+  id        String  @id @default(cuid()) @map("_id")
   key       String  @unique
   label     String
   fieldType String  @default("TEXT")
@@ -210,7 +245,7 @@ enum BeforeAfterFood {
 }
 
 model Medicine {
-  id                     String          @id @default(cuid())
+  id                     String          @id @default(cuid()) @map("_id")
   brandName              String
   genericName            String?
   strength               String?
@@ -251,7 +286,7 @@ enum VisitStatus {
 }
 
 model Visit {
-  id                    String      @id @default(cuid())
+  id                    String      @id @default(cuid()) @map("_id")
   visitNo               String      @unique
   patientId             String
   patient               Patient     @relation(fields: [patientId], references: [id])
@@ -276,7 +311,7 @@ model Visit {
   followUps    FollowUp[]
   prescription Prescription?
   compliances  Compliance[]
-  bill         Bill?
+  // No formal relation to Bill — see the comment on Bill.visitId for why.
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -287,7 +322,7 @@ model Visit {
 }
 
 model Vital {
-  id              String  @id @default(cuid())
+  id              String  @id @default(cuid()) @map("_id")
   visitId         String  @unique
   visit           Visit   @relation(fields: [visitId], references: [id])
   bp              String?
@@ -312,7 +347,7 @@ enum LabTestStatus {
 }
 
 model LabTest {
-  id             String        @id @default(cuid())
+  id             String        @id @default(cuid()) @map("_id")
   visitId        String
   visit          Visit         @relation(fields: [visitId], references: [id])
   patientId      String
@@ -358,7 +393,7 @@ enum ContactResult {
 }
 
 model FollowUp {
-  id        String         @id @default(cuid())
+  id        String         @id @default(cuid()) @map("_id")
   patientId String
   patient   Patient        @relation(fields: [patientId], references: [id])
   visitId   String
@@ -388,7 +423,7 @@ model FollowUp {
 }
 
 model Prescription {
-  id                 String    @id @default(cuid())
+  id                 String    @id @default(cuid()) @map("_id")
   visitId            String    @unique
   visit              Visit     @relation(fields: [visitId], references: [id])
   patientId          String
@@ -407,7 +442,7 @@ model Prescription {
 }
 
 model PrescriptionItem {
-  id              String          @id @default(cuid())
+  id              String          @id @default(cuid()) @map("_id")
   prescriptionId  String
   prescription    Prescription    @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   medicineId      String
@@ -438,7 +473,7 @@ enum DocumentCategory {
 }
 
 model Document {
-  id          String           @id @default(cuid())
+  id          String           @id @default(cuid()) @map("_id")
   patientId   String
   visitId     String?
   fileName    String
@@ -471,7 +506,7 @@ enum ComplianceReasonForMissing {
 
 // Formula lives in ComplianceService only (single source of truth) — see Info/ClinicCare guide 2.5.
 model Compliance {
-  id         String   @id @default(cuid())
+  id         String   @id @default(cuid()) @map("_id")
   patientId  String
   visitId    String
   visit      Visit    @relation(fields: [visitId], references: [id])
@@ -512,7 +547,7 @@ enum AppointmentSource {
 }
 
 model Appointment {
-  id              String            @id @default(cuid())
+  id              String            @id @default(cuid()) @map("_id")
   patientId       String?
   patient         Patient?          @relation(fields: [patientId], references: [id])
   patientName     String
@@ -552,7 +587,7 @@ enum CertificateStatus {
 }
 
 model Certificate {
-  id            String            @id @default(cuid())
+  id            String            @id @default(cuid()) @map("_id")
   certificateNo String            @unique
   patientId     String
   patient       Patient           @relation(fields: [patientId], references: [id])
@@ -588,14 +623,20 @@ enum BillStatus {
 }
 
 model Bill {
-  id           String     @id @default(cuid())
+  id           String     @id @default(cuid()) @map("_id")
   billNo       String     @unique
   patientId    String
   patient      Patient    @relation(fields: [patientId], references: [id])
   // Optional — a bill can stand alone (lab-only charge, product sale) instead of
   // always coming from a completed visit.
-  visitId      String?    @unique
-  visit        Visit?     @relation(fields: [visitId], references: [id])
+  //
+  // Deliberately NOT @unique here: Prisma's MongoDB connector has no schema syntax for a
+  // partial/sparse unique index, so a plain `String? @unique` would make Mongo's default
+  // unique index treat every null visitId as the same value — the second standalone bill
+  // ever created would fail with a duplicate-key error. The actual "one bill per visit"
+  // constraint is instead enforced by a partial unique index created out-of-band by
+  // src/database/ensure-mongo-indexes.ts (run on every boot, see start:prod).
+  visitId      String?
   date         DateTime   @default(now())
   subtotal     Int
   discount     Int        @default(0)
@@ -620,10 +661,11 @@ model Bill {
   @@index([patientId])
   @@index([date])
   @@index([status])
+  @@index([visitId])
 }
 
 model BillItem {
-  id         String  @id @default(cuid())
+  id         String  @id @default(cuid()) @map("_id")
   billId     String
   bill       Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
   // Nullable — an ad-hoc line typed free-hand isn't required to come from the FeeType
@@ -648,7 +690,7 @@ enum PaymentMode {
 }
 
 model Payment {
-  id        String      @id @default(cuid())
+  id        String      @id @default(cuid()) @map("_id")
   billId    String
   bill      Bill        @relation(fields: [billId], references: [id], onDelete: Cascade)
   amount    Int
