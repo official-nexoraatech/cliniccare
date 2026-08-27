@@ -172,7 +172,7 @@ export class AppointmentsService {
     if (!query) return [];
 
     const rows = await this.prisma.appointment.findMany({
-      where: { OR: [{ patientName: { contains: query } }, { mobile: { contains: query } }] },
+      where: { OR: [{ patientName: { contains: query, mode: 'insensitive' } }, { mobile: { contains: query } }] },
       orderBy: { appointmentDate: 'desc' },
       take: SEARCH_LIMIT,
     });

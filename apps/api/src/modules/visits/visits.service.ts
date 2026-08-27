@@ -197,7 +197,7 @@ export class VisitsService {
     if (!query) return [];
 
     const rows = await this.prisma.visit.findMany({
-      where: { complaint: { contains: query } },
+      where: { complaint: { contains: query, mode: 'insensitive' } },
       select: { complaint: true },
       distinct: ['complaint'],
       take: 10,
@@ -212,7 +212,7 @@ export class VisitsService {
     if (!query) return [];
 
     const rows = await this.prisma.visit.findMany({
-      where: { diagnosis: { contains: query } },
+      where: { diagnosis: { contains: query, mode: 'insensitive' } },
       select: { diagnosis: true },
       distinct: ['diagnosis'],
       take: 10,
