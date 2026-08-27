@@ -12,9 +12,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { memoryStorage } from 'multer';
+import { extname } from 'node:path';
 import type { Express } from 'express';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
@@ -26,8 +25,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { RequestUser } from '../../common/guards/jwt-auth.guard';
 
-const PHOTOS_DIR = join(process.cwd(), 'files', 'patients');
 const ALLOWED_PHOTO_TYPES = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+
+const toDataUrl = (file: Express.Multer.File): string =>
+  `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('patients')
@@ -86,18 +87,7 @@ export class PatientsController {
   @Post(':id/photo')
   @UseInterceptors(
     FileInterceptor('photo', {
-      storage: diskStorage({
-        destination: (_req, _file, callback) => {
-          if (!existsSync(PHOTOS_DIR)) {
-            mkdirSync(PHOTOS_DIR, { recursive: true });
-          }
-          callback(null, PHOTOS_DIR);
-        },
-        filename: (_req, file, callback) => {
-          const id = (_req.params as { id: string }).id;
-          callback(null, `${id}${extname(file.originalname).toLowerCase()}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (_req, file, callback) => {
         const ext = extname(file.originalname).toLowerCase();
@@ -113,6 +103,6 @@ export class PatientsController {
     if (!file) {
       throw new BadRequestException('No photo file was uploaded');
     }
-    return this.patientsService.setPhoto(id, `/files/patients/${file.filename}`);
+    return this.patientsService.setPhoto(id, toDataUrl(file));
   }
 }

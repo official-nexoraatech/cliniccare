@@ -11,9 +11,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { memoryStorage } from 'multer';
+import { extname } from 'node:path';
 import type { Express } from 'express';
 import { DocumentsService } from './documents.service';
 import { UploadDocumentDto } from './dto/upload-document.dto';
@@ -23,8 +22,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { RequestUser } from '../../common/guards/jwt-auth.guard';
 
-const DOCUMENTS_DIR = join(process.cwd(), 'files', 'documents');
 const ALLOWED_TYPES = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
+
+const toDataUrl = (file: Express.Multer.File): string =>
+  `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('documents')
@@ -41,18 +42,7 @@ export class DocumentsController {
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, callback) => {
-          if (!existsSync(DOCUMENTS_DIR)) {
-            mkdirSync(DOCUMENTS_DIR, { recursive: true });
-          }
-          callback(null, DOCUMENTS_DIR);
-        },
-        filename: (req, file, callback) => {
-          const patientId = (req.body as { patientId?: string }).patientId ?? 'unknown';
-          callback(null, `${patientId}-${Date.now()}${extname(file.originalname).toLowerCase()}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 },
       fileFilter: (_req, file, callback) => {
         const ext = extname(file.originalname).toLowerCase();
@@ -76,7 +66,7 @@ export class DocumentsController {
       dto,
       {
         fileName: file.originalname,
-        filePath: `/files/documents/${file.filename}`,
+        filePath: toDataUrl(file),
         fileType: file.mimetype,
         fileSize: file.size,
       },
