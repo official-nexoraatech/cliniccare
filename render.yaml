@@ -13,13 +13,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Free tier has no persistent disk (see project memory / chat history for the
-      # tradeoff) — this is a plain relative path inside the container's ephemeral
-      # filesystem, same convention as local dev. Data resets on every redeploy or
-      # spin-down from inactivity. To get real persistence, add a paid-plan disk
-      # (mountPath: /data) and change this to file:/data/clinic.db.
+      # Set manually in the Render dashboard to the Atlas connection string — not
+      # committed here (it's a credential). sync: false stops Render's Blueprint sync
+      # from overwriting whatever's set there on every deploy.
       - key: DATABASE_URL
-        value: file:./data/clinic.db
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
