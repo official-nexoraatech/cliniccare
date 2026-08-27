@@ -68,7 +68,28 @@ export class VisitsService {
     return this.toDetail(visit);
   }
 
+  /** "New Visit" is clicked from the Patients list/profile with no idea whether today's
+   * visit for this patient already exists — without this check, clicking it again (e.g.
+   * after already recording vitals) silently spawned a second, blank visit instead of
+   * resuming the one already in progress, making vitals/notes just entered seem to vanish. */
   async create(dto: CreateVisitDto, doctorId: string, createdBy: string): Promise<VisitDetail> {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const openVisit = await this.prisma.visit.findFirst({
+      where: {
+        patientId: dto.patientId,
+        status: { in: ['WAITING', 'IN_CONSULTATION'] },
+        visitDate: { gte: startOfDay, lte: endOfDay },
+      },
+      include: VISIT_INCLUDE,
+    });
+    if (openVisit) {
+      return this.toDetail(openVisit);
+    }
+
     const visitNo = await this.numberService.getNext('VISIT');
     const visit = await this.prisma.visit.create({
       data: {
