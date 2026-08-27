@@ -224,10 +224,83 @@ function BillBody({ bill }: { bill: BillDetail }) {
             <p key={p.id}>
               {fmtDate(p.paidOn)} — {fmtMoney(p.amount)} via {MODE_LABEL[p.mode]}
               {p.reference ? ` (${p.reference})` : ''}
+              {p.createdBy ? ` · Collected by ${p.createdBy}` : ''}
             </p>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Lets reception top up an already-partially-paid bill with a charge that only became
+ * known partway through the visit (injection, dressing, ...) — see billing.service.ts's
+ * addItem(). Kept separate from BillItemsEditor: each add is its own immediate API call
+ * against a bill that may already have payments, not a draft staged for one big submit. */
+function AddBillItemInline({ bill }: { bill: BillDetail }) {
+  const { data: feeTypes = [] } = useFeeTypesQuery();
+  const { addItem } = useBillMutations();
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState(0);
+  const activeFeeTypes = feeTypes.filter((f) => f.isActive);
+
+  const submit = async (feeTypeId?: string, itemName?: string, itemAmount?: number) => {
+    const finalName = (itemName ?? name).trim();
+    const finalAmount = itemAmount ?? amount;
+    if (!finalName || finalAmount <= 0) return;
+    try {
+      await addItem.mutateAsync({
+        id: bill.id,
+        payload: { feeTypeId, name: finalName, quantity: 1, unitAmount: finalAmount, sortOrder: bill.items.length },
+      });
+      setName('');
+      setAmount(0);
+      toast.success('Item added to bill');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not add item.'));
+    }
+  };
+
+  return (
+    <div className="no-print mt-4 flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-gray-300 p-3">
+      {activeFeeTypes.length > 0 && (
+        <select
+          value=""
+          onChange={(e) => {
+            const f = activeFeeTypes.find((x) => x.id === e.target.value);
+            if (f) submit(f.id, f.name, f.amount);
+          }}
+          className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-600"
+        >
+          <option value="">+ Add from fee list</option>
+          {activeFeeTypes.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name} — {fmtMoney(f.amount)}
+            </option>
+          ))}
+        </select>
+      )}
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Or type a custom item"
+        className="w-40 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+      />
+      <input
+        type="number"
+        min={1}
+        value={amount || ''}
+        onChange={(e) => setAmount(Number(e.target.value) || 0)}
+        placeholder="Amount"
+        className="w-24 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+      />
+      <button
+        onClick={() => submit()}
+        disabled={addItem.isPending || !name.trim() || amount <= 0}
+        className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+      >
+        Add to Bill
+      </button>
     </div>
   );
 }
@@ -793,6 +866,7 @@ export function BillingPage() {
           <PrintLayout clinic={clinic} documentTitle="Bill / Receipt" onPrint={() => { handlePrint(previewTarget); setPreviewId(null); }}>
             <BillBody bill={previewTarget} />
           </PrintLayout>
+          {canEdit && previewTarget.status !== 'CANCELLED' && <AddBillItemInline bill={previewTarget} />}
         </FormModal>
       )}
 

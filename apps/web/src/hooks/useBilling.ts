@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   BillDetail,
+  BillItemInput,
   BillListItem,
   CancelBillRequest,
   CreateBillRequest,
@@ -74,6 +75,14 @@ export function useBillMutations() {
     onSuccess: invalidate,
   });
 
+  const addItem = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: BillItemInput }) => {
+      const { data } = await api.post<BillDetail>(`/billing/${id}/items`, payload);
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+
   const recordPayment = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: RecordPaymentRequest }) => {
       const { data } = await api.post<BillDetail>(`/billing/${id}/payments`, payload);
@@ -98,5 +107,5 @@ export function useBillMutations() {
     onSuccess: invalidate,
   });
 
-  return { create, update, recordPayment, markPrinted, cancel };
+  return { create, update, addItem, recordPayment, markPrinted, cancel };
 }
