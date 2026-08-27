@@ -27,6 +27,7 @@ export interface AppointmentDetail {
   source: AppointmentSource;
   remark: string | null;
   visitId: string | null;
+  hasVitals: boolean;
   updatedAt: string;
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -1053,6 +1054,7 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
  * to the same /visits/:id/vitals endpoint the consultation screen uses (upsert, so
  * whoever saves last wins — the doctor can still correct it there). */
 function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: () => void; appointment: AppointmentDetail }) {
+  const queryClient = useQueryClient();
   const { saveVitals } = useVisitMutations();
   const { data: visit } = useVisitQuery(appointment.visitId ?? undefined);
   const [bp, setBp] = useState('');
@@ -1103,6 +1105,9 @@ function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: (
         },
       });
       toast.success(`Vitals recorded for ${appointment.patientName}`);
+      // Vitals live on the Visit, but the queue's "recorded" tick is part of the
+      // Appointment payload — that query needs its own invalidation to pick it up.
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
       reset();
       onClose();
     } catch (error) {
@@ -1313,10 +1318,13 @@ function QueueView() {
                   {a.status === 'ARRIVED' && a.visitId && hasPermission(currentUser, 'vitals:edit') && (
                     <button
                       onClick={() => setVitalsTarget(a)}
-                      className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                      title="Record vitals before the doctor starts"
+                      className="relative flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      title={a.hasVitals ? 'Vitals recorded — click to view/edit' : 'Record vitals before the doctor starts'}
                     >
                       <Activity className="h-3.5 w-3.5" /> Vitals
+                      {a.hasVitals && (
+                        <CheckCircle2 className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-white text-green-600" />
+                      )}
                     </button>
                   )}
                   {a.status === 'ARRIVED' && (
