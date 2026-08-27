@@ -985,7 +985,7 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
             <tbody className="divide-y divide-gray-100">
               {appointments.map((a) => (
                 <tr key={a.id}>
-                  <td className="px-4 py-3">#{a.tokenNo}</td>
+                  <td className="px-4 py-3">{a.tokenNo}</td>
                   <td className="px-4 py-3">{a.timeSlot}</td>
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-800">{a.patientName}</p>
