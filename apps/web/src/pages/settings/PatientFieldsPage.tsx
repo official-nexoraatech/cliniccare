@@ -49,7 +49,6 @@ export function PatientFieldsPage() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<PatientFieldDefinition | null>(null);
-  const [keyManuallyEdited, setKeyManuallyEdited] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<PatientFieldDefinition | null>(null);
 
   const form = useForm<PatientFieldFormValues>({
@@ -59,18 +58,15 @@ export function PatientFieldsPage() {
 
   const fieldType = form.watch('fieldType');
   const label = form.watch('label');
-  const keyField = form.register('key');
 
-  // Suggests a key from the label as admin types — only while adding, and only
-  // until they touch the key field themselves (see keyField.onChange override below).
+  // Key is derived from the label behind the scenes — never shown or edited directly.
   useEffect(() => {
-    if (editTarget || keyManuallyEdited) return;
+    if (editTarget) return;
     form.setValue('key', slugify(label ?? ''));
-  }, [label, editTarget, keyManuallyEdited]);
+  }, [label, editTarget]);
 
   const openAdd = () => {
     form.reset({ key: '', label: '', fieldType: 'TEXT', optionsText: '', required: false });
-    setKeyManuallyEdited(false);
     setIsAddOpen(true);
   };
 
@@ -279,28 +275,6 @@ export function PatientFieldsPage() {
             {form.formState.errors.label && (
               <p className="mt-1 text-xs text-red-600">{form.formState.errors.label.message}</p>
             )}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Key</label>
-            <input
-              {...keyField}
-              onChange={(e) => {
-                setKeyManuallyEdited(true);
-                keyField.onChange(e);
-              }}
-              disabled={Boolean(editTarget)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] disabled:bg-gray-50 disabled:text-gray-400"
-              placeholder="e.g. insurance_id"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              {editTarget?.isCore
-                ? 'Built-in field — tied to a real patient record column, key is fixed.'
-                : editTarget
-                  ? "Can't be changed after creation."
-                  : 'Auto-filled from the label — edit if you want something different.'}
-            </p>
-            {form.formState.errors.key && <p className="mt-1 text-xs text-red-600">{form.formState.errors.key.message}</p>}
           </div>
 
           <div>
