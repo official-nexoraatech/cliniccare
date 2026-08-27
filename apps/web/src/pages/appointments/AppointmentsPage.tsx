@@ -29,7 +29,7 @@ import {
   useDoctorsQuery,
 } from '@/hooks/useAppointments';
 import { useClinicQuery } from '@/hooks/useClinic';
-import { useVisitMutations } from '@/hooks/useVisits';
+import { useVisitMutations, useVisitQuery } from '@/hooks/useVisits';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
 import { getErrorMessage, cn } from '@/lib/utils';
@@ -1054,6 +1054,7 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
  * whoever saves last wins — the doctor can still correct it there). */
 function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: () => void; appointment: AppointmentDetail }) {
   const { saveVitals } = useVisitMutations();
+  const { data: visit } = useVisitQuery(appointment.visitId ?? undefined);
   const [bp, setBp] = useState('');
   const [pulse, setPulse] = useState('');
   const [temperature, setTemperature] = useState('');
@@ -1071,6 +1072,20 @@ function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: (
     setSpo2('');
     setNotes('');
   };
+
+  // Prefills from whatever's already recorded for this visit instead of always opening
+  // blank — otherwise reopening the modal looked like the first save had been wiped.
+  useEffect(() => {
+    if (!open) return;
+    const vital = visit?.vital;
+    setBp(vital?.bp ?? '');
+    setPulse(vital?.pulse != null ? String(vital.pulse) : '');
+    setTemperature(vital?.temperature != null ? String(vital.temperature) : '');
+    setWeight(vital?.weight != null ? String(vital.weight) : '');
+    setHeight(vital?.height != null ? String(vital.height) : '');
+    setSpo2(vital?.spo2 != null ? String(vital.spo2) : '');
+    setNotes(vital?.notes ?? '');
+  }, [open, visit]);
 
   const onSave = async () => {
     if (!appointment.visitId) return;
