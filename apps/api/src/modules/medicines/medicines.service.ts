@@ -22,7 +22,7 @@ export class MedicinesService {
     const where = {
       isActive: query.isActive === undefined ? true : query.isActive === 'true',
       ...(query.form ? { form: query.form } : {}),
-      ...(query.category ? { category: { contains: query.category } } : {}),
+      ...(query.category ? { category: { contains: query.category, mode: 'insensitive' as const } } : {}),
       ...(query.favouriteOnly === 'true' ? { isFavourite: true } : {}),
     };
 
@@ -47,7 +47,10 @@ export class MedicinesService {
     const rows = await this.prisma.medicine.findMany({
       where: {
         isActive: true,
-        OR: [{ brandName: { contains: query } }, { genericName: { contains: query } }],
+        OR: [
+          { brandName: { contains: query, mode: 'insensitive' } },
+          { genericName: { contains: query, mode: 'insensitive' } },
+        ],
       },
       orderBy: [{ isFavourite: 'desc' }, { usageCount: 'desc' }, { brandName: 'asc' }],
       take: 10,

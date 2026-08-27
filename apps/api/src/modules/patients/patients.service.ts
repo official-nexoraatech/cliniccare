@@ -46,9 +46,15 @@ export class PatientsService {
     const where = {
       isActive: query.isActive === undefined ? true : query.isActive === 'true',
       ...(query.gender ? { gender: query.gender } : {}),
-      ...(query.city ? { city: { contains: query.city } } : {}),
+      ...(query.city ? { city: { contains: query.city, mode: 'insensitive' as const } } : {}),
       ...(search
-        ? { OR: [{ name: { contains: search } }, { mobile: { contains: search } }, { patientId: { contains: search } }] }
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' as const } },
+              { mobile: { contains: search } },
+              { patientId: { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
         : {}),
       ...(query.registeredFrom || query.registeredTo
         ? {
@@ -85,11 +91,11 @@ export class PatientsService {
       where: {
         isActive: true,
         OR: isDigitsOnly
-          ? [{ mobile: { contains: query } }, { patientId: { contains: query } }]
+          ? [{ mobile: { contains: query } }, { patientId: { contains: query, mode: 'insensitive' } }]
           : [
-              { name: { contains: query } },
+              { name: { contains: query, mode: 'insensitive' } },
               { mobile: { contains: query } },
-              { patientId: { contains: query } },
+              { patientId: { contains: query, mode: 'insensitive' } },
             ],
       },
       orderBy: isDigitsOnly ? { mobile: 'asc' } : { name: 'asc' },
