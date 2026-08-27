@@ -96,19 +96,19 @@ export function PatientListPage() {
           <div className="flex gap-2">
             <button
               onClick={() => navigate(`/patients/${row.original.id}`)}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1 rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
             >
               <Eye className="h-3.5 w-3.5" /> View
             </button>
             <button
               onClick={() => navigate(`/patients/${row.original.id}?edit=1`)}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50"
             >
               <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
             <button
               onClick={() => onNewVisit(row.original.id)}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              className="flex items-center gap-1 rounded-lg border border-green-200 px-2.5 py-1 text-xs font-medium text-green-600 hover:bg-green-50"
             >
               <Stethoscope className="h-3.5 w-3.5" /> New Visit
             </button>
