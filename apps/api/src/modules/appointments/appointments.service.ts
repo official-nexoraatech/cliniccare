@@ -208,7 +208,19 @@ export class AppointmentsService {
       .map((r) => ({ tokenNo: r.tokenNo, doctorName: r.doctorName }));
     const waiting = rows.filter((r) => r.status === 'ARRIVED').length;
 
-    return { items: rows.map((r) => this.toDetail(r)), nowServing, waiting };
+    // One batched query for the whole queue's vitals-recorded state, instead of a
+    // per-row lookup — same reasoning as the string-ref batching used elsewhere.
+    const visitIds = rows.map((r) => r.visitId).filter((v): v is string => Boolean(v));
+    const vitals = visitIds.length
+      ? await this.prisma.vital.findMany({ where: { visitId: { in: visitIds } }, select: { visitId: true } })
+      : [];
+    const visitIdsWithVitals = new Set(vitals.map((v) => v.visitId));
+
+    return {
+      items: rows.map((r) => this.toDetail(r, Boolean(r.visitId && visitIdsWithVitals.has(r.visitId)))),
+      nowServing,
+      waiting,
+    };
   }
 
   async updateStatus(id: string, status: AppointmentStatus, reason?: string): Promise<AppointmentDetail> {
@@ -334,7 +346,7 @@ export class AppointmentsService {
     return appointment;
   }
 
-  private toDetail(appointment: Appointment): AppointmentDetail {
+  private toDetail(appointment: Appointment, hasVitals = false): AppointmentDetail {
     return {
       id: appointment.id,
       patientId: appointment.patientId,
@@ -350,6 +362,7 @@ export class AppointmentsService {
       source: appointment.source as AppointmentDetail['source'],
       remark: appointment.remark,
       visitId: appointment.visitId,
+      hasVitals,
       updatedAt: appointment.updatedAt.toISOString(),
     };
   }
