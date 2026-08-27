@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { useBlocker } from 'react-router-dom';
 import { Building2, Image as ImageIcon } from 'lucide-react';
 import type { UpdateClinicRequest } from '@clinic-care/shared-types';
 import { useClinicMutations, useClinicQuery } from '@/hooks/useClinic';
@@ -62,9 +63,13 @@ export function ClinicProfilePage() {
     handleSubmit,
     reset,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<ClinicFormValues>({ resolver: zodResolver(clinicSchema), mode: 'onBlur' });
   const taxEnabled = watch('taxEnabled');
+
+  // Blocks in-app navigation (switching Settings tabs, the sidebar, back/forward) while the
+  // form has unsaved edits, so a change isn't silently lost by clicking away.
+  const blocker = useBlocker(isDirty);
 
   useEffect(() => {
     if (clinic) {
@@ -87,23 +92,25 @@ export function ClinicProfilePage() {
     }
   }, [clinic, reset]);
 
+  const toUpdateRequest = (values: ClinicFormValues): UpdateClinicRequest => ({
+    name: values.name,
+    address: values.address || undefined,
+    phone: values.phone,
+    email: values.email,
+    doctorName: values.doctorName || undefined,
+    degree: values.degree || undefined,
+    regnNumber: values.regnNumber || undefined,
+    openTime: values.openTime,
+    closeTime: values.closeTime,
+    slotMinutes: values.slotMinutes,
+    taxEnabled: values.taxEnabled,
+    taxLabel: values.taxLabel,
+    gstNumber: values.gstNumber || undefined,
+    discountEnabled: values.discountEnabled,
+  });
+
   const onSubmit = (values: ClinicFormValues) => {
-    setPendingValues({
-      name: values.name,
-      address: values.address || undefined,
-      phone: values.phone,
-      email: values.email,
-      doctorName: values.doctorName || undefined,
-      degree: values.degree || undefined,
-      regnNumber: values.regnNumber || undefined,
-      openTime: values.openTime,
-      closeTime: values.closeTime,
-      slotMinutes: values.slotMinutes,
-      taxEnabled: values.taxEnabled,
-      taxLabel: values.taxLabel,
-      gstNumber: values.gstNumber || undefined,
-      discountEnabled: values.discountEnabled,
-    });
+    setPendingValues(toUpdateRequest(values));
   };
 
   const confirmSave = async () => {
@@ -117,6 +124,16 @@ export function ClinicProfilePage() {
       setPendingValues(null);
     }
   };
+
+  const saveAndLeave = handleSubmit(async (values) => {
+    try {
+      await update.mutateAsync(toUpdateRequest(values));
+      toast.success('Clinic profile updated');
+      blocker.proceed?.();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not update clinic profile.'));
+    }
+  });
 
   const onImageSelected = async (kind: 'logo' | 'letterhead', file: File | null) => {
     if (!file) return;
@@ -331,6 +348,36 @@ export function ClinicProfilePage() {
         onConfirm={confirmSave}
         onCancel={() => setPendingValues(null)}
       />
+
+      {blocker.state === 'blocked' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-[var(--color-navy)]">You have unsaved changes</h2>
+            <p className="mt-2 text-sm text-gray-600">Save your changes before leaving, or discard them?</p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+              <button
+                onClick={() => blocker.reset?.()}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+              >
+                Keep Editing
+              </button>
+              <button
+                onClick={() => blocker.proceed?.()}
+                className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                Discard Changes
+              </button>
+              <button
+                onClick={saveAndLeave}
+                disabled={isSubmitting || update.isPending}
+                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {update.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
