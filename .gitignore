@@ -23,13 +23,14 @@ coverage/
 *.p12
 *.pfx
 
-# SQLite database + uploaded files (local dev data, not source)
-apps/api/prisma/data/
-*.db
-*.db-journal
-*.sqlite
-*.sqlite3
+# Uploaded files (local dev data, not source)
 apps/api/files/
+
+# Local Mongo backup archives (see apps/api/src/modules/backup)
+apps/api/prisma/backups/
+
+# Staged packaging resources (see apps/desktop/scripts/prepare-resources.js), rebuilt on every package
+apps/desktop/resources/
 
 # Deployment tool local state
 .vercel/

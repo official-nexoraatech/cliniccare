@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import {
   ALL_PERMISSION_KEYS,
   BEFORE_AFTER_FOOD_OPTIONS,

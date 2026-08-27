@@ -56,7 +56,9 @@ export class BillingService {
   }
 
   async getByVisit(visitId: string): Promise<BillDetail | null> {
-    const bill = await this.prisma.bill.findUnique({ where: { visitId }, include: BILL_INCLUDE });
+    // visitId is enforced unique (when set) by a partial index maintained outside Prisma's
+    // schema — see the comment on Bill.visitId in schema.prisma — so findFirst is safe here.
+    const bill = await this.prisma.bill.findFirst({ where: { visitId }, include: BILL_INCLUDE });
     return bill ? this.toDetail(bill) : null;
   }
 
@@ -67,7 +69,7 @@ export class BillingService {
     }
 
     if (dto.visitId) {
-      const existing = await this.prisma.bill.findUnique({ where: { visitId: dto.visitId }, select: { id: true } });
+      const existing = await this.prisma.bill.findFirst({ where: { visitId: dto.visitId }, select: { id: true } });
       if (existing) {
         throw new ConflictException('This visit is already billed');
       }

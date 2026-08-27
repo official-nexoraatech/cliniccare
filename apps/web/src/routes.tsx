@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/layouts/MainLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { PlaceholderPage } from '@/components/PlaceholderPage';
@@ -45,7 +45,8 @@ export const router = createBrowserRouter([
           { path: '/billing', element: <BillingPage /> },
           { path: '/accounts', element: <AccountsPage /> },
           { path: '/reports', element: <PlaceholderPage title="Reports" day="Day 13" /> },
-          { path: '/settings', element: <SettingsPage /> },
+          { path: '/settings', element: <Navigate to="/settings/clinic" replace /> },
+          { path: '/settings/:tab', element: <SettingsPage /> },
         ],
       },
     ],
