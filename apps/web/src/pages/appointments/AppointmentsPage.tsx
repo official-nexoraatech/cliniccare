@@ -324,8 +324,6 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
   const { book } = useAppointmentMutations();
   const [bookDate, setBookDate] = useState(date);
   const { data: dayAppointments } = useAppointmentsByDayQuery(bookDate);
-  const [mode, setMode] = useState<'existing' | 'new'>('existing');
-  const [search, setSearch] = useState('');
   const [patientId, setPatientId] = useState<string | undefined>();
   const [patientName, setPatientName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -338,11 +336,11 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
     if (open) setBookDate(date);
   }, [open, date]);
 
-  const { data: results = [] } = usePatientSearchQuery(mode === 'existing' ? search : '');
+  // Typing the mobile number IS the search — no upfront "existing vs new" choice needed.
+  // A match found means existing patient; no match just means it'll register a new one.
+  const { data: results = [] } = usePatientSearchQuery(patientId ? '' : mobile);
 
   const reset = () => {
-    setMode('existing');
-    setSearch('');
     setPatientId(undefined);
     setPatientName('');
     setMobile('');
@@ -420,65 +418,58 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="flex gap-1 rounded-lg border border-gray-200 p-1">
-          <button
-            onClick={() => setMode('existing')}
-            className={`flex-1 rounded-md py-1.5 text-sm font-medium ${mode === 'existing' ? 'bg-[var(--color-primary)] text-white' : 'text-gray-600'}`}
-          >
-            Existing Patient
-          </button>
-          <button
-            onClick={() => setMode('new')}
-            className={`flex-1 rounded-md py-1.5 text-sm font-medium ${mode === 'new' ? 'bg-[var(--color-primary)] text-white' : 'text-gray-600'}`}
-          >
-            New Caller
-          </button>
-        </div>
-
-        {mode === 'existing' ? (
+        <div className="relative">
+          <label className={labelClass}>Mobile</label>
           <div className="relative">
-            <label className={labelClass}>Search patient</label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Mobile or name"
-                className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-              />
-            </div>
-            {search && results.length > 0 && !patientId && (
-              <div className="mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-                {results.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      setPatientId(p.id);
-                      setPatientName(p.name);
-                      setMobile(p.mobile);
-                      setSearch(p.name);
-                    }}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50"
-                  >
-                    <span>{p.name}</span>
-                    <span className="text-gray-400">{p.mobile}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              value={mobile}
+              onChange={(e) => {
+                setMobile(e.target.value);
+                setPatientId(undefined);
+              }}
+              maxLength={10}
+              placeholder="10-digit mobile number"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            />
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Name</label>
-              <input value={patientName} onChange={(e) => setPatientName(e.target.value)} className={inputClass} />
+          {!patientId && mobile && results.length > 0 && (
+            <div className="mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+              {results.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setPatientId(p.id);
+                    setPatientName(p.name);
+                    setMobile(p.mobile);
+                  }}
+                  className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50"
+                >
+                  <span>{p.name}</span>
+                  <span className="text-gray-400">{p.mobile}</span>
+                </button>
+              ))}
             </div>
-            <div>
-              <label className={labelClass}>Mobile</label>
-              <input value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} className={inputClass} />
-            </div>
-          </div>
-        )}
+          )}
+        </div>
+        <div>
+          <label className={labelClass}>Name</label>
+          <input
+            value={patientName}
+            onChange={(e) => {
+              setPatientName(e.target.value);
+              setPatientId(undefined);
+            }}
+            className={inputClass}
+          />
+          {patientId ? (
+            <p className="mt-1 text-xs font-medium text-green-600">Matched existing patient</p>
+          ) : (
+            mobile.trim().length >= 10 && (
+              <p className="mt-1 text-xs text-gray-400">No match for this number — will register as a new patient.</p>
+            )
+          )}
+        </div>
 
         <div>
           <label className={labelClass}>Date</label>
