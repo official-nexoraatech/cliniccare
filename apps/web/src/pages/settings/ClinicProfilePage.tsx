@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,8 +25,9 @@ const clinicSchema = z.object({
   address: z.string().optional(),
   phone: z
     .string()
+    .trim()
     .regex(PHONE_REGEX, 'Enter a valid phone number with at least 10 digits'),
-  email: z.string().email('Enter a valid email'),
+  email: z.string().trim().email('Enter a valid email'),
   doctorName: z
     .string()
     .trim()
@@ -38,7 +39,7 @@ const clinicSchema = z.object({
   closeTime: z.string().regex(TIME_REGEX, 'Enter a valid time'),
   slotMinutes: z.coerce.number().int(),
   taxEnabled: z.boolean(),
-  taxLabel: z.string().min(1, 'Tax label is required'),
+  taxLabel: z.string().trim().min(1, 'Tax label is required'),
   gstNumber: z.string().optional(),
   discountEnabled: z.boolean(),
 });
@@ -48,6 +49,11 @@ type ClinicFormValues = z.infer<typeof clinicSchema>;
 const inputClass =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
 const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+
+const optionalTrimmed = (value?: string) => {
+  const trimmed = value?.trim() ?? '';
+  return trimmed || undefined;
+};
 
 export function ClinicProfilePage() {
   const currentUser = useAuthStore((state) => state.user);
@@ -93,21 +99,27 @@ export function ClinicProfilePage() {
   }, [clinic, reset]);
 
   const toUpdateRequest = (values: ClinicFormValues): UpdateClinicRequest => ({
-    name: values.name,
-    address: values.address || undefined,
-    phone: values.phone,
-    email: values.email,
-    doctorName: values.doctorName || undefined,
-    degree: values.degree || undefined,
-    regnNumber: values.regnNumber || undefined,
+    name: values.name.trim(),
+    address: optionalTrimmed(values.address),
+    phone: values.phone.trim(),
+    email: values.email.trim(),
+    doctorName: optionalTrimmed(values.doctorName),
+    degree: optionalTrimmed(values.degree),
+    regnNumber: optionalTrimmed(values.regnNumber),
     openTime: values.openTime,
     closeTime: values.closeTime,
     slotMinutes: values.slotMinutes,
     taxEnabled: values.taxEnabled,
-    taxLabel: values.taxLabel,
-    gstNumber: values.gstNumber || undefined,
+    taxLabel: values.taxLabel.trim(),
+    gstNumber: optionalTrimmed(values.gstNumber),
     discountEnabled: values.discountEnabled,
   });
+
+  const preventEnterSubmit = (event: KeyboardEvent<HTMLFormElement>) => {
+    if (event.key === 'Enter' && event.target instanceof HTMLElement && event.target.tagName !== 'TEXTAREA') {
+      event.preventDefault();
+    }
+  };
 
   const onSubmit = (values: ClinicFormValues) => {
     setPendingValues(toUpdateRequest(values));
@@ -234,7 +246,7 @@ export function ClinicProfilePage() {
         </div>
       </div>
 
-      <form id="clinic-profile-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <form id="clinic-profile-form" onSubmit={handleSubmit(onSubmit)} onKeyDown={preventEnterSubmit} className="flex flex-col gap-4">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Clinic Details</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

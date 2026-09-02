@@ -28,9 +28,11 @@ export class UpdateClinicDto {
   address?: string;
 
   @Matches(PHONE_REGEX, { message: 'Enter a valid phone number with at least 10 digits' })
+  @Transform(trimString)
   phone!: string;
 
   @IsEmail({}, { message: 'Enter a valid email' })
+  @Transform(trimString)
   email!: string;
 
   @IsOptional()
@@ -68,6 +70,7 @@ export class UpdateClinicDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
+  @Transform(trimString)
   taxLabel?: string;
 
   @IsOptional()

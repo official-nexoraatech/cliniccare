@@ -10,7 +10,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import { SearchBox } from './SearchBox';
 import {
   tableBodyClass,
@@ -50,6 +50,12 @@ function textAlignmentClass(align: ColumnMeta['align']) {
   if (align === 'center') return 'text-center';
   if (align === 'right') return 'text-right';
   return 'text-left';
+}
+
+function sortAriaValue(sort: false | 'asc' | 'desc') {
+  if (sort === 'asc') return 'ascending';
+  if (sort === 'desc') return 'descending';
+  return 'none';
 }
 
 export function DataTable<TData>({
@@ -95,18 +101,23 @@ export function DataTable<TData>({
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   const align = (header.column.columnDef.meta as ColumnMeta | undefined)?.align;
+                  const sort = header.column.getIsSorted();
 
                   return (
-                    <th key={header.id} className={`${tableHeaderCellClass} ${alignmentClass(align)}`}>
+                    <th
+                      key={header.id}
+                      aria-sort={header.column.getCanSort() ? sortAriaValue(sort) : undefined}
+                      className={`${tableHeaderCellClass} ${alignmentClass(align)}`}
+                    >
                       {header.isPlaceholder ? null : (
                         <button
                           className={`flex w-full items-center gap-1 font-semibold text-white ${alignmentClass(align)}`}
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
-                          {header.column.getCanSort() && (
-                            <ChevronsUpDown className="h-3.5 w-3.5 text-white/80" />
-                          )}
+                          {header.column.getCanSort() && sort === 'asc' && <ChevronUp className="h-4 w-4 text-white" />}
+                          {header.column.getCanSort() && sort === 'desc' && <ChevronDown className="h-4 w-4 text-white" />}
+                          {header.column.getCanSort() && !sort && <ChevronsUpDown className="h-3.5 w-3.5 text-white/65" />}
                         </button>
                       )}
                     </th>

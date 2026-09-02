@@ -206,27 +206,34 @@ export function PatientListPage() {
           </button>
         </div>
 
-        <input
-          type="date"
-          value={registeredFrom}
-          onChange={(e) => {
-            setDatePreset('custom');
-            setRegisteredFrom(e.target.value);
-            setPage(1);
-          }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <span className="text-sm text-gray-400">to</span>
-        <input
-          type="date"
-          value={registeredTo}
-          onChange={(e) => {
-            setDatePreset('custom');
-            setRegisteredTo(e.target.value);
-            setPage(1);
-          }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+          <label className="text-xs font-medium text-gray-500">
+            From
+            <input
+              type="date"
+              value={registeredFrom}
+              onChange={(e) => {
+                setDatePreset('custom');
+                setRegisteredFrom(e.target.value);
+                setPage(1);
+              }}
+              className="ml-2 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700"
+            />
+          </label>
+          <label className="text-xs font-medium text-gray-500">
+            To
+            <input
+              type="date"
+              value={registeredTo}
+              onChange={(e) => {
+                setDatePreset('custom');
+                setRegisteredTo(e.target.value);
+                setPage(1);
+              }}
+              className="ml-2 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700"
+            />
+          </label>
+        </div>
         {datePreset && (
           <button onClick={clearDateFilter} className="text-sm text-gray-400 hover:text-gray-600">
             Clear dates

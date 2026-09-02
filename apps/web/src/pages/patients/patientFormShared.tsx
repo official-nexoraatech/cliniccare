@@ -10,6 +10,15 @@ import {
 import { cn } from '@/lib/utils';
 
 const MOBILE_REGEX = /^\d{10}$/;
+const NAME_REGEX = /^[A-Za-z ]+$/;
+
+function isTodayOrPast(value: string) {
+  if (!value) return true;
+  const selected = new Date(`${value}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return selected <= today;
+}
 
 // Format validators mirror apps/api/src/modules/patients/dto/create-patient.dto.ts —
 // frontend and backend must independently reject the same bad input (see
@@ -17,9 +26,12 @@ const MOBILE_REGEX = /^\d{10}$/;
 // fields are actually mandatory is decided at runtime by Settings → Patient
 // Fields (see validateCustomFields, called against both core and custom defs).
 export const patientSchema = z.object({
-  name: z.string().optional(),
-  age: z.coerce.number().int().min(0, 'Age cannot be negative').max(150, 'Age must be 150 or under').optional(),
-  dob: z.string().optional().or(z.literal('')),
+  name: z.union([
+    z.string().trim().regex(NAME_REGEX, 'Name can only contain letters and spaces'),
+    z.literal(''),
+  ]).optional(),
+  age: z.number().int().min(0, 'Age cannot be negative').max(150, 'Age must be 150 or under').optional(),
+  dob: z.string().refine(isTodayOrPast, 'Date of birth cannot be in the future').optional().or(z.literal('')),
   gender: z.enum(GENDERS).optional(),
   mobile: z.union([z.string().regex(MOBILE_REGEX, 'Mobile number must be exactly 10 digits'), z.literal('')]).optional(),
   altMobile: z.union([z.string().regex(MOBILE_REGEX, 'Alternate mobile must be exactly 10 digits'), z.literal('')]).optional(),
@@ -69,6 +81,7 @@ export function PatientFormFields({ register, errors, watch, coreFieldDefs }: Pa
   const corePolicy = new Map((coreFieldDefs ?? []).map((d) => [d.key, d]));
   const isActive = (key: string) => corePolicy.get(key)?.isActive ?? true;
   const isRequired = (key: string) => corePolicy.get(key)?.required ?? false;
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -96,14 +109,19 @@ export function PatientFormFields({ register, errors, watch, coreFieldDefs }: Pa
       {isActive('dob') && (
         <div>
           <label className={labelClass}>Date of Birth {isRequired('dob') && '*'}</label>
-          <input type="date" {...register('dob')} className={inputClass} />
+          <input type="date" max={today} {...register('dob')} className={inputClass} />
+          {errors.dob && <p className="mt-1 text-xs text-red-600">{errors.dob.message}</p>}
         </div>
       )}
 
       {isActive('age') && (
         <div>
           <label className={labelClass}>Age {isRequired('age') && '*'}</label>
-          <input type="number" {...register('age')} className={inputClass} />
+          <input
+            type="number"
+            {...register('age', { setValueAs: (value) => (value === '' ? undefined : Number(value)) })}
+            className={inputClass}
+          />
           {errors.age && <p className="mt-1 text-xs text-red-600">{errors.age.message}</p>}
         </div>
       )}

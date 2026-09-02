@@ -22,11 +22,13 @@ import {
 } from '@clinic-care/shared-types';
 
 const MOBILE_REGEX = /^\d{10}$/;
+const NAME_REGEX = /^[A-Za-z ]+$/;
 
 export class UpdatePatientDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
+  @Matches(NAME_REGEX, { message: 'Name can only contain letters and spaces' })
   name?: string;
 
   @IsOptional()

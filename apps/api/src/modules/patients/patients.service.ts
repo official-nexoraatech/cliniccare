@@ -168,6 +168,7 @@ export class PatientsService {
     const validKeys = new Set(defs.map((d) => d.key));
     const customFields = this.mergeCustomFields(dto.customFields, null, validKeys);
     this.assertRequiredFieldsSatisfied(defs, { ...this.buildCoreFieldValues(dto), ...customFields });
+    this.assertDobIsNotFuture(dto.dob);
 
     const patient = await this.prisma.patient.create({
       data: {
@@ -212,6 +213,7 @@ export class PatientsService {
     const validKeys = new Set(defs.map((d) => d.key));
     const mergedCustomFields = this.mergeCustomFields(customFields, existing.customFields, validKeys);
     this.assertRequiredFieldsSatisfied(defs, { ...this.mergeCoreFieldValues(dto, existing), ...mergedCustomFields });
+    this.assertDobIsNotFuture(dto.dob);
 
     const patient = await this.prisma.patient.update({
       where: { id },
@@ -320,6 +322,16 @@ export class PatientsService {
     const missingLabels = defs.filter((d) => d.required && !String(values[d.key] ?? '').trim()).map((d) => d.label);
     if (missingLabels.length) {
       throw new BadRequestException(`Missing required field(s): ${missingLabels.join(', ')}`);
+    }
+  }
+
+  private assertDobIsNotFuture(dob?: string): void {
+    if (!dob) return;
+    const selected = new Date(dob);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (selected > today) {
+      throw new BadRequestException('Date of birth cannot be in the future');
     }
   }
 

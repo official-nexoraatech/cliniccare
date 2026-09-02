@@ -22,6 +22,7 @@ import {
 } from '@clinic-care/shared-types';
 
 const MOBILE_REGEX = /^\d{10}$/;
+const NAME_REGEX = /^[A-Za-z ]+$/;
 
 // Every field is @IsOptional() here — which ones are actually mandatory is decided
 // at runtime by Settings → Patient Fields (see PatientsService.resolveRequiredFields),
@@ -31,6 +32,7 @@ export class CreatePatientDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
+  @Matches(NAME_REGEX, { message: 'Name can only contain letters and spaces' })
   name?: string;
 
   @IsOptional()
