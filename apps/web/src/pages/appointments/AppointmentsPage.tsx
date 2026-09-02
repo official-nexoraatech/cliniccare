@@ -975,6 +975,9 @@ function BookingInfoView({ date, onDateChange }: { date: string; onDateChange: (
   const bookedByLabel = new Map(activeForDoctor.map((a) => [a.timeSlot, a]));
   const bookedCount = bookedByLabel.size;
   const openCount = Math.max(0, slots.length - bookedCount);
+  const now = new Date();
+  const isToday = date === now.toISOString().slice(0, 10);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   return (
     <div className="flex flex-col gap-4">
@@ -1043,6 +1046,8 @@ function BookingInfoView({ date, onDateChange }: { date: string; onDateChange: (
               {slots.map((time24) => {
                 const label = formatTimeSlot(time24);
                 const appointment = bookedByLabel.get(label);
+                const [h, m] = time24.split(':').map(Number);
+                const isPast = isToday && h * 60 + m < nowMinutes;
                 return (
                   <button
                     key={time24}
@@ -1053,9 +1058,11 @@ function BookingInfoView({ date, onDateChange }: { date: string; onDateChange: (
                       'min-h-16 rounded-lg border px-2 py-2 text-left text-xs transition',
                       appointment
                         ? 'cursor-not-allowed border-red-200 bg-red-50 text-red-700'
-                        : 'border-green-200 bg-green-50 text-green-700 hover:border-green-300 hover:bg-green-100 active:translate-y-px',
+                        : isPast
+                          ? 'border-gray-200 bg-gray-100 text-gray-400 hover:border-gray-300 hover:bg-gray-200 active:translate-y-px'
+                          : 'border-green-200 bg-green-50 text-green-700 hover:border-green-300 hover:bg-green-100 active:translate-y-px',
                     )}
-                    title={appointment ? `${appointment.patientName} | token #${appointment.tokenNo}` : 'Free slot'}
+                    title={appointment ? `${appointment.patientName} | token #${appointment.tokenNo}` : isPast ? 'Time has passed — still bookable' : 'Free slot'}
                   >
                     <span className="block font-semibold">{label}</span>
                     <span className="mt-1 block truncate text-[11px]">
