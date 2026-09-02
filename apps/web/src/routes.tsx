@@ -11,6 +11,7 @@ import { PatientProfilePage } from '@/pages/patients/PatientProfilePage';
 import { ComplianceReportPage } from '@/pages/compliance/ComplianceReportPage';
 import { FollowUpPage } from '@/pages/followups/FollowUpPage';
 import { AppointmentsPage } from '@/pages/appointments/AppointmentsPage';
+import { ConfirmAppointmentPage } from '@/pages/appointments/ConfirmAppointmentPage';
 import { MedicineListPage } from '@/pages/medicines/MedicineListPage';
 import { MedicineForm } from '@/pages/medicines/MedicineForm';
 import { TodaysVisitsPage } from '@/pages/visits/TodaysVisitsPage';
@@ -22,6 +23,7 @@ import { AccountsPage } from '@/pages/accounts/AccountsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
+  { path: '/confirm/:id', element: <ConfirmAppointmentPage /> },
   {
     element: <ProtectedRoute />,
     children: [

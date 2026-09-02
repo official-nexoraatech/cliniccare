@@ -17,7 +17,7 @@ import {
   Search,
   XCircle,
 } from 'lucide-react';
-import { GENDERS } from '@clinic-care/shared-types';
+import { GENDERS, RESCHEDULE_REQUESTED_REMARK } from '@clinic-care/shared-types';
 import type { AppointmentDetail, AppointmentStatus, Gender } from '@clinic-care/shared-types';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -863,6 +863,8 @@ function RescheduleAppointmentModal({ open, onClose, appointment }: { open: bool
 
 interface AppointmentActionsProps {
   appointment: AppointmentDetail;
+  clinicName?: string;
+  date: string;
   onEdit: (a: AppointmentDetail) => void;
   onLink: (a: AppointmentDetail) => void;
   onReschedule: (a: AppointmentDetail) => void;
@@ -870,7 +872,7 @@ interface AppointmentActionsProps {
   onCancel: (a: AppointmentDetail) => void;
 }
 
-function AppointmentActions({ appointment: a, onEdit, onLink, onReschedule, onConfirm, onCancel }: AppointmentActionsProps) {
+function AppointmentActions({ appointment: a, clinicName, date, onEdit, onLink, onReschedule, onConfirm, onCancel }: AppointmentActionsProps) {
   return (
     <div className="flex flex-wrap justify-center gap-2">
       {a.status === 'BOOKED' && (
@@ -880,6 +882,19 @@ function AppointmentActions({ appointment: a, onEdit, onLink, onReschedule, onCo
         >
           <CheckCircle2 className="h-3.5 w-3.5" /> Confirm
         </button>
+      )}
+      {EDITABLE_STATUSES.includes(a.status) && (
+        <a
+          href={waLink(
+            a.mobile,
+            `Dear ${a.patientName}, this is a reminder from ${clinicName ?? 'the clinic'} that you have an appointment on ${new Date(date).toLocaleDateString('en-IN')} at ${a.timeSlot}. Please confirm here: ${window.location.origin}/confirm/${a.id}`,
+          )}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1 rounded-lg border border-green-200 px-2.5 py-1 text-xs font-medium text-green-600 transition hover:bg-green-50 active:translate-y-px"
+        >
+          <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+        </a>
       )}
       {EDITABLE_STATUSES.includes(a.status) && (
         <button
@@ -1125,6 +1140,7 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentDetail | null>(null);
   const [cancelTarget, setCancelTarget] = useState<AppointmentDetail | null>(null);
   const { data: appointments, isLoading } = useAppointmentsByDayQuery(date);
+  const { data: clinic } = useClinicQuery();
   const { updateStatus } = useAppointmentMutations();
   const totalAppointments = appointments?.length ?? 0;
   const activeAppointments = appointments?.filter((a) => ACTIVE_STATUSES.includes(a.status)).length ?? 0;
@@ -1208,10 +1224,20 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
                     <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[a.status]}`}>
                       {a.status.replace('_', ' ')}
                     </span>
+                    {a.remark === RESCHEDULE_REQUESTED_REMARK && (
+                      <span
+                        title={a.remark}
+                        className="mt-1 block w-fit rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
+                      >
+                        Reschedule requested
+                      </span>
+                    )}
                   </td>
                   <td className={`${tableCellClass} text-center`}>
                     <AppointmentActions
                       appointment={a}
+                      clinicName={clinic?.name}
+                      date={date}
                       onEdit={setEditTarget}
                       onLink={setLinkTarget}
                       onReschedule={setRescheduleTarget}

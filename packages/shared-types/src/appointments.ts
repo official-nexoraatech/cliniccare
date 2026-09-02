@@ -77,3 +77,25 @@ export interface BookAppointmentResponse {
   duplicatePatientWarning: boolean;
   appointment: AppointmentDetail;
 }
+
+export const REMINDER_RESPONSES = ['CONFIRM', 'RESCHEDULE_REQUEST'] as const;
+export type ReminderResponse = (typeof REMINDER_RESPONSES)[number];
+
+/** Written to Appointment.remark when a patient taps "No, need to reschedule" on the public
+ * WhatsApp reminder link — shared so the Day view can recognize it and flag it to staff. */
+export const RESCHEDULE_REQUESTED_REMARK = 'Patient requested a reschedule via WhatsApp reminder.';
+
+/** Shown on the public, unauthenticated WhatsApp-reminder confirmation page — deliberately
+ * only what's needed for that screen, not a full AppointmentDetail. */
+export interface PublicAppointmentSummary {
+  patientName: string;
+  clinicName: string;
+  appointmentDate: string;
+  timeSlot: string;
+  status: AppointmentStatus;
+  rescheduleRequested: boolean;
+}
+
+export interface RespondToReminderRequest {
+  response: ReminderResponse;
+}

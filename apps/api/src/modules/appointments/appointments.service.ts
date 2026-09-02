@@ -1,10 +1,13 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Appointment, Prisma } from '@prisma/client';
+import { RESCHEDULE_REQUESTED_REMARK } from '@clinic-care/shared-types';
 import type {
   AppointmentDetail,
   AppointmentStatus,
   BookAppointmentResponse,
   DoctorOption,
+  PublicAppointmentSummary,
+  ReminderResponse,
 } from '@clinic-care/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { VisitsService } from '../visits/visits.service';
@@ -33,6 +36,10 @@ const RESCHEDULABLE_STATUSES: AppointmentStatus[] = ['BOOKED', 'CONFIRMED', 'ARR
 
 const MAX_ADVANCE_DAYS = 90;
 const SEARCH_LIMIT = 20;
+
+// Only an appointment still awaiting the patient can be responded to from that link —
+// everything else (arrived, done, cancelled...) has already moved past the question.
+const REMINDER_RESPONDABLE_STATUSES: AppointmentStatus[] = ['BOOKED', 'CONFIRMED'];
 
 @Injectable()
 export class AppointmentsService {
@@ -101,6 +108,9 @@ export class AppointmentsService {
           timeSlot,
           tokenNo,
           status: 'BOOKED',
+          // Clears any stale "reschedule requested" flag (or old cancel reason) — this
+          // reschedule is the resolution of it, not something still pending.
+          remark: null,
         },
       });
     });
@@ -264,6 +274,41 @@ export class AppointmentsService {
       data: { status: 'ARRIVED', visitId: visit.id },
     });
     return this.toDetail(updated);
+  }
+
+  /** Public, unauthenticated read for the WhatsApp-reminder confirmation page. */
+  async getPublicSummary(id: string): Promise<PublicAppointmentSummary> {
+    const appointment = await this.findOrThrow(id);
+    return this.toPublicSummary(appointment);
+  }
+
+  /** Public, unauthenticated write for the same page — a patient tapping Yes/No on their own phone. */
+  async respondToReminder(id: string, response: ReminderResponse): Promise<PublicAppointmentSummary> {
+    const existing = await this.findOrThrow(id);
+    if (!REMINDER_RESPONDABLE_STATUSES.includes(existing.status as AppointmentStatus)) {
+      throw new BadRequestException('This appointment can no longer be responded to.');
+    }
+
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data:
+        response === 'CONFIRM'
+          ? { status: 'CONFIRMED' }
+          : { remark: RESCHEDULE_REQUESTED_REMARK },
+    });
+    return this.toPublicSummary(updated);
+  }
+
+  private async toPublicSummary(appointment: Appointment): Promise<PublicAppointmentSummary> {
+    const clinic = await this.prisma.clinic.findFirst({ select: { name: true } });
+    return {
+      patientName: appointment.patientName,
+      clinicName: clinic?.name ?? 'the clinic',
+      appointmentDate: appointment.appointmentDate.toISOString(),
+      timeSlot: appointment.timeSlot,
+      status: appointment.status as AppointmentStatus,
+      rescheduleRequested: appointment.remark === RESCHEDULE_REQUESTED_REMARK,
+    };
   }
 
   private assertValidDate(dateStr: string): void {

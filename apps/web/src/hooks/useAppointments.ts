@@ -5,6 +5,8 @@ import type {
   BookAppointmentResponse,
   CreateAppointmentRequest,
   DoctorOption,
+  PublicAppointmentSummary,
+  ReminderResponse,
   RescheduleAppointmentRequest,
   UpdateAppointmentRequest,
 } from '@clinic-care/shared-types';
@@ -65,6 +67,28 @@ export function usePatientAppointmentsQuery(patientId: string | undefined) {
       return data;
     },
     enabled: Boolean(patientId),
+  });
+}
+
+/** Public, unauthenticated — backs the WhatsApp-reminder confirmation page a patient opens on their own phone. */
+export function usePublicAppointmentQuery(id: string | undefined) {
+  return useQuery({
+    queryKey: ['public-appointments', id],
+    queryFn: async () => {
+      const { data } = await api.get<PublicAppointmentSummary>(`/public/appointments/${id}`);
+      return data;
+    },
+    enabled: Boolean(id),
+    retry: false,
+  });
+}
+
+export function useRespondToReminderMutation(id: string | undefined) {
+  return useMutation({
+    mutationFn: async (response: ReminderResponse) => {
+      const { data } = await api.post<PublicAppointmentSummary>(`/public/appointments/${id}/respond`, { response });
+      return data;
+    },
   });
 }
 
