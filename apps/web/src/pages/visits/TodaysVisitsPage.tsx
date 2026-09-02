@@ -2,6 +2,15 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClipboardList, Play, Stethoscope } from 'lucide-react';
 import type { TodayVisitItem, VisitStatus } from '@clinic-care/shared-types';
+import {
+  tableBodyClass,
+  tableCellClass,
+  tableClass,
+  tableHeaderCellClass,
+  tableHeaderClass,
+  tableRowClass,
+  tableShellClass,
+} from '@/components/tableStyles';
 import { useTodaysVisitsQuery, useVisitMutations } from '@/hooks/useVisits';
 import { cn, getErrorMessage } from '@/lib/utils';
 
@@ -45,36 +54,36 @@ export function TodaysVisitsPage() {
           <p className="mt-2 text-sm text-gray-400">No visits yet today. Start one from a patient's profile.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+        <div className={tableShellClass}>
+          <table className={tableClass}>
+            <thead className={tableHeaderClass}>
               <tr>
-                <th className="px-4 py-3">Visit No</th>
-                <th className="px-4 py-3">Patient</th>
-                <th className="px-4 py-3">Time</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Action</th>
+                <th className={tableHeaderCellClass}>Visit No</th>
+                <th className={tableHeaderCellClass}>Patient</th>
+                <th className={tableHeaderCellClass}>Time</th>
+                <th className={tableHeaderCellClass}>Status</th>
+                <th className={tableHeaderCellClass}>Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className={tableBodyClass}>
               {visits.map((visit) => (
-                <tr key={visit.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">{visit.visitNo}</td>
-                  <td className="px-4 py-3">
+                <tr key={visit.id} className={tableRowClass}>
+                  <td className={tableCellClass}>{visit.visitNo}</td>
+                  <td className={tableCellClass}>
                     <div className="font-medium text-gray-800">{visit.patient.name}</div>
                     <div className="text-xs text-gray-400">
                       {visit.patient.age}/{visit.patient.gender.charAt(0)} · {visit.patient.mobile}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className={`${tableCellClass} text-gray-500`}>
                     {new Date(visit.visitDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={tableCellClass}>
                     <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', STATUS_STYLE[visit.status])}>
                       {visit.status.replace('_', ' ')}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={tableCellClass}>
                     <div className="flex items-center gap-2">
                       {visit.status === 'COMPLETED' || visit.status === 'CANCELLED' ? (
                         <button

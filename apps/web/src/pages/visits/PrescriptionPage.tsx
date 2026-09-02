@@ -16,6 +16,19 @@ import { PatientStrip } from '@/components/PatientStrip';
 import { MedicineSearchInput } from '@/components/MedicineSearchInput';
 import { PrintLayout } from '@/components/PrintLayout';
 import { FormModal } from '@/components/FormModal';
+import {
+  compactTableBodyClass,
+  compactTableCellClass,
+  compactTableClass,
+  compactTableHeaderCellClass,
+  compactTableHeaderClass,
+  compactTableRowClass,
+  printTableCellClass,
+  printTableClass,
+  printTableHeaderCellClass,
+  printTableHeaderRowClass,
+  printTableRowClass,
+} from '@/components/tableStyles';
 import { getErrorMessage } from '@/lib/utils';
 
 interface Row extends PrescriptionItemInput {
@@ -282,14 +295,14 @@ export function PrescriptionPage() {
         </div>
       )}
 
-      <table className="mt-5 w-full text-xs">
+      <table className={printTableClass}>
         <thead>
-          <tr className="border-b-2 border-gray-200 text-left uppercase tracking-wide text-gray-400">
-            <th className="w-6 py-2 pr-2 font-medium">#</th>
-            <th className="py-2 pr-3 font-medium">Medicine</th>
-            <th className="py-2 pr-3 font-medium">Dosage</th>
-            <th className="py-2 pr-3 font-medium">Duration</th>
-            <th className="py-2 font-medium">Qty</th>
+          <tr className={printTableHeaderRowClass}>
+            <th className={`${printTableHeaderCellClass} w-6 pr-2`}>#</th>
+            <th className={printTableHeaderCellClass}>Medicine</th>
+            <th className={printTableHeaderCellClass}>Dosage</th>
+            <th className={printTableHeaderCellClass}>Duration</th>
+            <th className={`${printTableHeaderCellClass} pr-0`}>Qty</th>
           </tr>
         </thead>
         <tbody>
@@ -301,21 +314,21 @@ export function PrescriptionPage() {
             </tr>
           ) : (
             printableItems.map((row, index) => (
-              <tr key={row.key} className="border-b border-gray-100 align-top">
+              <tr key={row.key} className={printTableRowClass}>
                 <td className="py-3 pr-2 text-gray-400">{index + 1}</td>
-                <td className="py-3 pr-3">
+                <td className={`${printTableCellClass} py-3`}>
                   <p className="font-semibold text-gray-900">{row.medicineName}</p>
                   <p className="text-gray-400">
                     {row.strength} {row.form.charAt(0) + row.form.slice(1).toLowerCase()}
                   </p>
                 </td>
-                <td className="py-3 pr-3">
+                <td className={`${printTableCellClass} py-3`}>
                   <p className="leading-relaxed text-gray-700">{doseInWords(row)}</p>
                   <p className="mt-0.5 text-gray-400">
                     {row.morning}-{row.afternoon}-{row.evening}-{row.night}
                   </p>
                 </td>
-                <td className="py-3 pr-3 text-gray-700">{row.durationDays} days</td>
+                <td className={`${printTableCellClass} py-3 text-gray-700`}>{row.durationDays} days</td>
                 <td className="py-3 font-medium text-gray-700">{totalQuantity(row)}</td>
               </tr>
             ))
@@ -367,28 +380,28 @@ export function PrescriptionPage() {
               "visible" once the other is scrollable), which silently clips the medicine
               search dropdown whenever it opens below the container's bottom edge. The
               columns fit at normal widths without horizontal scroll anyway. */}
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wide text-gray-500">
+          <table className={compactTableClass}>
+            <thead className={compactTableHeaderClass}>
               <tr>
-                <th className="w-64 px-2 py-2">Medicine</th>
-                <th className="px-2 py-2">Dose</th>
-                <th className="w-12 px-1 py-2 text-center">M</th>
-                <th className="w-12 px-1 py-2 text-center">A</th>
-                <th className="w-12 px-1 py-2 text-center">E</th>
-                <th className="w-12 px-1 py-2 text-center">N</th>
-                <th className="w-36 px-2 py-2">Before/After Food</th>
-                <th className="w-20 px-2 py-2">Days</th>
-                <th className="w-16 px-2 py-2 text-center">Qty</th>
-                <th className="px-2 py-2">Instruction</th>
-                <th className="w-8 px-1 py-2" />
+                <th className={`${compactTableHeaderCellClass} w-64`}>Medicine</th>
+                <th className={compactTableHeaderCellClass}>Dose</th>
+                <th className={`${compactTableHeaderCellClass} w-12 text-center`}>M</th>
+                <th className={`${compactTableHeaderCellClass} w-12 text-center`}>A</th>
+                <th className={`${compactTableHeaderCellClass} w-12 text-center`}>E</th>
+                <th className={`${compactTableHeaderCellClass} w-12 text-center`}>N</th>
+                <th className={`${compactTableHeaderCellClass} w-36`}>Before/After Food</th>
+                <th className={`${compactTableHeaderCellClass} w-20`}>Days</th>
+                <th className={`${compactTableHeaderCellClass} w-16 text-center`}>Qty</th>
+                <th className={compactTableHeaderCellClass}>Instruction</th>
+                <th className={`${compactTableHeaderCellClass} w-8`} />
               </tr>
             </thead>
-            <tbody>
+            <tbody className={compactTableBodyClass}>
               {items.map((row, index) => {
                 const onFieldKeyDown = handleFieldKeyDown(row);
                 return (
-                  <tr key={row.key}>
-                    <td className="px-2 py-1">
+                  <tr key={row.key} className={compactTableRowClass}>
+                    <td className={compactTableCellClass}>
                       {row.medicineId ? (
                         <div className="flex items-center justify-between gap-1 rounded-lg border border-gray-300 bg-gray-50 px-2 py-1.5 text-sm">
                           <span className="truncate font-medium text-gray-800">
@@ -409,7 +422,7 @@ export function PrescriptionPage() {
                         />
                       )}
                     </td>
-                    <td className="px-2 py-1">
+                    <td className={compactTableCellClass}>
                       <input
                         value={row.dose ?? ''}
                         onChange={(e) => updateRow(row.key, { dose: e.target.value })}
@@ -418,7 +431,7 @@ export function PrescriptionPage() {
                       />
                     </td>
                     {TIME_SLOTS.map((slot) => (
-                      <td key={slot.key} className="px-1 py-1">
+                      <td key={slot.key} className="px-1 py-2">
                         <input
                           type="number"
                           min={0}
@@ -430,7 +443,7 @@ export function PrescriptionPage() {
                         />
                       </td>
                     ))}
-                    <td className="px-2 py-1">
+                    <td className={compactTableCellClass}>
                       <select
                         value={row.beforeAfterFood}
                         onChange={(e) => updateRow(row.key, { beforeAfterFood: e.target.value as BeforeAfterFood })}
@@ -444,7 +457,7 @@ export function PrescriptionPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-2 py-1">
+                    <td className={compactTableCellClass}>
                       <input
                         type="number"
                         min={1}
@@ -455,8 +468,8 @@ export function PrescriptionPage() {
                         className={numClass}
                       />
                     </td>
-                    <td className="px-2 py-1 text-center text-gray-500">{row.medicineId ? totalQuantity(row) : '—'}</td>
-                    <td className="px-2 py-1">
+                    <td className={`${compactTableCellClass} text-center text-gray-500`}>{row.medicineId ? totalQuantity(row) : '—'}</td>
+                    <td className={compactTableCellClass}>
                       <input
                         value={row.instruction ?? ''}
                         onChange={(e) => updateRow(row.key, { instruction: e.target.value })}
@@ -464,7 +477,7 @@ export function PrescriptionPage() {
                         className={inputClass}
                       />
                     </td>
-                    <td className="px-1 py-1 text-center">
+                    <td className="px-1 py-2 text-center">
                       {items.length > 1 && (
                         <button type="button" onClick={() => removeRow(row.key)} className="text-gray-400 hover:text-red-600">
                           <X className="h-4 w-4" />

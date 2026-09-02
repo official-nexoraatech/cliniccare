@@ -3,6 +3,7 @@ import type { CreateRoleRequest, RoleSummary, UpdateRoleRequest } from '@clinic-
 import { api } from '@/lib/api';
 
 const ROLES_KEY = ['roles'] as const;
+const USERS_KEY = ['users'] as const;
 
 export function useRolesQuery() {
   return useQuery({
@@ -16,7 +17,10 @@ export function useRolesQuery() {
 
 export function useRoleMutations() {
   const queryClient = useQueryClient();
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ROLES_KEY });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ROLES_KEY });
+    queryClient.invalidateQueries({ queryKey: USERS_KEY });
+  };
 
   const create = useMutation({
     mutationFn: async (payload: CreateRoleRequest) => {

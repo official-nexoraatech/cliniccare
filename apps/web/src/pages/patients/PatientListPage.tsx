@@ -92,8 +92,9 @@ export function PatientListPage() {
       {
         id: 'actions',
         header: 'Actions',
+        meta: { align: 'center' },
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div className="flex justify-center gap-2">
             <button
               onClick={() => navigate(`/patients/${row.original.id}`)}
               className="flex items-center gap-1 rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"

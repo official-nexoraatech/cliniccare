@@ -11,6 +11,14 @@ import {
 } from '@clinic-care/shared-types';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import {
+  compactTableBodyClass,
+  compactTableCellClass,
+  compactTableClass,
+  compactTableHeaderCellClass,
+  compactTableHeaderClass,
+  compactTableRowClass,
+} from '@/components/tableStyles';
 import { useRoleMutations, useRolesQuery } from '@/hooks/useRoles';
 import { getErrorMessage } from '@/lib/utils';
 
@@ -66,23 +74,23 @@ function PermissionMatrix({
   };
 
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-          <th className="py-2">Module</th>
+    <table className={compactTableClass}>
+      <thead className={compactTableHeaderClass}>
+        <tr>
+          <th className={compactTableHeaderCellClass}>Module</th>
           {PERMISSION_ACTIONS.map((action) => (
-            <th key={action} className="py-2 text-center">
+            <th key={action} className={`${compactTableHeaderCellClass} text-center`}>
               {ACTION_LABELS[action]}
             </th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-gray-100">
+      <tbody className={compactTableBodyClass}>
         {PERMISSION_MODULES.map((mod) => (
-          <tr key={mod}>
-            <td className="py-2.5 font-medium text-gray-700">{MODULE_LABELS[mod]}</td>
+          <tr key={mod} className={compactTableRowClass}>
+            <td className={`${compactTableCellClass} font-medium text-gray-700`}>{MODULE_LABELS[mod]}</td>
             {PERMISSION_ACTIONS.map((action) => (
-              <td key={action} className="py-2.5 text-center">
+              <td key={action} className={`${compactTableCellClass} text-center`}>
                 <input
                   type="checkbox"
                   disabled={disabled}

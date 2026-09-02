@@ -88,54 +88,59 @@ export function MedicineForm() {
   };
 
   return (
-    <div className="w-full">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-4 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
+    <div className="w-full max-w-7xl">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mb-3 flex items-center gap-1.5 text-sm font-medium text-gray-500 transition hover:text-gray-700"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+          <h1 className="text-2xl font-semibold text-[var(--color-navy)]">
+            {isEdit ? 'Edit medicine' : 'Add medicine'}
+          </h1>
+        </div>
+      </div>
 
-      <h1 className="mb-6 text-xl font-semibold text-[var(--color-navy)]">
-        {isEdit ? 'Edit Medicine' : 'Add Medicine'}
-      </h1>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
         <MedicineFormFields register={register} errors={errors} coreFieldDefs={coreFieldDefs} />
 
         {(customFieldDefs?.length ?? 0) > 0 && (
-          <div>
-            <h2 className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Additional Details</h2>
-            <MedicineCustomFields
-              fields={customFieldDefs ?? []}
-              values={customFieldValues}
-              errors={customFieldErrors}
-              onChange={(key, value) => {
-                setCustomFieldValues((prev) => ({ ...prev, [key]: value }));
-                setCustomFieldErrors((prev) => {
-                  if (!prev[key]) return prev;
-                  const { [key]: _removed, ...rest } = prev;
-                  return rest;
-                });
-              }}
-            />
-          </div>
+          <section className="rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="text-base font-semibold text-[var(--color-navy)]">Additional details</h2>
+            <div className="mt-4">
+              <MedicineCustomFields
+                fields={customFieldDefs ?? []}
+                values={customFieldValues}
+                errors={customFieldErrors}
+                onChange={(key, value) => {
+                  setCustomFieldValues((prev) => ({ ...prev, [key]: value }));
+                  setCustomFieldErrors((prev) => {
+                    if (!prev[key]) return prev;
+                    const { [key]: _removed, ...rest } = prev;
+                    return rest;
+                  });
+                }}
+              />
+            </div>
+          </section>
         )}
 
-        <div className="flex justify-end gap-3">
+        <div className="sticky bottom-0 -mx-2 flex justify-end gap-3 border-t border-gray-200 bg-[var(--color-bg)] px-2 py-4">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium transition hover:bg-gray-50 active:translate-y-px"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-lg bg-[var(--color-primary)] px-6 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            className="rounded-lg bg-[var(--color-primary)] px-7 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 active:translate-y-px disabled:opacity-50"
           >
-            {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Medicine'}
+            {isSubmitting ? 'Saving...' : isEdit ? 'Save changes' : 'Add medicine'}
           </button>
         </div>
       </form>

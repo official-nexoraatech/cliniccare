@@ -12,6 +12,15 @@ import {
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsUpDown } from 'lucide-react';
 import { SearchBox } from './SearchBox';
+import {
+  tableBodyClass,
+  tableCellClass,
+  tableClass,
+  tableHeaderCellClass,
+  tableHeaderClass,
+  tableRowClass,
+  tableShellClass,
+} from './tableStyles';
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -25,6 +34,22 @@ interface DataTableProps<TData> {
   /** Set false when the page already paginates server-side and renders its own pagination footer (see PatientListPage). */
   showPagination?: boolean;
   emptyMessage?: string;
+}
+
+type ColumnMeta = {
+  align?: 'left' | 'center' | 'right';
+};
+
+function alignmentClass(align: ColumnMeta['align']) {
+  if (align === 'center') return 'justify-center text-center';
+  if (align === 'right') return 'justify-end text-right';
+  return 'justify-start text-left';
+}
+
+function textAlignmentClass(align: ColumnMeta['align']) {
+  if (align === 'center') return 'text-center';
+  if (align === 'right') return 'text-right';
+  return 'text-left';
 }
 
 export function DataTable<TData>({
@@ -63,30 +88,34 @@ export function DataTable<TData>({
         />
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-        <table className="w-full min-w-max text-sm">
-          <thead className="bg-gray-100 text-left text-xs uppercase tracking-wide text-gray-700">
+      <div className={tableShellClass}>
+        <table className={tableClass}>
+          <thead className={tableHeaderClass}>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="whitespace-nowrap px-4 py-3">
-                    {header.isPlaceholder ? null : (
-                      <button
-                        className="flex items-center gap-1 font-medium"
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() && (
-                          <ChevronsUpDown className="h-3.5 w-3.5 text-gray-500" />
-                        )}
-                      </button>
-                    )}
-                  </th>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const align = (header.column.columnDef.meta as ColumnMeta | undefined)?.align;
+
+                  return (
+                    <th key={header.id} className={`${tableHeaderCellClass} ${alignmentClass(align)}`}>
+                      {header.isPlaceholder ? null : (
+                        <button
+                          className={`flex w-full items-center gap-1 font-semibold text-white ${alignmentClass(align)}`}
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getCanSort() && (
+                            <ChevronsUpDown className="h-3.5 w-3.5 text-white/80" />
+                          )}
+                        </button>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className={tableBodyClass}>
             {table.getRowModel().rows.length === 0 && (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-400">
@@ -95,12 +124,16 @@ export function DataTable<TData>({
               </tr>
             )}
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="bg-white hover:bg-gray-100">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="whitespace-nowrap px-4 py-3">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+              <tr key={row.id} className={tableRowClass}>
+                {row.getVisibleCells().map((cell) => {
+                  const align = (cell.column.columnDef.meta as ColumnMeta | undefined)?.align;
+
+                  return (
+                    <td key={cell.id} className={`${tableCellClass} ${textAlignmentClass(align)}`}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

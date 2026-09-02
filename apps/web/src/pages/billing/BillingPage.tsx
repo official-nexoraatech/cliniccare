@@ -7,6 +7,20 @@ import { PAYMENT_MODES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { PrintLayout } from '@/components/PrintLayout';
+import {
+  compactTableBodyClass,
+  compactTableCellClass,
+  compactTableClass,
+  compactTableHeaderCellClass,
+  compactTableHeaderClass,
+  compactTableRowClass,
+  compactTableShellClass,
+  printTableCellClass,
+  printTableClass,
+  printTableHeaderCellClass,
+  printTableHeaderRowClass,
+  printTableRowClass,
+} from '@/components/tableStyles';
 import { usePatientSearchQuery } from '@/hooks/usePatients';
 import { usePatientVisitsQuery } from '@/hooks/useVisits';
 import { useClinicQuery } from '@/hooks/useClinic';
@@ -90,21 +104,21 @@ function BillItemsEditor({ rows, onChange }: { rows: ItemRow[]; onChange: (rows:
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-gray-200">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-400">
+      <div className={compactTableShellClass}>
+        <table className={compactTableClass}>
+          <thead className={compactTableHeaderClass}>
             <tr>
-              <th className="px-3 py-2 font-medium">Description</th>
-              <th className="w-20 px-3 py-2 font-medium">Qty</th>
-              <th className="w-28 px-3 py-2 font-medium">Rate</th>
-              <th className="w-28 px-3 py-2 font-medium">Amount</th>
-              <th className="w-10 px-3 py-2" />
+              <th className={compactTableHeaderCellClass}>Description</th>
+              <th className={`${compactTableHeaderCellClass} w-20`}>Qty</th>
+              <th className={`${compactTableHeaderCellClass} w-28`}>Rate</th>
+              <th className={`${compactTableHeaderCellClass} w-28`}>Amount</th>
+              <th className={`${compactTableHeaderCellClass} w-10`} />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className={compactTableBodyClass}>
             {rows.map((row) => (
-              <tr key={row.key}>
-                <td className="px-3 py-1.5">
+              <tr key={row.key} className={compactTableRowClass}>
+                <td className={compactTableCellClass}>
                   <input
                     value={row.name}
                     onChange={(e) => updateRow(row.key, { name: e.target.value })}
@@ -112,7 +126,7 @@ function BillItemsEditor({ rows, onChange }: { rows: ItemRow[]; onChange: (rows:
                     className="w-full border-0 bg-transparent text-sm focus:outline-none"
                   />
                 </td>
-                <td className="px-3 py-1.5">
+                <td className={compactTableCellClass}>
                   <input
                     type="number"
                     min={1}
@@ -121,7 +135,7 @@ function BillItemsEditor({ rows, onChange }: { rows: ItemRow[]; onChange: (rows:
                     className="w-full border-0 bg-transparent text-sm focus:outline-none"
                   />
                 </td>
-                <td className="px-3 py-1.5">
+                <td className={compactTableCellClass}>
                   <input
                     type="number"
                     min={0}
@@ -130,8 +144,8 @@ function BillItemsEditor({ rows, onChange }: { rows: ItemRow[]; onChange: (rows:
                     className="w-full border-0 bg-transparent text-sm focus:outline-none"
                   />
                 </td>
-                <td className="px-3 py-1.5 text-gray-600">{fmtMoney(row.quantity * row.unitAmount)}</td>
-                <td className="px-3 py-1.5">
+                <td className={`${compactTableCellClass} text-gray-600`}>{fmtMoney(row.quantity * row.unitAmount)}</td>
+                <td className={compactTableCellClass}>
                   <button onClick={() => removeRow(row.key)} className="text-gray-300 hover:text-red-500">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -163,21 +177,21 @@ function BillBody({ bill }: { bill: BillDetail }) {
         {bill.patientName} <span className="text-gray-400">· {bill.patientMobile}</span>
       </p>
 
-      <table className="mt-4 w-full text-xs">
+      <table className={printTableClass}>
         <thead>
-          <tr className="border-b-2 border-gray-200 text-left uppercase tracking-wide text-gray-400">
-            <th className="py-2 pr-3 font-medium">Description</th>
-            <th className="w-16 py-2 pr-3 font-medium">Qty</th>
-            <th className="w-20 py-2 pr-3 font-medium">Rate</th>
-            <th className="w-24 py-2 font-medium">Amount</th>
+          <tr className={printTableHeaderRowClass}>
+            <th className={printTableHeaderCellClass}>Description</th>
+            <th className={`${printTableHeaderCellClass} w-16`}>Qty</th>
+            <th className={`${printTableHeaderCellClass} w-20`}>Rate</th>
+            <th className={`${printTableHeaderCellClass} w-24 pr-0`}>Amount</th>
           </tr>
         </thead>
         <tbody>
           {bill.items.map((item) => (
-            <tr key={item.id} className="border-b border-gray-100">
-              <td className="py-2 pr-3 text-gray-800">{item.name}</td>
-              <td className="py-2 pr-3 text-gray-500">{item.quantity}</td>
-              <td className="py-2 pr-3 text-gray-500">{fmtMoney(item.unitAmount)}</td>
+            <tr key={item.id} className={printTableRowClass}>
+              <td className={`${printTableCellClass} text-gray-800`}>{item.name}</td>
+              <td className={`${printTableCellClass} text-gray-500`}>{item.quantity}</td>
+              <td className={`${printTableCellClass} text-gray-500`}>{fmtMoney(item.unitAmount)}</td>
               <td className="py-2 font-medium text-gray-700">{fmtMoney(item.amount)}</td>
             </tr>
           ))}

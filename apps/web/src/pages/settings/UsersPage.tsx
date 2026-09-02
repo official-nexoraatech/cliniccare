@@ -151,7 +151,7 @@ export function UsersPage() {
     {
       accessorKey: 'mobile',
       header: 'Mobile',
-      cell: ({ getValue }) => getValue<string | null>() || '—',
+      cell: ({ getValue }) => getValue<string | null>() || '-',
     },
     {
       accessorKey: 'role',
