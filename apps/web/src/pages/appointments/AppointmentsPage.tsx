@@ -184,8 +184,7 @@ function SlotGrid({
   value: string;
   onSelect: (time24: string) => void;
   /** Same doctor bucket as the form's doctor field — a slot is only "taken" against the
-   * same doctor (or, if no doctor is picked, the shared no-doctor queue). Two different
-   * doctors can hold the same time without conflicting. */
+   * selected doctor. Two different doctors can hold the same time without conflicting. */
   doctorId: string;
   /** "YYYY-MM-DD" of the day being booked — used to gray out already-passed times when
    * that day is today. */
@@ -259,11 +258,22 @@ function SlotGrid({
 
 function DoctorSelect({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const { data: doctors = [] } = useDoctorsQuery();
+
+  useEffect(() => {
+    if (!value && doctors.length > 0) {
+      onChange(doctors[0].id);
+    }
+  }, [doctors, onChange, value]);
+
   return (
     <div>
-      <label className={labelClass}>Doctor (optional)</label>
+      <label className={labelClass}>Doctor</label>
       <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
-        <option value="">No doctor assigned</option>
+        {doctors.length === 0 && (
+          <option value="" disabled>
+            No doctors configured
+          </option>
+        )}
         {doctors.map((d) => (
           <option key={d.id} value={d.id}>
             {d.name}
@@ -329,7 +339,19 @@ function ReasonPromptModal({
   );
 }
 
-function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose: () => void; date: string }) {
+function BookAppointmentModal({
+  open,
+  onClose,
+  date,
+  initialDoctorId = '',
+  initialTimeSlot = '',
+}: {
+  open: boolean;
+  onClose: () => void;
+  date: string;
+  initialDoctorId?: string;
+  initialTimeSlot?: string;
+}) {
   const { book } = useAppointmentMutations();
   const [bookDate, setBookDate] = useState(date);
   const { data: dayAppointments } = useAppointmentsByDayQuery(bookDate);
@@ -342,8 +364,12 @@ function BookAppointmentModal({ open, onClose, date }: { open: boolean; onClose:
   const [conflictLabel, setConflictLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setBookDate(date);
-  }, [open, date]);
+    if (open) {
+      setBookDate(date);
+      setDoctorId(initialDoctorId);
+      setTimeSlot(initialTimeSlot);
+    }
+  }, [open, date, initialDoctorId, initialTimeSlot]);
 
   // Typing the mobile number IS the search — no upfront "existing vs new" choice needed.
   // A match found means existing patient; no match just means it'll register a new one.
@@ -929,8 +955,164 @@ function AppointmentSearchBox({ onJumpToDate }: { onJumpToDate: (date: string) =
   );
 }
 
+function BookingInfoView({ date, onDateChange }: { date: string; onDateChange: (date: string) => void }) {
+  const { data: clinic } = useClinicQuery();
+  const { data: doctors = [] } = useDoctorsQuery();
+  const { data: appointments, isLoading } = useAppointmentsByDayQuery(date);
+  const [doctorId, setDoctorId] = useState('');
+  const [bookingTarget, setBookingTarget] = useState<{ doctorId: string; timeSlot: string } | null>(null);
+
+  useEffect(() => {
+    if (!doctorId && doctors.length > 0) {
+      setDoctorId(doctors[0].id);
+    }
+  }, [doctorId, doctors]);
+
+  const selectedDoctor = doctors.find((d) => d.id === doctorId);
+  const slots = clinic ? generateSlots(clinic.openTime, clinic.closeTime, clinic.slotMinutes) : [];
+  const activeForDoctor =
+    appointments?.filter((a) => (a.doctorId ?? '') === doctorId && ACTIVE_STATUSES.includes(a.status)) ?? [];
+  const bookedByLabel = new Map(activeForDoctor.map((a) => [a.timeSlot, a]));
+  const bookedCount = bookedByLabel.size;
+  const openCount = Math.max(0, slots.length - bookedCount);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[220px_minmax(260px,360px)_1fr] lg:items-end">
+          <div>
+            <label className={labelClass}>Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => onDateChange(e.target.value)}
+              className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Doctor</label>
+            <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={inputClass}>
+              {doctors.length === 0 && (
+                <option value="" disabled>
+                  No doctors configured
+                </option>
+              )}
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs font-semibold lg:justify-end">
+            <span className="rounded-lg bg-green-50 px-3 py-2 text-green-700">{openCount} free</span>
+            <span className="rounded-lg bg-red-50 px-3 py-2 text-red-700">{bookedCount} booked</span>
+            <span className="rounded-lg bg-slate-100 px-3 py-2 text-slate-600">{slots.length} total slots</span>
+          </div>
+        </div>
+      </div>
+
+      {!clinic || isLoading ? (
+        <p className="text-sm text-gray-400">Loading booking info...</p>
+      ) : doctors.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white py-12 text-center text-sm text-slate-400">
+          Add a doctor in settings to view slot availability.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold text-[var(--color-navy)]">
+                  {selectedDoctor?.name ?? 'Doctor'} availability
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {new Date(date).toLocaleDateString('en-IN')} | {clinic.openTime} to {clinic.closeTime}
+                </p>
+              </div>
+              <button
+                onClick={() => setBookingTarget({ doctorId, timeSlot: '' })}
+                disabled={!doctorId}
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-3 text-xs font-semibold text-white transition hover:opacity-90 active:translate-y-px"
+              >
+                <Plus className="h-3.5 w-3.5" /> Book appointment
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6 2xl:grid-cols-8">
+              {slots.map((time24) => {
+                const label = formatTimeSlot(time24);
+                const appointment = bookedByLabel.get(label);
+                return (
+                  <button
+                    key={time24}
+                    type="button"
+                    onClick={() => !appointment && setBookingTarget({ doctorId, timeSlot: time24 })}
+                    disabled={Boolean(appointment)}
+                    className={cn(
+                      'min-h-16 rounded-lg border px-2 py-2 text-left text-xs transition',
+                      appointment
+                        ? 'cursor-not-allowed border-red-200 bg-red-50 text-red-700'
+                        : 'border-green-200 bg-green-50 text-green-700 hover:border-green-300 hover:bg-green-100 active:translate-y-px',
+                    )}
+                    title={appointment ? `${appointment.patientName} | token #${appointment.tokenNo}` : 'Free slot'}
+                  >
+                    <span className="block font-semibold">{label}</span>
+                    <span className="mt-1 block truncate text-[11px]">
+                      {appointment ? `${appointment.patientName} #${appointment.tokenNo}` : 'Free'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40">
+            <h2 className="text-base font-semibold text-[var(--color-navy)]">Booked slots</h2>
+            {activeForDoctor.length === 0 ? (
+              <p className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700">No bookings for this doctor on this date.</p>
+            ) : (
+              <div className="mt-3 flex flex-col gap-2">
+                {activeForDoctor
+                  .slice()
+                  .sort((a, b) => a.timeSlot.localeCompare(b.timeSlot))
+                  .map((a) => (
+                    <div key={a.id} className="rounded-lg border border-slate-200 p-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-800">{a.patientName}</p>
+                          <p className="text-xs text-slate-400">{a.mobile}</p>
+                        </div>
+                        <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                          {a.timeSlot}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs">
+                        <span className={`rounded-md px-2 py-1 font-semibold ${STATUS_STYLE[a.status]}`}>
+                          {a.status.replace('_', ' ')}
+                        </span>
+                        <span className="text-slate-400">Token #{a.tokenNo}</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <BookAppointmentModal
+        open={Boolean(bookingTarget)}
+        onClose={() => setBookingTarget(null)}
+        date={date}
+        initialDoctorId={bookingTarget?.doctorId ?? doctorId}
+        initialTimeSlot={bookingTarget?.timeSlot ?? ''}
+      />
+    </div>
+  );
+}
+
 function DayView({ date, onDateChange }: { date: string; onDateChange: (date: string) => void }) {
-  const [bookOpen, setBookOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AppointmentDetail | null>(null);
   const [linkTarget, setLinkTarget] = useState<AppointmentDetail | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentDetail | null>(null);
@@ -977,12 +1159,6 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
             <span className="rounded-lg bg-red-50 px-2.5 py-1 text-red-700">{cancelledAppointments} closed</span>
           </div>
         </div>
-        <button
-          onClick={() => setBookOpen(true)}
-          className="flex h-10 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 text-sm font-semibold text-white transition hover:opacity-90 active:translate-y-px"
-        >
-          <Plus className="h-4 w-4" /> Book appointment
-        </button>
       </div>
 
       {isLoading ? (
@@ -1043,7 +1219,6 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
         </div>
       )}
 
-      <BookAppointmentModal open={bookOpen} onClose={() => setBookOpen(false)} date={date} />
       {editTarget && (
         <EditAppointmentModal open={Boolean(editTarget)} onClose={() => setEditTarget(null)} appointment={editTarget} />
       )}
@@ -1395,12 +1570,12 @@ function QueueView() {
 }
 
 export function AppointmentsPage() {
-  const [tab, setTab] = useState<'day' | 'queue'>('day');
+  const [tab, setTab] = useState<'day' | 'queue' | 'booking'>('booking');
   const [date, setDate] = useState(todayIso());
 
   const onJumpToDate = (targetDate: string) => {
     setDate(targetDate);
-    setTab('day');
+    setTab('booking');
   };
 
   return (
@@ -1415,6 +1590,12 @@ export function AppointmentsPage() {
 
       <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
         <button
+          onClick={() => setTab('booking')}
+          className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'booking' ? 'bg-white text-[var(--color-primary)] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          Booking info
+        </button>
+        <button
           onClick={() => setTab('day')}
           className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'day' ? 'bg-white text-[var(--color-primary)] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
         >
@@ -1428,7 +1609,13 @@ export function AppointmentsPage() {
         </button>
       </div>
 
-      {tab === 'day' ? <DayView date={date} onDateChange={setDate} /> : <QueueView />}
+      {tab === 'day' ? (
+        <DayView date={date} onDateChange={setDate} />
+      ) : tab === 'queue' ? (
+        <QueueView />
+      ) : (
+        <BookingInfoView date={date} onDateChange={setDate} />
+      )}
     </div>
   );
 }
