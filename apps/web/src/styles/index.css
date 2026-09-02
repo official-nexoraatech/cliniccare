@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-primary: #0e6e6e; /* medical teal */
+  --color-primary: #1f3864; /* navy, matches table header */
   --color-navy: #1f3864;
   --color-gold: #c9a227;
   --color-bg: #f7fafa;
