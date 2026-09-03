@@ -38,6 +38,7 @@ import {
   tableRowClass,
   tableShellClass,
 } from '@/components/tableStyles';
+import { CardGridSkeleton, TableSkeleton } from '@/components/Skeleton';
 import { usePatientMutations, usePatientSearchQuery } from '@/hooks/usePatients';
 import {
   useAppointmentMutations,
@@ -1052,7 +1053,7 @@ function BookingInfoView({ date, onDateChange }: { date: string; onDateChange: (
       </div>
 
       {!clinic || isLoading ? (
-        <p className="text-sm text-gray-400">Loading booking info...</p>
+        <CardGridSkeleton count={4} />
       ) : doctors.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white py-12 text-center text-sm text-slate-400">
           Add a doctor in settings to view slot availability.
@@ -1207,7 +1208,7 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading...</p>
+        <TableSkeleton rows={7} columns={7} />
       ) : !appointments || appointments.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <CalendarDays className="h-8 w-8 text-gray-300" />
@@ -1472,7 +1473,7 @@ function QueueView() {
     }
   };
 
-  if (isLoading) return <p className="text-sm text-gray-400">Loading...</p>;
+  if (isLoading) return <TableSkeleton rows={5} columns={4} />;
 
   return (
     <div className="flex flex-col gap-4">

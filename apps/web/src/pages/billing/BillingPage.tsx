@@ -7,6 +7,7 @@ import { PAYMENT_MODES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { PrintLayout } from '@/components/PrintLayout';
+import { TableSkeleton } from '@/components/Skeleton';
 import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import {
   compactTableBodyClass,
@@ -867,7 +868,7 @@ export function BillingPage() {
       </div>
 
       <div className="no-print">
-        {isLoading ? <p className="text-sm text-gray-400">Loading...</p> : <DataTable columns={columns} data={bills ?? []} emptyMessage="No bills yet." />}
+        {isLoading ? <TableSkeleton rows={6} columns={8} /> : <DataTable columns={columns} data={bills ?? []} emptyMessage="No bills yet." />}
       </div>
 
       <CreateBillModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={(bill, print) => print && handlePrint(bill)} />

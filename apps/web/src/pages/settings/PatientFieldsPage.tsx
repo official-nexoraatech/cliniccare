@@ -9,6 +9,7 @@ import { PATIENT_FIELD_TYPES, type PatientFieldDefinition } from '@clinic-care/s
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { TableSkeleton } from '@/components/Skeleton';
 import { usePatientFieldMutations, usePatientFieldsQuery } from '@/hooks/usePatientFields';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
@@ -230,7 +231,7 @@ export function PatientFieldsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading patient fields...</p>
+        <TableSkeleton rows={6} columns={canEdit ? 6 : 5} />
       ) : (
         <DataTable columns={columns} data={fields ?? []} searchable={false} emptyMessage="No custom fields yet." />
       )}

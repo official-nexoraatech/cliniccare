@@ -7,6 +7,7 @@ import { CERTIFICATE_TYPES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { PrintLayout } from '@/components/PrintLayout';
+import { TableSkeleton } from '@/components/Skeleton';
 import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import { usePatientSearchQuery } from '@/hooks/usePatients';
 import { usePatientVisitsQuery } from '@/hooks/useVisits';
@@ -492,7 +493,7 @@ export function CertificatesPage() {
 
       <div className="no-print">
         {isLoading ? (
-          <p className="text-sm text-gray-400">Loading...</p>
+          <TableSkeleton rows={6} columns={8} />
         ) : (
           <DataTable columns={columns} data={certificates ?? []} emptyMessage="No certificates issued yet." />
         )}

@@ -9,6 +9,7 @@ import { MEDICINE_FIELD_TYPES, type MedicineFieldDefinition } from '@clinic-care
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { TableSkeleton } from '@/components/Skeleton';
 import { useMedicineFieldMutations, useMedicineFieldsQuery } from '@/hooks/useMedicineFields';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
@@ -230,7 +231,7 @@ export function MedicineFieldsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading medicine fields...</p>
+        <TableSkeleton rows={6} columns={canEdit ? 6 : 5} />
       ) : (
         <DataTable columns={columns} data={fields ?? []} searchable={false} emptyMessage="No custom fields yet." />
       )}

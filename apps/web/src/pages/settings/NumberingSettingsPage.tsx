@@ -6,6 +6,7 @@ import { useCounterMutations, useCountersQuery } from '@/hooks/useCounters';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
 import { getErrorMessage } from '@/lib/utils';
+import { CardGridSkeleton } from '@/components/Skeleton';
 
 const COUNTER_LABELS: Record<string, string> = {
   PATIENT: 'Patient ID',
@@ -98,7 +99,7 @@ export function NumberingSettingsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading...</p>
+        <CardGridSkeleton count={4} />
       ) : (
         <div className="flex flex-col gap-3">
           {counters?.map((counter) => (

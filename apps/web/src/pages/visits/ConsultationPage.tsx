@@ -17,6 +17,7 @@ import { useFeeTypesQuery } from '@/hooks/useFeeTypes';
 import { SuggestInput } from '@/components/SuggestInput';
 import { PatientStrip } from '@/components/PatientStrip';
 import { ComplianceEntryModal } from '@/components/ComplianceEntryModal';
+import { FormSkeleton } from '@/components/Skeleton';
 import {
   emptyStateClass,
   fieldInputClass,
@@ -220,7 +221,7 @@ export function ConsultationPage() {
   };
 
   if (isLoading) {
-    return <p className="text-sm text-gray-400">Loading consultation...</p>;
+    return <FormSkeleton sections={3} />;
   }
 
   if (!visit) {

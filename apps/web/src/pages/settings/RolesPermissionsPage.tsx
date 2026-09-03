@@ -11,6 +11,7 @@ import {
 } from '@clinic-care/shared-types';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { CardGridSkeleton } from '@/components/Skeleton';
 import {
   compactTableBodyClass,
   compactTableCellClass,
@@ -196,7 +197,7 @@ export function RolesPermissionsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading roles...</p>
+        <CardGridSkeleton count={3} />
       ) : (
         <div className="flex flex-col gap-3">
           {roles?.map((role) => (

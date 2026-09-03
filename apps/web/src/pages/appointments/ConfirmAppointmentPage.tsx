@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, CalendarClock, XCircle } from 'lucide-react';
 import { usePublicAppointmentQuery, useRespondToReminderMutation } from '@/hooks/useAppointments';
+import { InlineSkeleton } from '@/components/Skeleton';
 import { getErrorMessage } from '@/lib/utils';
 
 const RESPONDABLE_STATUSES = ['BOOKED', 'CONFIRMED'];
@@ -27,7 +28,12 @@ export function ConfirmAppointmentPage() {
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] px-4 py-8">
       <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         {isLoading ? (
-          <p className="text-center text-sm text-gray-400">Loading...</p>
+          <div className="flex flex-col items-center gap-3 py-4" aria-busy="true" aria-label="Loading appointment">
+            <InlineSkeleton className="h-10 w-10 rounded-full" />
+            <InlineSkeleton className="h-5 w-40" />
+            <InlineSkeleton className="h-4 w-56" />
+            <InlineSkeleton className="h-10 w-full" />
+          </div>
         ) : error || !appointment ? (
           <p className="text-center text-sm text-gray-500">
             {getErrorMessage(error, "This appointment link isn't valid or has expired.")}

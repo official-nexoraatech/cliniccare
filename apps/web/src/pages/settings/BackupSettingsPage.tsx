@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
 import { getErrorMessage } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { PageSkeleton } from '@/components/Skeleton';
 import { useBackupMutations, useBackupStatusQuery, useRestorePreviewQuery } from '@/hooks/useBackup';
 
 function formatDateTime(value: string | null): string {
@@ -142,7 +143,7 @@ export function BackupSettingsPage() {
   };
 
   if (isLoading || !status) {
-    return <p className="text-sm text-gray-400">Loading...</p>;
+    return <PageSkeleton />;
   }
 
   const restoreDescription = previewLoading

@@ -58,6 +58,12 @@ function sortAriaValue(sort: false | 'asc' | 'desc') {
   return 'none';
 }
 
+function SortIcon({ sort }: { sort: false | 'asc' | 'desc' }) {
+  if (sort === 'asc') return <ChevronUp className="h-4 w-4 flex-none text-white" />;
+  if (sort === 'desc') return <ChevronDown className="h-4 w-4 flex-none text-white" />;
+  return <ChevronsUpDown className="h-3.5 w-3.5 flex-none text-white/75" />;
+}
+
 export function DataTable<TData>({
   columns,
   data,
@@ -102,23 +108,27 @@ export function DataTable<TData>({
                 {headerGroup.headers.map((header) => {
                   const align = (header.column.columnDef.meta as ColumnMeta | undefined)?.align;
                   const sort = header.column.getIsSorted();
+                  const canSort = header.column.getCanSort();
 
                   return (
                     <th
                       key={header.id}
-                      aria-sort={header.column.getCanSort() ? sortAriaValue(sort) : undefined}
+                      aria-sort={canSort ? sortAriaValue(sort) : undefined}
                       className={`${tableHeaderCellClass} ${alignmentClass(align)}`}
                     >
-                      {header.isPlaceholder ? null : (
+                      {header.isPlaceholder ? null : canSort ? (
                         <button
-                          className={`flex w-full items-center gap-1 font-semibold text-white ${alignmentClass(align)}`}
+                          type="button"
+                          className={`flex w-full items-center gap-1.5 font-semibold text-white ${alignmentClass(align)}`}
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
-                          {header.column.getCanSort() && sort === 'asc' && <ChevronUp className="h-4 w-4 text-white" />}
-                          {header.column.getCanSort() && sort === 'desc' && <ChevronDown className="h-4 w-4 text-white" />}
-                          {header.column.getCanSort() && !sort && <ChevronsUpDown className="h-3.5 w-3.5 text-white/65" />}
+                          <SortIcon sort={sort} />
                         </button>
+                      ) : (
+                        <span className={`flex w-full items-center font-semibold text-white ${alignmentClass(align)}`}>
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </span>
                       )}
                     </th>
                   );

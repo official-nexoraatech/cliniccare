@@ -16,6 +16,7 @@ import { PatientStrip } from '@/components/PatientStrip';
 import { MedicineSearchInput } from '@/components/MedicineSearchInput';
 import { PrintLayout } from '@/components/PrintLayout';
 import { FormModal } from '@/components/FormModal';
+import { FormSkeleton } from '@/components/Skeleton';
 import { compactFieldInputClass, subtleSectionCardClass } from '@/components/uiStyles';
 import {
   compactTableBodyClass,
@@ -86,12 +87,17 @@ function totalQuantity(row: Row): number {
   return (row.morning + row.afternoon + row.evening + row.night) * row.durationDays;
 }
 
-function doseInWords(row: Row): string {
-  const unit = UNIT_WORDS[row.form];
-  const parts = TIME_SLOTS.filter((slot) => row[slot.key] > 0).map((slot) => `${row[slot.key]} ${unit} ${slot.label}`);
-  const timing = parts.length > 0 ? parts.join(' and ') : 'As directed';
-  const food = FOOD_LABELS[row.beforeAfterFood];
-  return `${timing} - ${food}`;
+function medicineFormLabel(row: Row): string {
+  return row.form.charAt(0) + row.form.slice(1).toLowerCase();
+}
+
+function doseScheduleChip(row: Row): string {
+  const unit = row.form === 'TABLET' ? 'tab' : UNIT_WORDS[row.form];
+  return TIME_SLOTS.map((slot) => {
+    const count = row[slot.key];
+    const suffix = count > 0 ? ` ${unit}` : '';
+    return `${slot.label.slice(0, 1)}-${count}${suffix}`;
+  }).join(' · ');
 }
 
 const inputClass = compactFieldInputClass;
@@ -249,7 +255,7 @@ export function PrescriptionPage() {
   };
 
   if (visitLoading) {
-    return <p className="text-sm text-gray-400">Loading...</p>;
+    return <FormSkeleton sections={2} />;
   }
 
   if (!visit) {
@@ -264,45 +270,55 @@ export function PrescriptionPage() {
   }
 
   const printableItems = items.filter((row) => row.medicineId);
+  const patientMeta = [
+    `${visit.patient.age} yrs`,
+    visit.patient.gender.charAt(0),
+    visit.patient.patientId,
+    visit.patient.mobile,
+  ].filter(Boolean);
 
   const printBody = (
     <>
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3">
         <div>
-          <p className="text-base font-semibold text-gray-900">{visit.patient.name}</p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            {visit.patient.age} yrs · {visit.patient.gender.charAt(0)} · {visit.patient.patientId} · {visit.patient.mobile}
+          <p className="text-[11px] font-semibold uppercase text-slate-400">Patient</p>
+          <p className="mt-1 text-lg font-semibold text-slate-950">{visit.patient.name}</p>
+          <p className="mt-0.5 text-xs font-medium text-slate-500">
+            {patientMeta.join(' · ')}
           </p>
         </div>
-        <p className="text-xs text-gray-500">{new Date().toLocaleDateString('en-IN')}</p>
+        <div className="text-right">
+          <p className="text-[11px] font-semibold uppercase text-slate-400">Date</p>
+          <p className="mt-1 text-sm font-semibold text-slate-700">{new Date().toLocaleDateString('en-IN')}</p>
+        </div>
       </div>
 
       {(visit.vital || visit.diagnosis) && (
-        <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2.5 text-xs text-gray-600">
+        <div className="mt-4 rounded-xl border border-teal-100 bg-teal-50/60 px-4 py-3 text-xs text-slate-600">
           {visit.vital && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              {visit.vital.bp && <span>BP {visit.vital.bp}</span>}
-              {visit.vital.pulse && <span>Pulse {visit.vital.pulse}</span>}
-              {visit.vital.weight && <span>Weight {visit.vital.weight}kg</span>}
-              {visit.vital.temperature && <span>Temp {visit.vital.temperature}°C</span>}
+            <div className="flex flex-wrap gap-2">
+              {visit.vital.bp && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">BP {visit.vital.bp}</span>}
+              {visit.vital.pulse && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">Pulse {visit.vital.pulse}</span>}
+              {visit.vital.weight && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">Weight {visit.vital.weight} kg</span>}
+              {visit.vital.temperature && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">Temp {visit.vital.temperature}°C</span>}
             </div>
           )}
           {visit.diagnosis && (
-            <p className={visit.vital ? 'mt-1.5' : ''}>
-              <span className="font-medium text-gray-700">Diagnosis:</span> {visit.diagnosis}
+            <p className={visit.vital ? 'mt-2' : ''}>
+              <span className="font-semibold text-slate-800">Diagnosis:</span> {visit.diagnosis}
             </p>
           )}
         </div>
       )}
 
-      <table className={printTableClass}>
+      <table className={`${printTableClass} mt-6`}>
         <thead>
           <tr className={printTableHeaderRowClass}>
-            <th className={`${printTableHeaderCellClass} w-6 pr-2`}>#</th>
+            <th className={`${printTableHeaderCellClass} w-8 pr-2`}>#</th>
             <th className={printTableHeaderCellClass}>Medicine</th>
-            <th className={printTableHeaderCellClass}>Dosage</th>
-            <th className={printTableHeaderCellClass}>Duration</th>
-            <th className={`${printTableHeaderCellClass} pr-0`}>Qty</th>
+            <th className={printTableHeaderCellClass}>Schedule</th>
+            <th className={`${printTableHeaderCellClass} w-24`}>Duration</th>
+            <th className={`${printTableHeaderCellClass} w-16 pr-0 text-right`}>Qty</th>
           </tr>
         </thead>
         <tbody>
@@ -315,21 +331,29 @@ export function PrescriptionPage() {
           ) : (
             printableItems.map((row, index) => (
               <tr key={row.key} className={printTableRowClass}>
-                <td className="py-3 pr-2 text-gray-400">{index + 1}</td>
+                <td className="py-4 pr-2 align-top">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500">
+                    {index + 1}
+                  </span>
+                </td>
                 <td className={`${printTableCellClass} py-3`}>
-                  <p className="font-semibold text-gray-900">{row.medicineName}</p>
-                  <p className="text-gray-400">
-                    {row.strength} {row.form.charAt(0) + row.form.slice(1).toLowerCase()}
+                  <p className="text-sm font-semibold text-slate-950">{row.medicineName}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {[row.strength, medicineFormLabel(row)].filter(Boolean).join(' · ')}
                   </p>
                 </td>
                 <td className={`${printTableCellClass} py-3`}>
-                  <p className="leading-relaxed text-gray-700">{doseInWords(row)}</p>
-                  <p className="mt-0.5 text-gray-400">
-                    {row.morning}-{row.afternoon}-{row.evening}-{row.night}
-                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                      {doseScheduleChip(row)}
+                    </span>
+                    <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                      {FOOD_LABELS[row.beforeAfterFood]}
+                    </span>
+                  </div>
                 </td>
-                <td className={`${printTableCellClass} py-3 text-gray-700`}>{row.durationDays} days</td>
-                <td className="py-3 font-medium text-gray-700">{totalQuantity(row)}</td>
+                <td className={`${printTableCellClass} py-3 align-top text-sm font-semibold text-slate-700`}>{row.durationDays} days</td>
+                <td className="py-3 pr-0 text-right align-top text-sm font-semibold text-slate-900">{totalQuantity(row)}</td>
               </tr>
             ))
           )}
@@ -337,12 +361,12 @@ export function PrescriptionPage() {
       </table>
 
       {generalInstruction && (
-        <p className="mt-4 text-xs text-gray-700">
-          <span className="font-medium text-gray-800">Instructions:</span> {generalInstruction}
-        </p>
+        <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-xs leading-relaxed text-slate-700">
+          <span className="font-semibold text-slate-900">Instructions:</span> {generalInstruction}
+        </div>
       )}
       {visit.nextFollowUpDate && (
-        <p className="mt-4 rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-[var(--color-primary)]">
+        <p className="mt-4 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-[var(--color-primary)]">
           Next follow-up: {new Date(visit.nextFollowUpDate).toLocaleDateString('en-IN')}
         </p>
       )}

@@ -1,9 +1,9 @@
-export const tableShellClass = 'overflow-x-auto rounded-xl border border-gray-200 bg-white';
+export const tableShellClass = 'overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/40';
 export const tableClass = 'w-full min-w-max text-sm';
 export const tableHeaderClass = 'bg-[var(--color-navy)] text-left text-xs uppercase tracking-wide text-white';
 export const tableHeaderCellClass = 'whitespace-nowrap px-4 py-3 font-semibold';
-export const tableBodyClass = 'divide-y divide-gray-100';
-export const tableRowClass = 'bg-white transition hover:bg-gray-50';
+export const tableBodyClass = 'divide-y divide-slate-100 bg-white';
+export const tableRowClass = 'bg-white transition hover:bg-slate-50';
 export const tableCellClass = 'whitespace-nowrap px-4 py-3';
 
 export const compactTableShellClass = 'overflow-x-auto rounded-lg border border-gray-200 bg-white';

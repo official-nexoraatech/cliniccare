@@ -10,6 +10,8 @@ import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PasswordInput } from '@/components/PasswordInput';
+import { TableSkeleton } from '@/components/Skeleton';
+import { formLabelClass, primaryButtonClass, secondaryButtonClass, standardFieldInputClass } from '@/components/uiStyles';
 import { useUserMutations, useUsersQuery } from '@/hooks/useUsers';
 import { useRolesQuery } from '@/hooks/useRoles';
 import { useAuthStore } from '@/store/auth-store';
@@ -47,6 +49,9 @@ const resetPasswordSchema = z.object({
 });
 
 type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
+const inputClass = standardFieldInputClass;
+const labelClass = formLabelClass;
 
 export function UsersPage() {
   const currentUser = useAuthStore((state) => state.user);
@@ -246,7 +251,7 @@ export function UsersPage() {
         {hasPermission(currentUser, 'administration:edit') && (
           <button
             onClick={() => setIsAddOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className={`flex items-center gap-2 ${primaryButtonClass}`}
           >
             <Plus className="h-4 w-4" /> Add User
           </button>
@@ -254,7 +259,7 @@ export function UsersPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading users...</p>
+        <TableSkeleton rows={6} columns={canEditUsers ? 6 : 5} />
       ) : (
         <DataTable columns={columns} data={users ?? []} searchable emptyMessage="No users yet." />
       )}
@@ -267,14 +272,14 @@ export function UsersPage() {
           <>
             <button
               onClick={closeAddModal}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+              className={secondaryButtonClass}
             >
               Cancel
             </button>
             <button
               onClick={addForm.handleSubmit(onAddSubmit)}
               disabled={create.isPending}
-              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className={primaryButtonClass}
             >
               {create.isPending ? 'Adding...' : 'Add User'}
             </button>
@@ -283,10 +288,10 @@ export function UsersPage() {
       >
         <form className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+            <label className={labelClass}>Name</label>
             <input
               {...addForm.register('name')}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={inputClass}
             />
             {addForm.formState.errors.name && (
               <p className="mt-1 text-xs text-red-600">{addForm.formState.errors.name.message}</p>
@@ -294,10 +299,10 @@ export function UsersPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Username</label>
+            <label className={labelClass}>Username</label>
             <input
               {...addForm.register('username')}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={inputClass}
             />
             {addForm.formState.errors.username && (
               <p className="mt-1 text-xs text-red-600">{addForm.formState.errors.username.message}</p>
@@ -305,11 +310,11 @@ export function UsersPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Mobile Number</label>
+            <label className={labelClass}>Mobile Number</label>
             <input
               {...addForm.register('mobile')}
               maxLength={10}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={inputClass}
             />
             {addForm.formState.errors.mobile && (
               <p className="mt-1 text-xs text-red-600">{addForm.formState.errors.mobile.message}</p>
@@ -317,7 +322,7 @@ export function UsersPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
+            <label className={labelClass}>Password</label>
             <PasswordInput {...addForm.register('password')} />
             {addForm.formState.errors.password && (
               <p className="mt-1 text-xs text-red-600">{addForm.formState.errors.password.message}</p>
@@ -325,11 +330,11 @@ export function UsersPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">PIN (optional, 4 digits)</label>
+            <label className={labelClass}>PIN (optional, 4 digits)</label>
             <input
               maxLength={4}
               {...addForm.register('pin')}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={inputClass}
             />
             {addForm.formState.errors.pin && (
               <p className="mt-1 text-xs text-red-600">{addForm.formState.errors.pin.message}</p>
@@ -337,11 +342,11 @@ export function UsersPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
+            <label className={labelClass}>Role</label>
             <select
               {...addForm.register('role')}
               defaultValue=""
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={inputClass}
             >
               <option value="" disabled>
                 Select a role
@@ -364,14 +369,14 @@ export function UsersPage() {
           <>
             <button
               onClick={closeEditModal}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+              className={secondaryButtonClass}
             >
               Cancel
             </button>
             <button
               onClick={editForm.handleSubmit(onEditSubmit)}
               disabled={update.isPending}
-              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className={primaryButtonClass}
             >
               {update.isPending ? 'Saving...' : 'Save Changes'}
             </button>
@@ -380,10 +385,10 @@ export function UsersPage() {
       >
         <form className="flex flex-col gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+            <label className={labelClass}>Name</label>
             <input
               {...editForm.register('name')}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={inputClass}
             />
             {editForm.formState.errors.name && (
               <p className="mt-1 text-xs text-red-600">{editForm.formState.errors.name.message}</p>
@@ -391,11 +396,11 @@ export function UsersPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Mobile Number</label>
+            <label className={labelClass}>Mobile Number</label>
             <input
               {...editForm.register('mobile')}
               maxLength={10}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={inputClass}
             />
             {editForm.formState.errors.mobile && (
               <p className="mt-1 text-xs text-red-600">{editForm.formState.errors.mobile.message}</p>
@@ -403,10 +408,10 @@ export function UsersPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
+            <label className={labelClass}>Role</label>
             <select
               {...editForm.register('role')}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={inputClass}
             >
               {roles?.map((role) => (
                 <option key={role.id} value={role.name}>
@@ -430,21 +435,21 @@ export function UsersPage() {
           <>
             <button
               onClick={closeResetModal}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+              className={secondaryButtonClass}
             >
               Cancel
             </button>
             <button
               onClick={resetForm.handleSubmit(onResetSubmit)}
               disabled={resetPassword.isPending}
-              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className={primaryButtonClass}
             >
               {resetPassword.isPending ? 'Saving...' : 'Reset Password'}
             </button>
           </>
         }
       >
-        <label className="mb-1 block text-sm font-medium text-gray-700">New password</label>
+        <label className={labelClass}>New password</label>
         <PasswordInput {...resetForm.register('newPassword')} />
         {resetForm.formState.errors.newPassword && (
           <p className="mt-1 text-xs text-red-600">{resetForm.formState.errors.newPassword.message}</p>

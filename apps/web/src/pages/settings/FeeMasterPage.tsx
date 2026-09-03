@@ -9,6 +9,7 @@ import type { FeeType } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { TableSkeleton } from '@/components/Skeleton';
 import { useFeeTypeMutations, useFeeTypesQuery } from '@/hooks/useFeeTypes';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
@@ -165,7 +166,7 @@ export function FeeMasterPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading fee types...</p>
+        <TableSkeleton rows={5} columns={canEdit ? 4 : 3} />
       ) : (
         <DataTable columns={columns} data={feeTypes ?? []} searchable={false} emptyMessage="No fee types yet." />
       )}

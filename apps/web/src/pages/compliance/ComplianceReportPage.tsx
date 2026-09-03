@@ -6,6 +6,7 @@ import type { ComplianceGrade, ComplianceReportRow } from '@clinic-care/shared-t
 import { COMPLIANCE_GRADES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { ComplianceBadge } from '@/components/ComplianceBadge';
+import { TableSkeleton } from '@/components/Skeleton';
 import { useComplianceReportQuery } from '@/hooks/useCompliance';
 import { downloadCsv } from '@/lib/csv';
 
@@ -91,7 +92,7 @@ export function ComplianceReportPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading...</p>
+        <TableSkeleton rows={6} columns={5} />
       ) : (
         <DataTable columns={columns} data={data ?? []} emptyMessage="No compliance records yet." />
       )}

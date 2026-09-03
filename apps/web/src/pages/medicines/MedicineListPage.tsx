@@ -6,6 +6,7 @@ import { Pencil, Plus, Star } from 'lucide-react';
 import type { MedicineForm, MedicineSummary } from '@clinic-care/shared-types';
 import { MEDICINE_FORMS } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
+import { TableSkeleton } from '@/components/Skeleton';
 import { useMedicineMutations, useMedicinesQuery } from '@/hooks/useMedicines';
 import { cn, getErrorMessage } from '@/lib/utils';
 
@@ -121,7 +122,7 @@ export function MedicineListPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading medicines...</p>
+        <TableSkeleton rows={6} columns={8} />
       ) : (
         <DataTable columns={columns} data={data?.items ?? []} emptyMessage="No medicines found." />
       )}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { OutstandingDueItem, PaymentMode } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
+import { InlineSkeleton, TableSkeleton } from '@/components/Skeleton';
 import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import { useAccountsSummaryQuery, useOutstandingDuesQuery } from '@/hooks/useAccounts';
 
@@ -35,10 +36,10 @@ export function AccountsPage() {
   const { data: dues, isLoading: duesLoading } = useOutstandingDuesQuery();
 
   const cards = [
-    { label: 'Total Billed', value: isLoading ? '—' : fmtMoney(summary?.totalBilled ?? 0) },
-    { label: 'Total Collected', value: isLoading ? '—' : fmtMoney(summary?.totalCollected ?? 0) },
-    { label: 'Outstanding Due', value: isLoading ? '—' : fmtMoney(summary?.totalDue ?? 0) },
-    { label: 'Bills Raised', value: isLoading ? '—' : String(summary?.billCount ?? 0) },
+    { label: 'Total Billed', value: isLoading ? <InlineSkeleton className="h-8 w-28" /> : fmtMoney(summary?.totalBilled ?? 0) },
+    { label: 'Total Collected', value: isLoading ? <InlineSkeleton className="h-8 w-28" /> : fmtMoney(summary?.totalCollected ?? 0) },
+    { label: 'Outstanding Due', value: isLoading ? <InlineSkeleton className="h-8 w-28" /> : fmtMoney(summary?.totalDue ?? 0) },
+    { label: 'Bills Raised', value: isLoading ? <InlineSkeleton className="h-8 w-16" /> : String(summary?.billCount ?? 0) },
   ];
 
   const maxModeAmount = Math.max(1, ...(summary?.paymentModeBreakdown.map((m) => m.amount) ?? [0]));
@@ -98,7 +99,17 @@ export function AccountsPage() {
 
       <div className="rounded-xl border border-gray-200 bg-white p-5">
         <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Collection by Payment Mode</p>
-        {!summary || summary.paymentModeBreakdown.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <InlineSkeleton className="h-4 w-28" />
+                <InlineSkeleton className="h-2 flex-1 rounded-full" />
+                <InlineSkeleton className="h-4 w-20" />
+              </div>
+            ))}
+          </div>
+        ) : !summary || summary.paymentModeBreakdown.length === 0 ? (
           <p className="text-sm text-gray-400">No payments recorded in this range.</p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -117,7 +128,7 @@ export function AccountsPage() {
 
       <div>
         <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Outstanding Dues</p>
-        {duesLoading ? <p className="text-sm text-gray-400">Loading...</p> : <DataTable columns={dueColumns} data={dues ?? []} emptyMessage="No outstanding dues — all bills settled." />}
+        {duesLoading ? <TableSkeleton rows={5} columns={6} /> : <DataTable columns={dueColumns} data={dues ?? []} emptyMessage="No outstanding dues — all bills settled." />}
       </div>
     </div>
   );

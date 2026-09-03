@@ -25,6 +25,7 @@ import { hasPermission } from '@/lib/permissions';
 import { resolveServerUrl } from '@/lib/api';
 import { getErrorMessage } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { FormSkeleton } from '@/components/Skeleton';
 
 const PHONE_REGEX = /^(?=(?:\D*\d){10,})[+]?[\d\s()-]{7,20}$/;
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -200,7 +201,7 @@ export function ClinicProfilePage() {
   }
 
   if (isLoading || !clinic) {
-    return <p className="text-sm text-gray-400">Loading clinic profile...</p>;
+    return <FormSkeleton sections={3} />;
   }
 
   const logoUrl = clinic.logoPath ? resolveServerUrl(clinic.logoPath) : null;

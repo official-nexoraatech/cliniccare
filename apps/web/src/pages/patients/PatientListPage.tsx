@@ -6,6 +6,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Pencil, Plus, S
 import type { Gender, PatientSummary } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { SearchBox } from '@/components/SearchBox';
+import { TableSkeleton } from '@/components/Skeleton';
 import { usePatientsQuery } from '@/hooks/usePatients';
 import { useVisitMutations } from '@/hooks/useVisits';
 import { downloadCsv } from '@/lib/csv';
@@ -256,7 +257,7 @@ export function PatientListPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading patients...</p>
+        <TableSkeleton rows={8} columns={8} />
       ) : (
         <>
           <DataTable

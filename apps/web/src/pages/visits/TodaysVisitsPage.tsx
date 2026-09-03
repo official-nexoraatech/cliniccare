@@ -11,6 +11,7 @@ import {
   tableRowClass,
   tableShellClass,
 } from '@/components/tableStyles';
+import { TableSkeleton } from '@/components/Skeleton';
 import { useTodaysVisitsQuery, useVisitMutations } from '@/hooks/useVisits';
 import { cn, getErrorMessage } from '@/lib/utils';
 
@@ -47,7 +48,7 @@ export function TodaysVisitsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading...</p>
+        <TableSkeleton rows={5} columns={5} />
       ) : !visits || visits.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <Stethoscope className="h-8 w-8 text-gray-300" />

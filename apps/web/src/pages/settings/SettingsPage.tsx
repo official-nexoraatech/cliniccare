@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { hasPermission } from '@/lib/permissions';
 import { useAuthStore } from '@/store/auth-store';
+import { PageSkeleton } from '@/components/Skeleton';
 import { UsersPage } from './UsersPage';
 import { ClinicProfilePage } from './ClinicProfilePage';
 import { RolesPermissionsPage } from './RolesPermissionsPage';
@@ -55,7 +56,7 @@ export function SettingsPage() {
   const isValidTab = (value: string | undefined): value is TabKey => visibleTabs.some((t) => t.key === value);
 
   if (tab === 'backup' && isHost === null) {
-    return <p className="text-sm text-gray-400">Loading...</p>;
+    return <PageSkeleton />;
   }
 
   if (!isValidTab(tab)) {

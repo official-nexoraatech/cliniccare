@@ -3,6 +3,7 @@ import { useTodaysVisitsQuery } from '@/hooks/useVisits';
 import { useAppointmentsByDayQuery } from '@/hooks/useAppointments';
 import { useFollowUpCountsQuery } from '@/hooks/useFollowUps';
 import { useAccountsSummaryQuery } from '@/hooks/useAccounts';
+import { InlineSkeleton } from '@/components/Skeleton';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -16,10 +17,10 @@ export function Dashboard() {
   const { data: accountsSummary, isLoading: accountsLoading } = useAccountsSummaryQuery(todayIso(), todayIso());
 
   const cards = [
-    { label: "Today's Patients", value: visitsLoading ? '—' : String(visits?.length ?? 0) },
-    { label: 'Collection Today', value: accountsLoading ? '—' : `₹${(accountsSummary?.totalCollected ?? 0).toLocaleString('en-IN')}` },
-    { label: 'Appointments Today', value: appointmentsLoading ? '—' : String(appointments?.length ?? 0) },
-    { label: 'Follow-ups Due', value: followUpsLoading ? '—' : String(followUpCounts?.dueToday ?? 0) },
+    { label: "Today's Patients", value: visitsLoading ? <InlineSkeleton className="h-8 w-16" /> : String(visits?.length ?? 0) },
+    { label: 'Collection Today', value: accountsLoading ? <InlineSkeleton className="h-8 w-28" /> : `₹${(accountsSummary?.totalCollected ?? 0).toLocaleString('en-IN')}` },
+    { label: 'Appointments Today', value: appointmentsLoading ? <InlineSkeleton className="h-8 w-16" /> : String(appointments?.length ?? 0) },
+    { label: 'Follow-ups Due', value: followUpsLoading ? <InlineSkeleton className="h-8 w-16" /> : String(followUpCounts?.dueToday ?? 0) },
   ];
 
   return (

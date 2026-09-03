@@ -39,6 +39,7 @@ import { usePatientAppointmentsQuery } from '@/hooks/useAppointments';
 import { useBillsByPatientQuery } from '@/hooks/useBilling';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ComplianceBadge } from '@/components/ComplianceBadge';
+import { FormSkeleton } from '@/components/Skeleton';
 import { resolveServerUrl } from '@/lib/api';
 import { cn, getErrorMessage } from '@/lib/utils';
 import {
@@ -258,7 +259,7 @@ export function PatientProfilePage() {
   }, [history, tab]);
 
   if (isLoading) {
-    return <p className="text-sm text-gray-400">Loading patient...</p>;
+    return <FormSkeleton sections={2} />;
   }
 
   if (!patient) {
