@@ -4,7 +4,20 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { useBlocker } from 'react-router-dom';
-import { Building2, Image as ImageIcon } from 'lucide-react';
+import {
+  Building2,
+  CalendarClock,
+  FileImage,
+  Image as ImageIcon,
+  Mail,
+  MapPin,
+  Phone,
+  ReceiptText,
+  Save,
+  Upload,
+  UserRound,
+  X,
+} from 'lucide-react';
 import type { UpdateClinicRequest } from '@clinic-care/shared-types';
 import { useClinicMutations, useClinicQuery } from '@/hooks/useClinic';
 import { useAuthStore } from '@/store/auth-store';
@@ -47,8 +60,15 @@ const clinicSchema = z.object({
 type ClinicFormValues = z.infer<typeof clinicSchema>;
 
 const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+  'h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm shadow-slate-200/40 transition placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/10';
+const textareaClass =
+  'min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm shadow-slate-200/40 transition placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/10';
+const labelClass = 'mb-1.5 block text-sm font-semibold text-slate-700';
+const sectionClass = 'rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70';
+const sectionTitleClass = 'flex items-center gap-2 text-sm font-semibold text-[var(--color-navy)]';
+const sectionIconClass = 'h-4 w-4 text-slate-400';
+const toggleClass =
+  'flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-white';
 
 const optionalTrimmed = (value?: string) => {
   const trimmed = value?.trim() ?? '';
@@ -63,6 +83,7 @@ export function ClinicProfilePage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const letterheadInputRef = useRef<HTMLInputElement>(null);
   const [pendingValues, setPendingValues] = useState<UpdateClinicRequest | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ title: string; src: string; wide?: boolean } | null>(null);
 
   const {
     register,
@@ -72,6 +93,14 @@ export function ClinicProfilePage() {
     formState: { errors, isSubmitting, isDirty },
   } = useForm<ClinicFormValues>({ resolver: zodResolver(clinicSchema), mode: 'onBlur' });
   const taxEnabled = watch('taxEnabled');
+  const [clinicName, doctorName, degree, phone, email, address] = watch([
+    'name',
+    'doctorName',
+    'degree',
+    'phone',
+    'email',
+    'address',
+  ]);
 
   // Blocks in-app navigation (switching Settings tabs, the sidebar, back/forward) while the
   // form has unsaved edits, so a change isn't silently lost by clicking away.
@@ -174,40 +203,78 @@ export function ClinicProfilePage() {
     return <p className="text-sm text-gray-400">Loading clinic profile...</p>;
   }
 
+  const logoUrl = clinic.logoPath ? resolveServerUrl(clinic.logoPath) : null;
+  const letterheadUrl = clinic.letterheadPath ? resolveServerUrl(clinic.letterheadPath) : null;
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--color-navy)]">Clinic Profile</h1>
-          <p className="text-sm text-gray-500">
-            This appears on every printed prescription, certificate and bill letterhead.
-          </p>
+    <div className="flex flex-col gap-5">
+      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-200/70">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-400">Settings</p>
+            <h1 className="mt-1 text-2xl font-semibold text-[var(--color-navy)]">Clinic profile</h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Printed prescriptions, certificates and bills use these details.
+            </p>
+          </div>
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-500">
+            Print setup
+          </div>
         </div>
+      </div>
+
+      <div className="sticky top-0 z-20 -mx-1 flex flex-wrap items-center justify-between gap-3 bg-[var(--color-bg)]/95 px-1 py-2 backdrop-blur">
+        <span className="text-sm font-medium text-slate-500">
+          {isDirty ? 'You have unsaved clinic profile changes.' : 'Clinic profile is up to date.'}
+        </span>
         <button
           type="submit"
           form="clinic-profile-form"
-          disabled={isSubmitting || update.isPending}
-          className="shrink-0 rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          disabled={isSubmitting || update.isPending || !isDirty}
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/20 focus-visible:ring-offset-2 active:translate-y-0 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Save Changes
+          <Save className="h-4 w-4" />
+          {update.isPending ? 'Saving...' : 'Save changes'}
         </button>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
-        <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Branding</p>
-        <div className="flex flex-wrap gap-6">
-          <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => logoInputRef.current?.click()}
-              className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-[var(--color-primary)]"
-            >
-              {clinic.logoPath ? (
-                <img src={resolveServerUrl(clinic.logoPath)} alt="Clinic logo" className="h-full w-full object-cover" />
+      <div className="grid gap-5 xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <aside className="flex flex-col gap-5">
+
+          <section className={sectionClass}>
+            <p className={sectionTitleClass}>
+              <ImageIcon className={sectionIconClass} />
+              Branding
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="flex items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+                <button
+                  type="button"
+                  onClick={() => logoUrl && setPreviewImage({ title: 'Logo', src: logoUrl })}
+                  disabled={!logoUrl}
+                  className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white bg-white text-slate-400 shadow-sm transition hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/15 disabled:cursor-default disabled:hover:scale-100"
+                  title={logoUrl ? 'View logo' : 'No logo uploaded'}
+                >
+              {logoUrl ? (
+                <img src={logoUrl} alt="Clinic logo" className="h-full w-full object-cover" />
               ) : (
-                <Building2 className="h-6 w-6" />
+                    <Building2 className="h-7 w-7" />
               )}
-            </button>
+                </button>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">Logo</span>
+                  <span className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/15"
+                    >
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload image
+                    </button>
+                  </span>
+                </span>
+            </div>
             <input
               ref={logoInputRef}
               type="file"
@@ -215,25 +282,39 @@ export function ClinicProfilePage() {
               className="hidden"
               onChange={(e) => onImageSelected('logo', e.target.files?.[0] ?? null)}
             />
-            <p className="text-xs text-gray-500">Logo</p>
-          </div>
 
-          <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => letterheadInputRef.current?.click()}
-              className="flex h-20 w-32 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-[var(--color-primary)]"
-            >
-              {clinic.letterheadPath ? (
+            <div className="flex items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+                <button
+                  type="button"
+                  onClick={() => letterheadUrl && setPreviewImage({ title: 'Letterhead', src: letterheadUrl, wide: true })}
+                  disabled={!letterheadUrl}
+                  className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white bg-white text-slate-400 shadow-sm transition hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/15 disabled:cursor-default disabled:hover:scale-100"
+                  title={letterheadUrl ? 'View letterhead' : 'No letterhead uploaded'}
+                >
+              {letterheadUrl ? (
                 <img
-                  src={resolveServerUrl(clinic.letterheadPath)}
+                  src={letterheadUrl}
                   alt="Clinic letterhead"
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <ImageIcon className="h-6 w-6" />
+                    <FileImage className="h-7 w-7" />
               )}
-            </button>
+                </button>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">Letterhead</span>
+                  <span className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => letterheadInputRef.current?.click()}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/15"
+                    >
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload image
+                    </button>
+                  </span>
+                </span>
+            </div>
             <input
               ref={letterheadInputRef}
               type="file"
@@ -241,23 +322,59 @@ export function ClinicProfilePage() {
               className="hidden"
               onChange={(e) => onImageSelected('letterhead', e.target.files?.[0] ?? null)}
             />
-            <p className="text-xs text-gray-500">Letterhead</p>
-          </div>
-        </div>
-      </div>
+            </div>
+          </section>
 
-      <form id="clinic-profile-form" onSubmit={handleSubmit(onSubmit)} onKeyDown={preventEnterSubmit} className="flex flex-col gap-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Clinic Details</p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Clinic Name</label>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
+            <p className="mb-4 text-sm font-semibold text-[var(--color-navy)]">Print identity</p>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-start gap-3 border-b border-slate-200 pb-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white text-slate-400 shadow-sm">
+                  {clinic.logoPath ? (
+                    <img src={resolveServerUrl(clinic.logoPath)} alt="Clinic logo preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <Building2 className="h-6 w-6" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold text-slate-900">{clinicName || clinic.name}</p>
+                  <p className="mt-1 truncate text-xs text-slate-500">{doctorName || clinic.doctorName || 'Doctor name'}</p>
+                  <p className="truncate text-xs text-slate-500">{degree || clinic.degree || 'Degree'}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-col gap-2 text-xs text-slate-600">
+                <span className="inline-flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span>{address || clinic.address || 'Clinic address'}</span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span>{phone || clinic.phone || 'Phone number'}</span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span>{email || clinic.email || 'Email address'}</span>
+                </span>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <form id="clinic-profile-form" onSubmit={handleSubmit(onSubmit)} onKeyDown={preventEnterSubmit} className="grid gap-5">
+        <section className={sectionClass}>
+          <p className={sectionTitleClass}>
+            <Building2 className={sectionIconClass} />
+            Clinic details
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="lg:col-span-2">
+              <label className={labelClass}>Clinic name</label>
               <input {...register('name')} className={inputClass} />
               {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
             </div>
-            <div className="sm:col-span-2">
+            <div className="lg:col-span-2">
               <label className={labelClass}>Address</label>
-              <input {...register('address')} className={inputClass} />
+              <textarea {...register('address')} className={textareaClass} />
             </div>
             <div>
               <label className={labelClass}>Phone</label>
@@ -270,13 +387,16 @@ export function ClinicProfilePage() {
               {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Doctor Details (for prescriptions)</p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <section className={sectionClass}>
+          <p className={sectionTitleClass}>
+            <UserRound className={sectionIconClass} />
+            Doctor details
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div>
-              <label className={labelClass}>Doctor Name</label>
+              <label className={labelClass}>Doctor name</label>
               <input {...register('doctorName')} className={inputClass} />
               {errors.doctorName && <p className="mt-1 text-xs text-red-600">{errors.doctorName.message}</p>}
             </div>
@@ -285,18 +405,22 @@ export function ClinicProfilePage() {
               <input {...register('degree')} placeholder="e.g. MBBS, MD" className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Registration No.</label>
+              <label className={labelClass}>Registration no.</label>
               <input {...register('regnNumber')} className={inputClass} />
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Scheduling</p>
+        <div className="grid gap-5 lg:grid-cols-2">
+        <section className={sectionClass}>
+          <p className={sectionTitleClass}>
+            <CalendarClock className={sectionIconClass} />
+            Scheduling
+          </p>
           <p className="mb-3 text-xs text-gray-500">
             Drives the booking screen's slot grid — the hours and slot size patients can be booked into.
           </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3">
             <div>
               <label className={labelClass}>Opens at</label>
               <input type="time" {...register('openTime')} className={inputClass} />
@@ -318,39 +442,50 @@ export function ClinicProfilePage() {
               </select>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Billing</p>
+        <section className={sectionClass}>
+          <p className={sectionTitleClass}>
+            <ReceiptText className={sectionIconClass} />
+            Billing
+          </p>
           <p className="mb-3 text-xs text-gray-500">
             Toggle what the bill form shows — a clinic that doesn't charge GST never needs a tax field.
           </p>
-          <div className="flex flex-col gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" {...register('discountEnabled')} className="h-4 w-4 rounded border-gray-300" />
-              Allow a discount field on bills
+          <div className="mt-4 flex flex-col gap-3">
+            <label className={toggleClass}>
+              <input type="checkbox" {...register('discountEnabled')} className="mt-0.5 h-4 w-4 rounded border-slate-300" />
+              <span>
+                <span className="block font-semibold">Allow discounts</span>
+                <span className="mt-0.5 block text-xs text-slate-500">Show discount field on bills</span>
+              </span>
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" {...register('taxEnabled')} className="h-4 w-4 rounded border-gray-300" />
-              Charge tax (GST) on bills
+            <label className={toggleClass}>
+              <input type="checkbox" {...register('taxEnabled')} className="mt-0.5 h-4 w-4 rounded border-slate-300" />
+              <span>
+                <span className="block font-semibold">Charge tax</span>
+                <span className="mt-0.5 block text-xs text-slate-500">Enable GST details on bills</span>
+              </span>
             </label>
             {taxEnabled && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 pt-1 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>Tax label</label>
                   <input {...register('taxLabel')} placeholder="GST" className={inputClass} />
                   {errors.taxLabel && <p className="mt-1 text-xs text-red-600">{errors.taxLabel.message}</p>}
                 </div>
                 <div>
-                  <label className={labelClass}>GSTIN (printed on bills)</label>
+                  <label className={labelClass}>GSTIN</label>
                   <input {...register('gstNumber')} className={inputClass} />
                 </div>
               </div>
             )}
           </div>
+        </section>
         </div>
 
       </form>
+      </div>
 
       <ConfirmDialog
         open={Boolean(pendingValues)}
@@ -360,6 +495,32 @@ export function ClinicProfilePage() {
         onConfirm={confirmSave}
         onCancel={() => setPendingValues(null)}
       />
+
+      {previewImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-4 shadow-2xl shadow-slate-950/20">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-[var(--color-navy)]">{previewImage.title}</h2>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/15"
+                aria-label="Close image preview"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex max-h-[72vh] items-center justify-center overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <img
+                src={previewImage.src}
+                alt={`${previewImage.title} preview`}
+                className={previewImage.wide ? 'max-h-[64vh] w-full object-contain' : 'max-h-[64vh] max-w-full object-contain'}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {blocker.state === 'blocked' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

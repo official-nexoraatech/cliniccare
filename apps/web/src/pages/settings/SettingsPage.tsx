@@ -64,22 +64,24 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex gap-1 border-b border-gray-200">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 pb-8">
+      <div className="overflow-x-auto border-b border-slate-200">
+        <div className="flex min-w-max gap-1">
         {visibleTabs.map((t) => (
           <button
             key={t.key}
             onClick={() => navigate(`/settings/${t.key}`, { replace: true })}
             className={cn(
-              'border-b-2 px-4 py-2.5 text-sm font-medium',
+              'border-b-2 px-4 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/15',
               tab === t.key
                 ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                : 'border-transparent text-gray-500 hover:text-gray-700',
+                : 'border-transparent text-slate-500 hover:bg-white/70 hover:text-slate-800',
             )}
           >
             {t.label}
           </button>
         ))}
+        </div>
       </div>
 
       {tab === 'users' && <UsersPage />}

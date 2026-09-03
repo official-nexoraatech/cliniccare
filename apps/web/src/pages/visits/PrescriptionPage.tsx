@@ -16,6 +16,7 @@ import { PatientStrip } from '@/components/PatientStrip';
 import { MedicineSearchInput } from '@/components/MedicineSearchInput';
 import { PrintLayout } from '@/components/PrintLayout';
 import { FormModal } from '@/components/FormModal';
+import { compactFieldInputClass, subtleSectionCardClass } from '@/components/uiStyles';
 import {
   compactTableBodyClass,
   compactTableCellClass,
@@ -93,8 +94,7 @@ function doseInWords(row: Row): string {
   return `${timing} - ${food}`;
 }
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
+const inputClass = compactFieldInputClass;
 const numClass = `${inputClass} text-center`;
 
 export function PrescriptionPage() {
@@ -363,7 +363,7 @@ export function PrescriptionPage() {
 
         <PatientStrip patient={visit.patient} visitNo={visit.visitNo} />
 
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className={subtleSectionCardClass}>
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold text-[var(--color-navy)]">Medicines</p>
             <button
@@ -495,7 +495,7 @@ export function PrescriptionPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className={subtleSectionCardClass}>
           <p className="mb-2 text-sm font-semibold text-[var(--color-navy)]">General Instruction</p>
           <textarea
             rows={2}

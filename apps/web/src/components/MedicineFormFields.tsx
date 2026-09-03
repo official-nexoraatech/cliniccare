@@ -1,11 +1,11 @@
 import type { FieldErrors, UseFormRegister } from 'react-hook-form';
 import { BEFORE_AFTER_FOOD_OPTIONS, MEDICINE_FORMS, type MedicineFieldDefinition } from '@clinic-care/shared-types';
 import type { MedicineFormValues } from '@/lib/medicineSchema';
+import { formLabelClass, sectionCardClass, standardFieldInputClass } from '@/components/uiStyles';
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1.5 block text-sm font-medium text-gray-700';
-const sectionClass = 'rounded-xl border border-gray-200 bg-white p-5';
+const inputClass = standardFieldInputClass;
+const labelClass = formLabelClass;
+const sectionClass = sectionCardClass;
 const sectionTitleClass = 'text-base font-semibold text-[var(--color-navy)]';
 const sectionGridClass = 'mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4';
 

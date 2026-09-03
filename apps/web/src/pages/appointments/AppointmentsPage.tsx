@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -21,6 +21,14 @@ import { GENDERS, RESCHEDULE_REQUESTED_REMARK } from '@clinic-care/shared-types'
 import type { AppointmentDetail, AppointmentStatus, Gender } from '@clinic-care/shared-types';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import {
+  actionIconClass,
+  actionTooltipClass,
+  actionToneClass,
+  formLabelClass,
+  standardFieldInputClass,
+  type ActionTone,
+} from '@/components/uiStyles';
 import {
   tableBodyClass,
   tableCellClass,
@@ -84,9 +92,8 @@ function waitingMinutes(updatedAt: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(updatedAt).getTime()) / 60000));
 }
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+const inputClass = standardFieldInputClass;
+const labelClass = formLabelClass;
 
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1); // 1..12
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => i);
@@ -872,61 +879,74 @@ interface AppointmentActionsProps {
   onCancel: (a: AppointmentDetail) => void;
 }
 
+function ActionIconButton({
+  label,
+  tone,
+  onClick,
+  children,
+}: {
+  label: string;
+  tone: ActionTone;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={cn(actionIconClass, actionToneClass[tone])}
+    >
+      {children}
+      <span className={actionTooltipClass}>{label}</span>
+    </button>
+  );
+}
+
 function AppointmentActions({ appointment: a, clinicName, date, onEdit, onLink, onReschedule, onConfirm, onCancel }: AppointmentActionsProps) {
   return (
-    <div className="flex flex-wrap justify-center gap-2">
+    <div className="flex flex-wrap justify-center gap-1.5">
       {a.status === 'BOOKED' && (
-        <button
-          onClick={() => onConfirm(a)}
-          className="flex items-center gap-1 rounded-lg border border-blue-200 px-2.5 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50 active:translate-y-px"
-        >
-          <CheckCircle2 className="h-3.5 w-3.5" /> Confirm
-        </button>
+        <ActionIconButton label="Confirm" tone="blue" onClick={() => onConfirm(a)}>
+          <CheckCircle2 className="h-4 w-4" />
+        </ActionIconButton>
       )}
       {EDITABLE_STATUSES.includes(a.status) && (
         <a
           href={waLink(
             a.mobile,
-            `Dear ${a.patientName}, this is a reminder from ${clinicName ?? 'the clinic'} that you have an appointment on ${new Date(date).toLocaleDateString('en-IN')} at ${a.timeSlot}. Please confirm here: ${window.location.origin}/confirm/${a.id}`,
+            `Dear ${a.patientName}, this is a reminder from ${clinicName ?? 'the clinic'} that you have an appointment on ${new Date(date).toLocaleDateString('en-IN')} at ${a.timeSlot}.\n\nPlease confirm here:\n${window.location.origin}/confirm/${a.id}`,
           )}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1 rounded-lg border border-green-200 px-2.5 py-1 text-xs font-medium text-green-600 transition hover:bg-green-50 active:translate-y-px"
+          title="WhatsApp"
+          aria-label="WhatsApp"
+          className={cn(actionIconClass, actionToneClass.green)}
         >
-          <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+          <MessageCircle className="h-4 w-4" />
+          <span className={actionTooltipClass}>WhatsApp</span>
         </a>
       )}
       {EDITABLE_STATUSES.includes(a.status) && (
-        <button
-          onClick={() => onEdit(a)}
-          className="flex items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-600 transition hover:bg-amber-50 active:translate-y-px"
-        >
-          <Pencil className="h-3.5 w-3.5" /> Edit
-        </button>
+        <ActionIconButton label="Edit" tone="amber" onClick={() => onEdit(a)}>
+          <Pencil className="h-4 w-4" />
+        </ActionIconButton>
       )}
       {!a.patientId && (
-        <button
-          onClick={() => onLink(a)}
-          className="flex items-center gap-1 rounded-lg border border-green-200 px-2.5 py-1 text-xs font-medium text-green-600 transition hover:bg-green-50 active:translate-y-px"
-        >
-          <Link2 className="h-3.5 w-3.5" /> Link Patient
-        </button>
+        <ActionIconButton label="Link patient" tone="green" onClick={() => onLink(a)}>
+          <Link2 className="h-4 w-4" />
+        </ActionIconButton>
       )}
       {RESCHEDULABLE_UI_STATUSES.includes(a.status) && (
-        <button
-          onClick={() => onReschedule(a)}
-          className="flex items-center gap-1 rounded-lg border border-cyan-200 px-2.5 py-1 text-xs font-medium text-cyan-700 transition hover:bg-cyan-50 active:translate-y-px"
-        >
-          <CalendarClock className="h-3.5 w-3.5" /> Reschedule
-        </button>
+        <ActionIconButton label="Reschedule" tone="cyan" onClick={() => onReschedule(a)}>
+          <CalendarClock className="h-4 w-4" />
+        </ActionIconButton>
       )}
       {CANCELLABLE_STATUSES.includes(a.status) && (
-        <button
-          onClick={() => onCancel(a)}
-          className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 active:translate-y-px"
-        >
-          <XCircle className="h-3.5 w-3.5" /> Cancel
-        </button>
+        <ActionIconButton label="Cancel" tone="red" onClick={() => onCancel(a)}>
+          <XCircle className="h-4 w-4" />
+        </ActionIconButton>
       )}
     </div>
   );

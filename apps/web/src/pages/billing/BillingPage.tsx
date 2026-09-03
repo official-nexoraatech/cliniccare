@@ -7,6 +7,7 @@ import { PAYMENT_MODES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { PrintLayout } from '@/components/PrintLayout';
+import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import {
   compactTableBodyClass,
   compactTableCellClass,
@@ -40,9 +41,8 @@ const STATUS_STYLE: Record<BillStatus, string> = {
 };
 const MODE_LABEL: Record<PaymentMode, string> = { CASH: 'Cash', CARD: 'Card', UPI: 'UPI', BANK_TRANSFER: 'Bank Transfer' };
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+const inputClass = standardFieldInputClass;
+const labelClass = formLabelClass;
 
 function fmtMoney(paise: number) {
   return `₹${paise.toLocaleString('en-IN')}`;

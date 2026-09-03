@@ -1,6 +1,17 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
-import { CloudUpload, DownloadCloud, RefreshCw } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Cloud,
+  CloudUpload,
+  Database,
+  DownloadCloud,
+  Info,
+  KeyRound,
+  RefreshCw,
+  ShieldAlert,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
 import { getErrorMessage } from '@/lib/utils';
@@ -17,14 +28,64 @@ function stageLabel(stage: 'LOCAL_DUMP' | 'ATLAS_SYNC' | 'RESTORE'): string {
   return 'Restore from Atlas';
 }
 
+function InfoButton({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/15"
+        aria-label={label}
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+      <span className="pointer-events-none absolute left-1/2 top-8 z-30 w-72 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left text-xs font-medium leading-relaxed text-slate-600 opacity-0 shadow-xl shadow-slate-900/10 transition group-hover:opacity-100 group-focus-within:opacity-100">
+        {children}
+      </span>
+    </span>
+  );
+}
+
+function StatusTile({
+  icon,
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  tone?: 'neutral' | 'success' | 'warning';
+}) {
+  const toneClass =
+    tone === 'success'
+      ? 'bg-emerald-50 text-emerald-700'
+      : tone === 'warning'
+        ? 'bg-amber-50 text-amber-700'
+        : 'bg-slate-50 text-slate-600';
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
+      <div className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg ${toneClass}`}>{icon}</div>
+      <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function attemptBadgeClass(status: string) {
+  if (status === 'SUCCESS') return 'bg-emerald-50 text-emerald-700 ring-emerald-100';
+  if (status === 'FAILED') return 'bg-red-50 text-red-700 ring-red-100';
+  if (status === 'SKIPPED') return 'bg-slate-100 text-slate-600 ring-slate-200';
+  return 'bg-amber-50 text-amber-700 ring-amber-100';
+}
+
 export function BackupSettingsPage() {
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = hasPermission(currentUser, 'administration:edit');
   const { data: status, isLoading } = useBackupStatusQuery();
   const { updateSettings, runNow, restoreFromAtlas } = useBackupMutations();
 
-  // Never populated from the server — the stored connection string isn't returned to the
-  // browser, only whether one is configured (status.atlasConfigured).
+  // The stored connection string is never returned to the browser, only whether one exists.
   const [connectionString, setConnectionString] = useState('');
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const { data: restorePreview, isLoading: previewLoading } = useRestorePreviewQuery(restoreDialogOpen);
@@ -32,7 +93,7 @@ export function BackupSettingsPage() {
   const onToggle = async (enabled: boolean) => {
     try {
       await updateSettings.mutateAsync({ enabled });
-      toast.success(enabled ? 'Cloud backup enabled' : 'Cloud backup disabled — using local Mongo only');
+      toast.success(enabled ? 'Cloud backup enabled' : 'Cloud backup disabled - using local Mongo only');
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not update backup settings.'));
     }
@@ -40,12 +101,9 @@ export function BackupSettingsPage() {
 
   const onSaveConnectionString = async () => {
     try {
-      // The server actually opens a connection before accepting this — a bad host, wrong
-      // credentials, or this machine's IP not being allow-listed in Atlas all get rejected
-      // right here instead of surfacing as a mysterious failure on the next scheduled sync.
       await updateSettings.mutateAsync({ enabled: true, atlasConnectionString: connectionString });
       setConnectionString('');
-      toast.success('Connected — Atlas connection string saved');
+      toast.success('Connected - Atlas connection string saved');
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not connect using this connection string.'));
     }
@@ -58,7 +116,7 @@ export function BackupSettingsPage() {
       if (latest?.status === 'SUCCESS' && latest.stage === 'ATLAS_SYNC') {
         toast.success('Backed up to Atlas');
       } else if (latest?.status === 'SKIPPED') {
-        toast.success('Local snapshot saved — Atlas sync skipped (no connection string configured)');
+        toast.success('Local snapshot saved - Atlas sync skipped');
       } else if (latest?.status === 'SUCCESS') {
         toast.success('Local snapshot saved');
       } else if (latest) {
@@ -74,7 +132,7 @@ export function BackupSettingsPage() {
     try {
       const result = await restoreFromAtlas.mutateAsync();
       if (result.ok) {
-        toast.success(`Restored from Atlas — local now has ${result.localCountAfter} records (was ${result.localCountBefore}).`);
+        toast.success(`Restored from Atlas - local now has ${result.localCountAfter} records (was ${result.localCountBefore}).`);
       } else {
         toast.error(result.message ?? 'Restore did not complete');
       }
@@ -93,134 +151,175 @@ export function BackupSettingsPage() {
       ? `Could not read Atlas: ${restorePreview.error}`
       : restorePreview
         ? `Atlas has ${restorePreview.atlasCount ?? '?'} records. Local currently has ${restorePreview.localCount} records. ` +
-          'This will REPLACE all local data with what\'s in Atlas — a safety copy of the current local data is taken first, ' +
-          'but this is otherwise not reversible from within the app.'
+          "This will replace all local data with what's in Atlas. A safety copy of the current local data is taken first."
         : '';
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold text-[var(--color-navy)]">Backup & Sync</h1>
-        <p className="text-sm text-gray-500">
-          Local Mongo on this machine is always the source of truth — cloud backup is optional, on top of it.
-        </p>
+    <div className="flex flex-col gap-5">
+      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-200/70">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-400">Administration</p>
+            <h1 className="mt-1 text-2xl font-semibold text-[var(--color-navy)]">Backup & Sync</h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Local Mongo stays primary. Atlas is used as an optional off-machine backup.
+            </p>
+          </div>
+          {canEdit && (
+            <button
+              onClick={onBackupNow}
+              disabled={runNow.isPending || !status.enabled}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/20 focus-visible:ring-offset-2 active:translate-y-0 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {runNow.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CloudUpload className="h-4 w-4" />}
+              Backup now
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
-        <label className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={status.enabled}
-            disabled={!canEdit || updateSettings.isPending}
-            onChange={(e) => onToggle(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-          />
-          <span className="text-sm font-medium text-gray-700">Enable cloud backup</span>
-        </label>
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatusTile
+          icon={status.enabled ? <CheckCircle2 className="h-4 w-4" /> : <Cloud className="h-4 w-4" />}
+          label="Cloud backup"
+          value={status.enabled ? 'Enabled' : 'Disabled'}
+          tone={status.enabled ? 'success' : 'warning'}
+        />
+        <StatusTile icon={<Database className="h-4 w-4" />} label="Last local snapshot" value={formatDateTime(status.lastLocalDumpAt)} />
+        <StatusTile icon={<CloudUpload className="h-4 w-4" />} label="Last Atlas sync" value={formatDateTime(status.lastAtlasSyncAt)} />
+      </div>
 
-        {!status.enabled ? (
-          <p className="mt-2 text-sm text-gray-400">
-            Off — this machine is using local Mongo only, with no cloud sync. Nothing runs in the background.
-          </p>
-        ) : (
-          <div className="mt-4 flex flex-col gap-4">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Atlas connection string</label>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-[var(--color-navy)]">Cloud backup</h2>
+                <InfoButton label="Cloud backup info">
+                  When enabled, this machine still uses local Mongo first. Atlas receives backup copies so data can be recovered if the local database is lost.
+                </InfoButton>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">Configure Atlas and run manual backups from this machine.</p>
+            </div>
+            <label className="inline-flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white">
               <input
-                type="password"
-                value={connectionString}
-                onChange={(e) => setConnectionString(e.target.value)}
-                disabled={!canEdit}
-                placeholder={status.atlasConfigured ? '••••••••••••  (already configured — enter a new one to replace it)' : 'mongodb+srv://...'}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] disabled:bg-gray-50"
+                type="checkbox"
+                checked={status.enabled}
+                disabled={!canEdit || updateSettings.isPending}
+                onChange={(e) => onToggle(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
               />
-              {canEdit && (
-                <button
-                  onClick={onSaveConnectionString}
-                  disabled={!connectionString || updateSettings.isPending}
-                  className="mt-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {updateSettings.isPending ? 'Testing connection...' : 'Save connection string'}
-                </button>
-              )}
-              <p className="mt-1 text-xs text-gray-400">
-                Stored as plain text on this machine, same as the rest of the local database — don't reuse a
-                sensitive password elsewhere for this. Saving tests the connection first — if it fails, make sure
-                this machine's IP is allowed under Atlas → Network Access.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              <span className="text-gray-500">
-                Last local snapshot: <span className="font-medium text-gray-700">{formatDateTime(status.lastLocalDumpAt)}</span>
-              </span>
-              <span className="text-gray-500">
-                Last Atlas sync: <span className="font-medium text-gray-700">{formatDateTime(status.lastAtlasSyncAt)}</span>
-              </span>
-              {canEdit && (
-                <button
-                  onClick={onBackupNow}
-                  disabled={runNow.isPending}
-                  className="flex items-center gap-1.5 rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  {runNow.isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CloudUpload className="h-3.5 w-3.5" />}
-                  Backup Now
-                </button>
-              )}
-            </div>
-
-            {status.atlasConfigured && canEdit && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                <p className="text-xs font-medium text-red-800">Restore from Atlas</p>
-                <p className="mt-1 text-xs text-red-700">
-                  Pulls data down from Atlas and replaces everything on this machine. Rare, high-stakes — use this
-                  only to recover a lost/corrupted local database, not as routine syncing.
-                </p>
-                <button
-                  onClick={() => setRestoreDialogOpen(true)}
-                  disabled={restoreFromAtlas.isPending}
-                  className="mt-2 flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                >
-                  {restoreFromAtlas.isPending ? (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <DownloadCloud className="h-3.5 w-3.5" />
-                  )}
-                  Restore from Atlas...
-                </button>
-              </div>
-            )}
-
-            {status.recentAttempts.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-gray-500">Recent attempts</p>
-                <div className="flex flex-col gap-1">
-                  {status.recentAttempts.map((attempt) => (
-                    <div key={attempt.id} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 text-xs">
-                      <span
-                        className={
-                          attempt.status === 'SUCCESS'
-                            ? 'rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-700'
-                            : attempt.status === 'FAILED'
-                              ? 'rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700'
-                              : attempt.status === 'SKIPPED'
-                                ? 'rounded-full bg-gray-200 px-2 py-0.5 font-medium text-gray-600'
-                                : 'rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700'
-                        }
-                      >
-                        {attempt.status}
-                      </span>
-                      <span className="text-gray-500">{stageLabel(attempt.stage)}</span>
-                      <span className="text-gray-400">{formatDateTime(attempt.startedAt)}</span>
-                      {attempt.message && <span className="truncate text-gray-500">— {attempt.message}</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              Enable
+            </label>
           </div>
+
+          {!status.enabled ? (
+            <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Cloud backup is off. Local Mongo will continue working, but nothing is copied to Atlas.
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4">
+              <div>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <label className="block text-sm font-semibold text-slate-700">Atlas connection string</label>
+                  <InfoButton label="Atlas connection string info">
+                    Paste the full MongoDB Atlas URI. The app tests the connection before saving. If it fails, check Atlas Network Access for this machine's IP address.
+                  </InfoButton>
+                </div>
+                <div className="flex flex-col gap-2 lg:flex-row">
+                  <input
+                    type="password"
+                    value={connectionString}
+                    onChange={(e) => setConnectionString(e.target.value)}
+                    disabled={!canEdit}
+                    placeholder={status.atlasConfigured ? 'Already configured - enter a new one to replace it' : 'mongodb+srv://...'}
+                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 shadow-sm shadow-slate-200/40 transition placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/10 disabled:bg-slate-50"
+                  />
+                  {canEdit && (
+                    <button
+                      onClick={onSaveConnectionString}
+                      disabled={!connectionString || updateSettings.isPending}
+                      className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[var(--color-primary)] px-4 text-sm font-semibold text-white shadow-sm shadow-slate-300 transition hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/20 focus-visible:ring-offset-2 active:translate-y-0 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {updateSettings.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                      {updateSettings.isPending ? 'Testing' : 'Save string'}
+                    </button>
+                  )}
+                </div>
+                <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-400">
+                  Stored locally on this machine. Use a dedicated Atlas database user and avoid reusing an important password.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {status.atlasConfigured && canEdit && (
+          <aside className="rounded-xl border border-red-100 bg-red-50 p-5 shadow-sm shadow-red-100/80">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-red-600">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-red-900">Restore from Atlas</h2>
+                  <InfoButton label="Restore info">
+                    This replaces local data with Atlas data. Use it only for recovery after local data loss or corruption.
+                  </InfoButton>
+                </div>
+                <p className="mt-1 text-sm leading-relaxed text-red-700">
+                  High-risk action. A safety copy is created first, but this should not be used for routine syncing.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setRestoreDialogOpen(true)}
+              disabled={restoreFromAtlas.isPending}
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {restoreFromAtlas.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <DownloadCloud className="h-4 w-4" />}
+              Restore from Atlas
+            </button>
+          </aside>
         )}
       </div>
+
+      {status.recentAttempts.length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-[var(--color-navy)]">Recent attempts</h2>
+              <InfoButton label="Recent attempts info">
+                Shows the latest backup, sync and restore jobs started from this machine, with their final status and message.
+              </InfoButton>
+            </div>
+            <span className="text-xs font-semibold text-slate-400">{status.recentAttempts.length} shown</span>
+          </div>
+          <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100">
+            {status.recentAttempts.map((attempt) => (
+              <div
+                key={attempt.id}
+                className="grid gap-3 bg-white px-4 py-3 text-sm transition hover:bg-slate-50 lg:grid-cols-[8rem_11rem_12rem_minmax(0,1fr)] lg:items-center"
+              >
+                <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${attemptBadgeClass(attempt.status)}`}>
+                  {attempt.status}
+                </span>
+                <span className="font-medium text-slate-700">{stageLabel(attempt.stage)}</span>
+                <span className="text-xs font-medium text-slate-400">{formatDateTime(attempt.startedAt)}</span>
+                <span className="truncate text-xs text-slate-500">{attempt.message || 'No message recorded'}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {status.recentAttempts.length === 0 && (
+        <section className="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center">
+          <AlertTriangle className="mx-auto h-8 w-8 text-slate-300" />
+          <p className="mt-3 text-sm font-semibold text-slate-700">No backup attempts yet</p>
+          <p className="mt-1 text-sm text-slate-400">Run a backup to see activity here.</p>
+        </section>
+      )}
 
       <ConfirmDialog
         open={restoreDialogOpen}

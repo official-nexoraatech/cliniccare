@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Download, Eye, Pencil, Plus, Stethoscope } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Download, Eye, Pencil, Plus, Stethoscope, X } from 'lucide-react';
 import type { Gender, PatientSummary } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { SearchBox } from '@/components/SearchBox';
@@ -14,6 +14,8 @@ import { getErrorMessage } from '@/lib/utils';
 const GENDER_LABEL: Record<Gender, string> = { MALE: 'M', FEMALE: 'F', OTHER: 'O', UNSPECIFIED: '—' };
 const DEFAULT_PAGE_SIZE = 20;
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const filterControlClass =
+  'h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm shadow-slate-200/40 transition focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/10';
 
 type DatePreset = 'today' | 'week' | 'month' | 'custom' | null;
 
@@ -132,10 +134,10 @@ export function PatientListPage() {
   const totalPages = data ? Math.max(Math.ceil(data.total / data.pageSize), 1) : 1;
 
   const presetClass = (preset: DatePreset) =>
-    `rounded-lg border px-3 py-2 text-sm ${
+    `h-9 rounded-md px-3 text-sm font-medium transition ${
       datePreset === preset
-        ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
-        : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+        ? 'bg-[var(--color-primary)] text-white shadow-sm shadow-slate-300'
+        : 'text-slate-500 hover:bg-white hover:text-slate-800'
     }`;
 
   return (
@@ -162,83 +164,95 @@ export function PatientListPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <SearchBox
-          placeholder="Search name or mobile..."
-          onSearch={(q) => {
-            setSearch(q);
-            setPage(1);
-          }}
-          className="max-w-xs"
-        />
-        <select
-          value={gender}
-          onChange={(e) => {
-            setGender(e.target.value as Gender | '');
-            setPage(1);
-          }}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-        >
-          <option value="">All genders</option>
-          <option value="MALE">Male</option>
-          <option value="FEMALE">Female</option>
-          <option value="OTHER">Other</option>
-        </select>
-        <input
-          value={city}
-          onChange={(e) => {
-            setCity(e.target.value);
-            setPage(1);
-          }}
-          placeholder="Filter by city"
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-        />
-
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => applyPreset('today')} className={presetClass('today')}>
-            Today
-          </button>
-          <button onClick={() => applyPreset('week')} className={presetClass('week')}>
-            Last 7 Days
-          </button>
-          <button onClick={() => applyPreset('month')} className={presetClass('month')}>
-            Last 30 Days
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
-          <label className="text-xs font-medium text-gray-500">
-            From
-            <input
-              type="date"
-              value={registeredFrom}
-              onChange={(e) => {
-                setDatePreset('custom');
-                setRegisteredFrom(e.target.value);
+      <div className="rounded-xl border border-slate-200 bg-white/85 p-3 shadow-sm shadow-slate-200/70">
+        <div className="grid gap-3 xl:grid-cols-[minmax(20rem,1fr)_auto] xl:items-center">
+          <div className="grid gap-3 md:grid-cols-[minmax(16rem,1.3fr)_10rem_minmax(12rem,0.8fr)]">
+            <SearchBox
+              placeholder="Search name or mobile"
+              onSearch={(q) => {
+                setSearch(q);
                 setPage(1);
               }}
-              className="ml-2 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700"
+              className="min-w-0"
             />
-          </label>
-          <label className="text-xs font-medium text-gray-500">
-            To
-            <input
-              type="date"
-              value={registeredTo}
+            <select
+              value={gender}
               onChange={(e) => {
-                setDatePreset('custom');
-                setRegisteredTo(e.target.value);
+                setGender(e.target.value as Gender | '');
                 setPage(1);
               }}
-              className="ml-2 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700"
+              className={filterControlClass}
+            >
+              <option value="">All genders</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+              <option value="OTHER">Other</option>
+            </select>
+            <input
+              value={city}
+              onChange={(e) => {
+                setCity(e.target.value);
+                setPage(1);
+              }}
+              placeholder="City"
+              className={filterControlClass}
             />
-          </label>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+              <button onClick={() => applyPreset('today')} className={presetClass('today')}>
+                Today
+              </button>
+              <button onClick={() => applyPreset('week')} className={presetClass('week')}>
+                7 days
+              </button>
+              <button onClick={() => applyPreset('month')} className={presetClass('month')}>
+                30 days
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+              <CalendarDays className="h-4 w-4 text-slate-400" />
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                From
+                <input
+                  type="date"
+                  value={registeredFrom}
+                  onChange={(e) => {
+                    setDatePreset('custom');
+                    setRegisteredFrom(e.target.value);
+                    setPage(1);
+                  }}
+                  className="h-8 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/10"
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                To
+                <input
+                  type="date"
+                  value={registeredTo}
+                  onChange={(e) => {
+                    setDatePreset('custom');
+                    setRegisteredTo(e.target.value);
+                    setPage(1);
+                  }}
+                  className="h-8 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/10"
+                />
+              </label>
+              {datePreset && (
+                <button
+                  onClick={clearDateFilter}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-white hover:text-slate-700"
+                  title="Clear dates"
+                  aria-label="Clear dates"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-        {datePreset && (
-          <button onClick={clearDateFilter} className="text-sm text-gray-400 hover:text-gray-600">
-            Clear dates
-          </button>
-        )}
       </div>
 
       {isLoading ? (

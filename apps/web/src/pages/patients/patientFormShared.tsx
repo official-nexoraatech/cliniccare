@@ -7,6 +7,7 @@ import {
   type PatientCustomFieldValues,
   type PatientFieldDefinition,
 } from '@clinic-care/shared-types';
+import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import { cn } from '@/lib/utils';
 
 const MOBILE_REGEX = /^\d{10}$/;
@@ -62,9 +63,8 @@ export function calculateAge(dob: string): number {
   return Math.max(age, 0);
 }
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+const inputClass = standardFieldInputClass;
+const labelClass = formLabelClass;
 
 interface PatientFormFieldsProps {
   register: UseFormRegister<PatientFormValues>;

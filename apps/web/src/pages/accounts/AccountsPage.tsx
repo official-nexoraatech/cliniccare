@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { OutstandingDueItem, PaymentMode } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
+import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import { useAccountsSummaryQuery, useOutstandingDuesQuery } from '@/hooks/useAccounts';
 
 const MODE_LABEL: Record<PaymentMode, string> = { CASH: 'Cash', CARD: 'Card', UPI: 'UPI', BANK_TRANSFER: 'Bank Transfer' };
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+const inputClass = standardFieldInputClass;
+const labelClass = formLabelClass;
 
 function fmtMoney(paise: number) {
   return `₹${paise.toLocaleString('en-IN')}`;

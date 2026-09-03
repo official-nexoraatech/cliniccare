@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, ClipboardCheck, Plus, X } from 'lucide-react';
+import { Activity, ArrowLeft, CalendarPlus, ClipboardCheck, History, NotebookPen, Plus, X } from 'lucide-react';
 import { COMMON_TESTS, FOLLOW_UP_QUICK_OPTIONS, QUICK_ADVICE_TEMPLATES } from '@clinic-care/shared-types';
 import {
   useComplaintSuggestions,
@@ -13,9 +13,24 @@ import {
   useVisitMutations,
   useVisitQuery,
 } from '@/hooks/useVisits';
+import { useFeeTypesQuery } from '@/hooks/useFeeTypes';
 import { SuggestInput } from '@/components/SuggestInput';
 import { PatientStrip } from '@/components/PatientStrip';
 import { ComplianceEntryModal } from '@/components/ComplianceEntryModal';
+import {
+  emptyStateClass,
+  fieldInputClass,
+  fieldLabelClass,
+  pageStackClass,
+  primaryButtonClass,
+  quickChipClass,
+  secondaryButtonClass,
+  sectionCardClass,
+  sectionHeaderClass,
+  sectionIconClass,
+  smallEmptyStateClass,
+  toolbarButtonClass,
+} from '@/components/uiStyles';
 import { getErrorMessage } from '@/lib/utils';
 
 const BP_REGEX = /^\d{2,3}\/\d{2,3}$/;
@@ -45,15 +60,15 @@ const consultationSchema = z.object({
 
 type ConsultationFormValues = z.infer<typeof consultationSchema>;
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1 block text-xs font-medium text-gray-500';
+const inputClass = fieldInputClass;
+const labelClass = fieldLabelClass;
 
 export function ConsultationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: visit, isLoading } = useVisitQuery(id);
   const { data: previousVisits } = usePatientVisitsQuery(visit?.patientId);
+  const { data: feeTypes = [] } = useFeeTypesQuery();
   const { update, saveVitals, adviseLabTests } = useVisitMutations();
 
   const [selectedTests, setSelectedTests] = useState<string[]>([]);
@@ -65,9 +80,19 @@ export function ConsultationPage() {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<ConsultationFormValues>({ resolver: zodResolver(consultationSchema) });
+
+  const defaultConsultationFee = useMemo(() => {
+    const activeFeeTypes = feeTypes.filter((feeType) => feeType.isActive);
+    return (
+      activeFeeTypes.find((feeType) => feeType.isDefault)?.amount ??
+      activeFeeTypes.find((feeType) => /consult|visit|doctor/i.test(feeType.name))?.amount ??
+      null
+    );
+  }, [feeTypes]);
 
   useEffect(() => {
     if (visit) {
@@ -93,6 +118,14 @@ export function ConsultationPage() {
       });
     }
   }, [visit, reset]);
+
+  useEffect(() => {
+    if (!visit || visit.consultationFee !== null || defaultConsultationFee === null) return;
+    const currentFee = getValues('consultationFee');
+    if (currentFee === '' || currentFee === undefined || currentFee === null) {
+      setValue('consultationFee', defaultConsultationFee);
+    }
+  }, [defaultConsultationFee, getValues, setValue, visit]);
 
   const weight = watch('weight');
   const height = watch('height');
@@ -192,7 +225,7 @@ export function ConsultationPage() {
 
   if (!visit) {
     return (
-      <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white py-20 text-center">
+      <div className={emptyStateClass}>
         <h1 className="text-xl font-semibold text-[var(--color-navy)]">Visit not found</h1>
         <button onClick={() => navigate('/visits')} className="mt-3 text-sm text-[var(--color-primary)]">
           Back to today's visits
@@ -204,16 +237,16 @@ export function ConsultationPage() {
   const otherVisits = (previousVisits ?? []).filter((v) => v.id !== visit.id).slice(0, 5);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={pageStackClass}>
       <button
         onClick={() => navigate('/visits')}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+        className={toolbarButtonClass}
       >
         <ArrowLeft className="h-4 w-4" /> Back to today's visits
       </button>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
-        <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-5">
           {/* SECTION 1: Patient strip */}
           <PatientStrip patient={visit.patient} visitNo={visit.visitNo} />
 
@@ -221,16 +254,21 @@ export function ConsultationPage() {
             <button
               type="button"
               onClick={() => setComplianceOpen(true)}
-              className="flex w-fit items-center gap-1.5 rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-[var(--color-primary)] hover:bg-teal-50"
+              className="flex w-fit items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-semibold text-[var(--color-primary)] transition hover:border-[var(--color-primary)] hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100"
             >
               <ClipboardCheck className="h-4 w-4" /> Record Compliance
             </button>
           )}
 
-          <form className="flex flex-col gap-4">
+          <form className="flex flex-col gap-5">
             {/* SECTION 2: Clinical */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Vitals</p>
+            <div className={sectionCardClass}>
+              <p className={sectionHeaderClass}>
+                <span className={sectionIconClass}>
+                  <Activity className="h-4 w-4" />
+                </span>
+                Vitals
+              </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div>
                   <label className={labelClass}>BP</label>
@@ -259,7 +297,7 @@ export function ConsultationPage() {
                 </div>
                 <div>
                   <label className={labelClass}>BMI</label>
-                  <div className={`${inputClass} bg-gray-50 text-gray-500`}>{liveBmi ?? '—'}</div>
+                  <div className={`${inputClass} bg-slate-50 font-semibold text-slate-500`}>{liveBmi ?? '—'}</div>
                 </div>
                 <div>
                   <label className={labelClass}>Random Sugar</label>
@@ -268,12 +306,17 @@ export function ConsultationPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Clinical Notes</p>
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className={sectionCardClass}>
+              <p className={sectionHeaderClass}>
+                <span className={sectionIconClass}>
+                  <NotebookPen className="h-4 w-4" />
+                </span>
+                Clinical notes
+              </p>
+              <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                   <div className="sm:col-span-2">
-                    <label className={labelClass}>Chief Complaint</label>
+                    <label className={labelClass}>Chief complaint</label>
                     <SuggestInput
                       value={complaintValue}
                       onChange={(v) => setValue('complaint', v)}
@@ -288,8 +331,8 @@ export function ConsultationPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Examination Findings</label>
-                  <textarea rows={2} {...register('examination')} className={inputClass} />
+                  <label className={labelClass}>Examination findings</label>
+                  <textarea rows={3} {...register('examination')} className={inputClass} />
                 </div>
 
                 <div>
@@ -303,10 +346,10 @@ export function ConsultationPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Tests Advised</label>
+                  <label className={labelClass}>Tests advised</label>
                   <div className="flex flex-wrap gap-2">
                     {Array.from(advisedTestNames).map((test) => (
-                      <span key={test} className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-500">
+                      <span key={test} className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
                         {test} (already advised)
                       </span>
                     ))}
@@ -315,10 +358,10 @@ export function ConsultationPage() {
                         type="button"
                         key={test}
                         onClick={() => toggleTest(test)}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                           selectedTests.includes(test)
                             ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
-                            : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-[var(--color-primary)] hover:bg-teal-50 hover:text-[var(--color-primary)]'
                         }`}
                       >
                         {test}
@@ -329,7 +372,7 @@ export function ConsultationPage() {
                       .map((test) => (
                         <span
                           key={test}
-                          className="flex items-center gap-1 rounded-full bg-[var(--color-primary)] px-3 py-1 text-xs text-white"
+                          className="flex items-center gap-1 rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white"
                         >
                           {test}
                           <button type="button" onClick={() => toggleTest(test)}>
@@ -338,7 +381,7 @@ export function ConsultationPage() {
                         </span>
                       ))}
                   </div>
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-3 flex gap-2">
                     <input
                       value={customTest}
                       onChange={(e) => setCustomTest(e.target.value)}
@@ -354,7 +397,7 @@ export function ConsultationPage() {
                     <button
                       type="button"
                       onClick={addCustomTest}
-                      className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-[var(--color-primary)] hover:bg-teal-50 hover:text-[var(--color-primary)]"
                     >
                       <Plus className="h-3.5 w-3.5" /> Add
                     </button>
@@ -370,7 +413,7 @@ export function ConsultationPage() {
                         type="button"
                         key={template}
                         onClick={() => appendAdvice(template)}
-                        className="rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                        className={quickChipClass}
                       >
                         + {template}
                       </button>
@@ -386,15 +429,20 @@ export function ConsultationPage() {
             </div>
 
             {/* SECTION 3: Follow-up */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Follow-up</p>
+            <div className={sectionCardClass}>
+              <p className={sectionHeaderClass}>
+                <span className={sectionIconClass}>
+                  <CalendarPlus className="h-4 w-4" />
+                </span>
+                Follow-up
+              </p>
               <div className="flex flex-wrap items-center gap-2">
                 {FOLLOW_UP_QUICK_OPTIONS.map((option) => (
                   <button
                     type="button"
                     key={option.label}
                     onClick={() => setFollowUpDays(option.days)}
-                    className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    className={quickChipClass}
                   >
                     {option.label}
                   </button>
@@ -403,12 +451,12 @@ export function ConsultationPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="sticky bottom-0 z-10 -mx-1 flex justify-end gap-3 border-t border-slate-200 bg-[var(--color-bg)]/95 px-1 py-4 backdrop-blur">
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleSubmit((values) => saveConsultation(values, false))}
-                className="rounded-lg border border-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-teal-50 disabled:opacity-50"
+                className={secondaryButtonClass}
               >
                 Save
               </button>
@@ -416,7 +464,7 @@ export function ConsultationPage() {
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleSubmit((values) => saveConsultation(values, true))}
-                className="rounded-lg bg-[var(--color-primary)] px-5 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                className={primaryButtonClass}
               >
                 Save & Write Prescription
               </button>
@@ -425,27 +473,34 @@ export function ConsultationPage() {
         </div>
 
         {/* Previous visits side panel */}
-        <div className="h-fit rounded-xl border border-gray-200 bg-white p-4">
-          <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Previous Visits</p>
+        <aside className={`${sectionCardClass} h-fit xl:sticky xl:top-20`}>
+          <p className={sectionHeaderClass}>
+            <span className={sectionIconClass}>
+              <History className="h-4 w-4" />
+            </span>
+            Previous visits
+          </p>
           {otherVisits.length === 0 ? (
-            <p className="text-xs text-gray-400">No previous visits.</p>
+            <div className={smallEmptyStateClass}>
+              No previous visits.
+            </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
               {otherVisits.map((prev) => (
                 <button
                   key={prev.id}
                   onClick={() => navigate(`/visits/${prev.id}`)}
-                  className="rounded-lg border border-gray-100 p-2 text-left text-xs hover:bg-gray-50"
+                  className="rounded-lg border border-slate-100 bg-slate-50/70 p-3 text-left text-xs transition hover:border-teal-200 hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
                 >
-                  <p className="font-medium text-gray-700">
+                  <p className="font-semibold text-[var(--color-navy)]">
                     {new Date(prev.visitDate).toLocaleDateString('en-IN')}
                   </p>
-                  <p className="text-gray-500">{prev.diagnosis || prev.complaint || 'No diagnosis recorded'}</p>
+                  <p className="mt-1 line-clamp-2 text-slate-500">{prev.diagnosis || prev.complaint || 'No diagnosis recorded'}</p>
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </aside>
       </div>
 
       {id && (

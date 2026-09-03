@@ -7,6 +7,7 @@ import { CERTIFICATE_TYPES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { PrintLayout } from '@/components/PrintLayout';
+import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import { usePatientSearchQuery } from '@/hooks/usePatients';
 import { usePatientVisitsQuery } from '@/hooks/useVisits';
 import { useClinicQuery } from '@/hooks/useClinic';
@@ -23,9 +24,8 @@ const TYPE_LABELS: Record<CertificateType, string> = {
   CUSTOM: 'Custom',
 };
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+const inputClass = standardFieldInputClass;
+const labelClass = formLabelClass;
 
 function fmtDate(value?: string | null) {
   return value ? new Date(value).toLocaleDateString('en-IN') : '____';

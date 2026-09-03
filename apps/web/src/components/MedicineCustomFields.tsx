@@ -1,8 +1,8 @@
 import type { MedicineCustomFieldValues, MedicineFieldDefinition } from '@clinic-care/shared-types';
+import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 
-const inputClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700';
+const inputClass = standardFieldInputClass;
+const labelClass = formLabelClass;
 
 /** Required-field check for the admin-configured fields (Settings → Medicine Fields); ignores inactive ones. */
 export function validateMedicineFields(
