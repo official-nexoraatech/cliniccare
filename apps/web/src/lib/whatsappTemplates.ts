@@ -2,11 +2,35 @@ import type { WhatsAppTemplateKey, WhatsAppTemplateValues } from '@clinic-care/s
 
 export const DEFAULT_WHATSAPP_TEMPLATES: WhatsAppTemplateValues = {
   appointmentReminder:
-    'Dear {{patientName}}, this is a reminder from {{clinicName}} that you have an appointment on {{appointmentDate}} at {{timeSlot}}.',
+    'Appointment Reminder\n\nHi {{patientName}}, your appointment at {{clinicName}} is on {{appointmentDate}} at {{timeSlot}}.\n\nWill you attend?\nReply: YES or NO',
   queueConfirmation:
-    'Dear {{patientName}}, your appointment is confirmed at {{timeSlot}} at {{clinicName}}.',
+    'Appointment Confirmed\n\nHi {{patientName}}, your appointment at {{clinicName}} is confirmed for {{timeSlot}} today.\n\nPlease confirm.\nReply: YES or NO',
   followUpReminder:
-    'Dear {{patientName}}, your follow-up visit is due. Please visit us. Call to book an appointment.',
+    'Follow-up Reminder\n\nHi {{patientName}}, your follow-up visit at {{clinicName}} was due on {{dueDate}}.\n\nWould you like to book a visit?\nReply: YES or NO',
+};
+
+export const WHATSAPP_VARIABLE_LABELS: Record<string, string> = {
+  patientName: 'Patient name',
+  clinicName: 'Clinic name',
+  appointmentDate: 'Appointment date',
+  timeSlot: 'Time slot',
+  doctorName: 'Doctor name',
+  tokenNo: 'Token number',
+  dueDate: 'Due date',
+  daysOverdue: 'Days overdue',
+  lastDiagnosis: 'Last diagnosis',
+};
+
+export const WHATSAPP_VARIABLE_SAMPLES: Record<string, string> = {
+  patientName: 'Anita Sharma',
+  clinicName: 'Sunrise Clinic',
+  appointmentDate: '12 Sep',
+  timeSlot: '4:30 PM',
+  doctorName: 'Dr. Rao',
+  tokenNo: '14',
+  dueDate: '20 Sep',
+  daysOverdue: '5',
+  lastDiagnosis: 'Diabetes checkup',
 };
 
 export function renderWhatsAppTemplate(

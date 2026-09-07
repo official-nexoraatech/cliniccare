@@ -33,11 +33,11 @@ export const WHATSAPP_TEMPLATE_DEFINITIONS: WhatsAppTemplateDefinition[] = [
 
 export const DEFAULT_WHATSAPP_TEMPLATES: WhatsAppTemplateValues = {
   appointmentReminder:
-    'Dear {{patientName}}, this is a reminder from {{clinicName}} that you have an appointment on {{appointmentDate}} at {{timeSlot}}.',
+    'Appointment Reminder\n\nHi {{patientName}}, your appointment at {{clinicName}} is on {{appointmentDate}} at {{timeSlot}}.\n\nWill you attend?\nReply: YES or NO',
   queueConfirmation:
-    'Dear {{patientName}}, your appointment is confirmed at {{timeSlot}} at {{clinicName}}.',
+    'Appointment Confirmed\n\nHi {{patientName}}, your appointment at {{clinicName}} is confirmed for {{timeSlot}} today.\n\nPlease confirm.\nReply: YES or NO',
   followUpReminder:
-    'Dear {{patientName}}, your follow-up visit is due. Please visit us. Call to book an appointment.',
+    'Follow-up Reminder\n\nHi {{patientName}}, your follow-up visit at {{clinicName}} was due on {{dueDate}}.\n\nWould you like to book a visit?\nReply: YES or NO',
 };
 
 const TEMPLATE_KEYS = WHATSAPP_TEMPLATE_DEFINITIONS.map((item) => item.key);

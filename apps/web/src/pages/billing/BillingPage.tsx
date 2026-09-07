@@ -920,6 +920,7 @@ export function BillingPage() {
     {
       id: 'patient',
       header: 'Patient',
+      accessorFn: (row) => `${row.patientName} ${row.patientMobile}`,
       cell: ({ row }) => (
         <div>
           <p className="font-medium text-gray-800">{row.original.patientName}</p>
