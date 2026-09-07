@@ -22,6 +22,7 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     'prescriptions:edit',
     'medicines:view',
     'medicines:edit',
+    'billing-charges:edit',
   ],
   RECEPTIONIST: [
     'patients:view',
@@ -32,6 +33,7 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     'medicines:view',
     'billing:view',
     'billing:edit',
+    'billing-charges:edit',
   ],
   ASSISTANT: [
     'patients:view',
@@ -40,6 +42,7 @@ const ROLE_PERMISSIONS: Record<string, PermissionKey[]> = {
     'vitals:view',
     'vitals:edit',
     'medicines:view',
+    'billing-charges:edit',
   ],
 };
 
@@ -195,6 +198,42 @@ async function main() {
         label: field.label,
         fieldType: field.fieldType,
         options: 'options' in field ? JSON.stringify(field.options) : null,
+        required: field.required,
+        order: field.order,
+        isCore: true,
+      },
+    });
+  }
+
+  const coreVisitFields = [
+    { key: 'bp', label: 'BP', fieldType: 'TEXT', required: false, order: 0 },
+    { key: 'pulse', label: 'Pulse', fieldType: 'NUMBER', required: false, order: 1 },
+    { key: 'temperature', label: 'Temperature', fieldType: 'NUMBER', required: false, order: 2 },
+    { key: 'spo2', label: 'SpO2', fieldType: 'NUMBER', required: false, order: 3 },
+    { key: 'weight', label: 'Weight', fieldType: 'NUMBER', required: false, order: 4 },
+    { key: 'height', label: 'Height', fieldType: 'NUMBER', required: false, order: 5 },
+    { key: 'sugarRandom', label: 'Random Sugar', fieldType: 'NUMBER', required: false, order: 6 },
+    { key: 'vitalNotes', label: 'Vital Notes', fieldType: 'TEXT', required: false, order: 7 },
+    { key: 'complaint', label: 'Chief Complaint', fieldType: 'TEXT', required: false, order: 8 },
+    { key: 'complaintDurationDays', label: 'Duration (Days)', fieldType: 'NUMBER', required: false, order: 9 },
+    { key: 'examination', label: 'Examination Findings', fieldType: 'TEXT', required: false, order: 10 },
+    { key: 'diagnosis', label: 'Diagnosis', fieldType: 'TEXT', required: false, order: 11 },
+    { key: 'testsAdvised', label: 'Tests Advised', fieldType: 'TEXT', required: false, order: 12 },
+    { key: 'billableCharges', label: 'Billable Treatment Charges', fieldType: 'TEXT', required: false, order: 13 },
+    { key: 'advice', label: 'Advice / Instructions', fieldType: 'TEXT', required: false, order: 14 },
+    { key: 'consultationFee', label: 'Consultation Fee', fieldType: 'NUMBER', required: false, order: 15 },
+    { key: 'nextFollowUpDate', label: 'Next Follow-up Date', fieldType: 'DATE', required: false, order: 16 },
+    { key: 'remark', label: 'Remark', fieldType: 'TEXT', required: false, order: 17 },
+  ];
+
+  for (const field of coreVisitFields) {
+    await prisma.visitFieldDefinition.upsert({
+      where: { key: field.key },
+      update: {},
+      create: {
+        key: field.key,
+        label: field.label,
+        fieldType: field.fieldType,
         required: field.required,
         order: field.order,
         isCore: true,

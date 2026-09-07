@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Activity,
@@ -8,17 +8,19 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  CreditCard,
   Link2,
   ListOrdered,
   MessageCircle,
   Pencil,
   Phone,
   Plus,
+  Receipt,
   Search,
   XCircle,
 } from 'lucide-react';
-import { GENDERS, RESCHEDULE_REQUESTED_REMARK } from '@clinic-care/shared-types';
-import type { AppointmentDetail, AppointmentStatus, Gender } from '@clinic-care/shared-types';
+import { GENDERS, PAYMENT_MODES } from '@clinic-care/shared-types';
+import type { AppointmentDetail, AppointmentStatus, BillItemInput, Gender, PaymentMode } from '@clinic-care/shared-types';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
@@ -49,9 +51,13 @@ import {
 } from '@/hooks/useAppointments';
 import { useClinicQuery } from '@/hooks/useClinic';
 import { useVisitMutations, useVisitQuery } from '@/hooks/useVisits';
+import { useBillByVisitQuery, useBillMutations } from '@/hooks/useBilling';
+import { useFeeTypesQuery } from '@/hooks/useFeeTypes';
+import { useWhatsAppTemplatesQuery } from '@/hooks/useWhatsAppTemplates';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
 import { getErrorMessage, cn } from '@/lib/utils';
+import { renderWhatsAppTemplate } from '@/lib/whatsappTemplates';
 
 const EDITABLE_STATUSES: AppointmentStatus[] = ['BOOKED', 'CONFIRMED'];
 // ARRIVED/IN_CONSULTATION already have a live visit in progress and DONE is a completed
@@ -71,6 +77,7 @@ const STATUS_STYLE: Record<AppointmentStatus, string> = {
   CANCELLED: 'bg-gray-100 text-gray-500',
   NO_SHOW: 'bg-red-100 text-red-700',
 };
+const MODE_LABEL: Record<PaymentMode, string> = { CASH: 'Cash', CARD: 'Card', UPI: 'UPI', BANK_TRANSFER: 'Bank Transfer' };
 
 function waLink(mobile: string, message: string) {
   return `https://wa.me/91${mobile}?text=${encodeURIComponent(message)}`;
@@ -91,6 +98,18 @@ function formatTimeSlot(value: string): string {
 
 function waitingMinutes(updatedAt: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(updatedAt).getTime()) / 60000));
+}
+
+function fmtMoney(amount: number) {
+  return `Rs ${amount.toLocaleString('en-IN')}`;
+}
+
+interface QueueBillRow extends BillItemInput {
+  key: string;
+}
+
+function newQueueBillRow(sortOrder: number): QueueBillRow {
+  return { key: crypto.randomUUID(), name: '', quantity: 1, unitAmount: 0, sortOrder };
 }
 
 const inputClass = standardFieldInputClass;
@@ -708,11 +727,15 @@ function EditAppointmentModal({ open, onClose, appointment }: { open: boolean; o
 
   const onSave = async () => {
     try {
-      await update.mutateAsync({
+      const result = await update.mutateAsync({
         id: appointment.id,
         payload: { patientName, mobile, doctorId, purpose: purpose || undefined, expectedUpdatedAt: appointment.updatedAt },
       });
-      toast.success('Appointment updated');
+      if (result.duplicateSlotWarning) {
+        toast.warning('Saved — but this doctor already has another appointment at the same date and time slot.');
+      } else {
+        toast.success('Appointment updated');
+      }
       onClose();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not update appointment.'));
@@ -878,6 +901,7 @@ interface AppointmentActionsProps {
   onReschedule: (a: AppointmentDetail) => void;
   onConfirm: (a: AppointmentDetail) => void;
   onCancel: (a: AppointmentDetail) => void;
+  appointmentReminderTemplate?: string;
 }
 
 function ActionIconButton({
@@ -905,7 +929,17 @@ function ActionIconButton({
   );
 }
 
-function AppointmentActions({ appointment: a, clinicName, date, onEdit, onLink, onReschedule, onConfirm, onCancel }: AppointmentActionsProps) {
+function AppointmentActions({
+  appointment: a,
+  clinicName,
+  date,
+  onEdit,
+  onLink,
+  onReschedule,
+  onConfirm,
+  onCancel,
+  appointmentReminderTemplate,
+}: AppointmentActionsProps) {
   return (
     <div className="flex flex-wrap justify-center gap-1.5">
       {a.status === 'BOOKED' && (
@@ -917,7 +951,14 @@ function AppointmentActions({ appointment: a, clinicName, date, onEdit, onLink, 
         <a
           href={waLink(
             a.mobile,
-            `Dear ${a.patientName}, this is a reminder from ${clinicName ?? 'the clinic'} that you have an appointment on ${new Date(date).toLocaleDateString('en-IN')} at ${a.timeSlot}.\n\nPlease confirm here:\n${window.location.origin}/confirm/${a.id}`,
+            renderWhatsAppTemplate(appointmentReminderTemplate, 'appointmentReminder', {
+              patientName: a.patientName,
+              clinicName: clinicName ?? 'the clinic',
+              appointmentDate: new Date(date).toLocaleDateString('en-IN'),
+              timeSlot: a.timeSlot,
+              doctorName: a.doctorName,
+              tokenNo: a.tokenNo,
+            }),
           )}
           target="_blank"
           rel="noreferrer"
@@ -1161,18 +1202,22 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
   const [editTarget, setEditTarget] = useState<AppointmentDetail | null>(null);
   const [linkTarget, setLinkTarget] = useState<AppointmentDetail | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentDetail | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<AppointmentDetail | null>(null);
   const [cancelTarget, setCancelTarget] = useState<AppointmentDetail | null>(null);
   const { data: appointments, isLoading } = useAppointmentsByDayQuery(date);
   const { data: clinic } = useClinicQuery();
+  const { data: whatsAppTemplates } = useWhatsAppTemplatesQuery();
   const { updateStatus } = useAppointmentMutations();
   const totalAppointments = appointments?.length ?? 0;
   const activeAppointments = appointments?.filter((a) => ACTIVE_STATUSES.includes(a.status)).length ?? 0;
   const cancelledAppointments = appointments?.filter((a) => a.status === 'CANCELLED' || a.status === 'NO_SHOW').length ?? 0;
 
-  const onConfirm = async (a: AppointmentDetail) => {
+  const onConfirmSubmit = async () => {
+    if (!confirmTarget) return;
     try {
-      await updateStatus.mutateAsync({ id: a.id, status: 'CONFIRMED' });
-      toast.success(`${a.patientName} confirmed`);
+      await updateStatus.mutateAsync({ id: confirmTarget.id, status: 'CONFIRMED' });
+      toast.success(`${confirmTarget.patientName} confirmed`);
+      setConfirmTarget(null);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not confirm appointment.'));
     }
@@ -1247,14 +1292,6 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
                     <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[a.status]}`}>
                       {a.status.replace('_', ' ')}
                     </span>
-                    {a.remark === RESCHEDULE_REQUESTED_REMARK && (
-                      <span
-                        title={a.remark}
-                        className="mt-1 block w-fit rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
-                      >
-                        Reschedule requested
-                      </span>
-                    )}
                   </td>
                   <td className={`${tableCellClass} text-center`}>
                     <AppointmentActions
@@ -1264,8 +1301,9 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
                       onEdit={setEditTarget}
                       onLink={setLinkTarget}
                       onReschedule={setRescheduleTarget}
-                      onConfirm={onConfirm}
+                      onConfirm={setConfirmTarget}
                       onCancel={setCancelTarget}
+                      appointmentReminderTemplate={whatsAppTemplates?.templates.appointmentReminder}
                     />
                   </td>
                 </tr>
@@ -1295,7 +1333,183 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
         onSubmit={onCancelSubmit}
         isPending={updateStatus.isPending}
       />
+      <ConfirmDialog
+        open={Boolean(confirmTarget)}
+        title={`Confirm ${confirmTarget?.patientName}'s appointment?`}
+        description={
+          confirmTarget
+            ? `This will mark token #${confirmTarget.tokenNo} at ${confirmTarget.timeSlot} as confirmed.`
+            : ''
+        }
+        confirmLabel={updateStatus.isPending ? 'Confirming...' : 'Confirm Appointment'}
+        onConfirm={onConfirmSubmit}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
+  );
+}
+
+/** Lets whoever is at the patient's side right now — nurse or doctor, not just reception
+ * at the billing desk — add a charge (dressing, nebulization, injection, ...) straight to
+ * the visit's running bill. Same fee-type-chip + custom-charge pattern as ConsultationPage's
+ * "Billable treatment charges" block, posting to the same bulk endpoint it already uses. */
+function AddChargeModal({ open, onClose, appointment }: { open: boolean; onClose: () => void; appointment: AppointmentDetail | null }) {
+  const { data: feeTypes = [] } = useFeeTypesQuery();
+  const { addBillableCharges } = useVisitMutations();
+  const [selectedChargeIds, setSelectedChargeIds] = useState<string[]>([]);
+  const [customChargeName, setCustomChargeName] = useState('');
+  const [customChargeAmount, setCustomChargeAmount] = useState('');
+
+  const billableFeeTypes = useMemo(
+    () => feeTypes.filter((feeType) => feeType.isActive && !feeType.isDefault && !/consult|visit|doctor/i.test(feeType.name)),
+    [feeTypes],
+  );
+  const selectedCharges = useMemo(
+    () =>
+      selectedChargeIds
+        .map((feeTypeId) => billableFeeTypes.find((feeType) => feeType.id === feeTypeId))
+        .filter((feeType): feeType is (typeof billableFeeTypes)[number] => Boolean(feeType)),
+    [billableFeeTypes, selectedChargeIds],
+  );
+  const selectedCustomCharges = useMemo(
+    () =>
+      selectedChargeIds
+        .filter((chargeId) => chargeId.startsWith('custom:'))
+        .map((chargeId) => {
+          const [, chargeKey, name, amount] = chargeId.split(':');
+          return { chargeKey, name, amount: Number(amount) };
+        })
+        .filter((charge) => charge.name && charge.amount > 0),
+    [selectedChargeIds],
+  );
+
+  const reset = () => {
+    setSelectedChargeIds([]);
+    setCustomChargeName('');
+    setCustomChargeAmount('');
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const toggleCharge = (feeTypeId: string) => {
+    setSelectedChargeIds((prev) => (prev.includes(feeTypeId) ? prev.filter((id) => id !== feeTypeId) : [...prev, feeTypeId]));
+  };
+
+  const addCustomCharge = () => {
+    const name = customChargeName.trim();
+    const amount = Number(customChargeAmount);
+    if (!name || amount <= 0) {
+      toast.error('Enter a charge name and amount.');
+      return;
+    }
+    setSelectedChargeIds((prev) => [...prev, `custom:${crypto.randomUUID()}:${name}:${amount}`]);
+    setCustomChargeName('');
+    setCustomChargeAmount('');
+  };
+
+  const submit = async () => {
+    if (!appointment?.visitId) return;
+    const chargeItems: BillItemInput[] = [
+      ...selectedCharges.map((feeType, index) => ({
+        feeTypeId: feeType.id,
+        name: feeType.name,
+        quantity: 1,
+        unitAmount: feeType.amount,
+        sortOrder: index,
+      })),
+      ...selectedCustomCharges.map((charge, index) => ({
+        name: charge.name,
+        quantity: 1,
+        unitAmount: charge.amount,
+        sortOrder: selectedCharges.length + index,
+      })),
+    ];
+    if (chargeItems.length === 0) {
+      toast.error('Select or add at least one charge.');
+      return;
+    }
+    try {
+      await addBillableCharges.mutateAsync({ id: appointment.visitId, payload: { items: chargeItems } });
+      toast.success('Charge added to bill');
+      handleClose();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not add charge.'));
+    }
+  };
+
+  return (
+    <FormModal
+      open={open}
+      title={`Add Charge${appointment ? ` — ${appointment.patientName}` : ''}`}
+      size="sm"
+      onClose={handleClose}
+      footer={
+        <>
+          <button onClick={handleClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={addBillableCharges.isPending || (selectedCharges.length === 0 && selectedCustomCharges.length === 0)}
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            Add to Bill
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        {billableFeeTypes.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {billableFeeTypes.map((feeType) => (
+              <button
+                type="button"
+                key={feeType.id}
+                onClick={() => toggleCharge(feeType.id)}
+                className={cn(
+                  'rounded-full border px-3 py-1.5 text-xs font-medium',
+                  selectedChargeIds.includes(feeType.id)
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50',
+                )}
+              >
+                {feeType.name} - {fmtMoney(feeType.amount)}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_100px_auto]">
+          <input value={customChargeName} onChange={(e) => setCustomChargeName(e.target.value)} placeholder="Custom charge name" className={inputClass} />
+          <input type="number" min={1} value={customChargeAmount} onChange={(e) => setCustomChargeAmount(e.target.value)} placeholder="Amount" className={inputClass} />
+          <button type="button" onClick={addCustomCharge} className="flex items-center justify-center rounded-lg border border-gray-300 px-3 text-gray-600 hover:bg-gray-50">
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+        {(selectedCharges.length > 0 || selectedCustomCharges.length > 0) && (
+          <div className="flex flex-wrap gap-2">
+            {selectedCharges.map((feeType) => (
+              <span key={feeType.id} className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700">
+                {feeType.name} - {fmtMoney(feeType.amount)}
+                <button type="button" onClick={() => toggleCharge(feeType.id)}>
+                  <XCircle className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
+                </button>
+              </span>
+            ))}
+            {selectedCustomCharges.map((charge) => (
+              <span key={charge.chargeKey} className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700">
+                {charge.name} - {fmtMoney(charge.amount)}
+                <button type="button" onClick={() => toggleCharge(`custom:${charge.chargeKey}:${charge.name}:${charge.amount}`)}>
+                  <XCircle className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </FormModal>
   );
 }
 
@@ -1426,15 +1640,467 @@ function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: (
   );
 }
 
+function QueuePaymentModal({ appointment, onClose }: { appointment: AppointmentDetail | null; onClose: () => void }) {
+  const { data: bill, isLoading } = useBillByVisitQuery(appointment?.visitId ?? undefined);
+  const { data: feeTypes = [] } = useFeeTypesQuery();
+  const { recordPayment, update } = useBillMutations();
+  const [rows, setRows] = useState<QueueBillRow[]>([]);
+  const [amount, setAmount] = useState(0);
+  const [mode, setMode] = useState<PaymentMode>('CASH');
+  const [reference, setReference] = useState('');
+
+  useEffect(() => {
+    if (bill) {
+      setRows(
+        bill.items.map((item) => ({
+          key: item.id,
+          feeTypeId: item.feeTypeId,
+          name: item.name,
+          quantity: item.quantity,
+          unitAmount: item.unitAmount,
+          sortOrder: item.sortOrder,
+        })),
+      );
+      setAmount(bill.dueAmount);
+    }
+  }, [bill?.id, bill?.dueAmount]);
+
+  const updateRow = (key: string, patch: Partial<QueueBillRow>) => {
+    setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  };
+
+  const removeRow = (key: string) => {
+    setRows((current) => {
+      const next = current.filter((row) => row.key !== key);
+      return next.length > 0 ? next : [newQueueBillRow(0)];
+    });
+  };
+
+  const addFeeType = (feeTypeId: string) => {
+    const feeType = feeTypes.find((item) => item.id === feeTypeId);
+    if (!feeType) return;
+    setRows((current) => [
+      ...current,
+      {
+        key: crypto.randomUUID(),
+        feeTypeId: feeType.id,
+        name: feeType.name,
+        quantity: 1,
+        unitAmount: feeType.amount,
+        sortOrder: current.length,
+      },
+    ]);
+  };
+
+  const normalizedRows = rows
+    .filter((row) => row.name.trim() && row.quantity > 0 && row.unitAmount >= 0)
+    .map((row, index) => ({
+      feeTypeId: row.feeTypeId,
+      name: row.name.trim(),
+      quantity: row.quantity,
+      unitAmount: row.unitAmount,
+      sortOrder: index,
+    }));
+  const rowsSignature = JSON.stringify(normalizedRows);
+  const billSignature = JSON.stringify(
+    bill?.items.map((item, index) => ({
+      feeTypeId: item.feeTypeId,
+      name: item.name,
+      quantity: item.quantity,
+      unitAmount: item.unitAmount,
+      sortOrder: index,
+    })) ?? [],
+  );
+  const hasUnsavedBillChanges = Boolean(bill && rowsSignature !== billSignature);
+  const canEditBill = Boolean(bill && bill.status !== 'CANCELLED' && bill.paidAmount === 0);
+  const draftTotal = rows.reduce((sum, row) => sum + row.quantity * row.unitAmount, 0);
+
+  const handleClose = () => {
+    setRows([]);
+    setAmount(0);
+    setMode('CASH');
+    setReference('');
+    onClose();
+  };
+
+  const saveBill = async () => {
+    if (!bill || !canEditBill || normalizedRows.length === 0) return;
+    try {
+      const updated = await update.mutateAsync({
+        id: bill.id,
+        payload: {
+          items: normalizedRows,
+          discount: bill.discount,
+          taxPercent: bill.taxPercent ?? undefined,
+          remark: bill.remark ?? undefined,
+        },
+      });
+      setAmount(updated.dueAmount);
+      toast.success('Bill updated');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not update bill.'));
+    }
+  };
+
+  const submit = async () => {
+    if (!bill || amount <= 0 || hasUnsavedBillChanges) return;
+    try {
+      await recordPayment.mutateAsync({
+        id: bill.id,
+        payload: { amount, mode, reference: reference.trim() || undefined },
+      });
+      toast.success('Payment recorded');
+      handleClose();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not record payment.'));
+    }
+  };
+
+  return (
+    <FormModal
+      open={Boolean(appointment)}
+      title={`Optional Payment${bill ? ` - ${bill.billNo}` : ''}`}
+      size="lg"
+      onClose={handleClose}
+      footer={
+        <>
+          <button onClick={handleClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50">
+            Later
+          </button>
+          <button
+            onClick={submit}
+            disabled={!bill || amount <= 0 || amount > bill.dueAmount || hasUnsavedBillChanges || recordPayment.isPending}
+            className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            Record Payment
+          </button>
+        </>
+      }
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">Loading bill...</p>
+      ) : !bill ? (
+        <p className="text-sm text-red-600">Visit bill is not ready yet. Mark the patient arrived again or refresh the queue.</p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2">
+              <p className="text-sm font-semibold text-[var(--color-navy)]">Bill items</p>
+              {canEditBill ? (
+                <select
+                  value=""
+                  onChange={(event) => event.target.value && addFeeType(event.target.value)}
+                  className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-gray-600"
+                >
+                  <option value="">+ Add from fee list</option>
+                  {feeTypes.filter((feeType) => feeType.isActive).map((feeType) => (
+                    <option key={feeType.id} value={feeType.id}>
+                      {feeType.name} - {fmtMoney(feeType.amount)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-xs font-medium text-gray-400">Locked after payment</span>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-400">
+                  <tr>
+                    <th className="px-3 py-2">Description</th>
+                    <th className="w-20 px-3 py-2">Qty</th>
+                    <th className="w-28 px-3 py-2">Rate</th>
+                    <th className="w-28 px-3 py-2">Amount</th>
+                    {canEditBill && <th className="w-10 px-3 py-2" />}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {rows.map((row) => (
+                    <tr key={row.key}>
+                      <td className="px-3 py-2">
+                        {canEditBill ? (
+                          <input value={row.name} onChange={(event) => updateRow(row.key, { name: event.target.value })} className="w-full rounded-md border border-gray-200 px-2 py-1.5" />
+                        ) : (
+                          row.name
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {canEditBill ? (
+                          <input type="number" min={1} value={row.quantity} onChange={(event) => updateRow(row.key, { quantity: Number(event.target.value) || 1 })} className="w-full rounded-md border border-gray-200 px-2 py-1.5" />
+                        ) : (
+                          row.quantity
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {canEditBill ? (
+                          <input type="number" min={0} value={row.unitAmount} onChange={(event) => updateRow(row.key, { unitAmount: Number(event.target.value) || 0 })} className="w-full rounded-md border border-gray-200 px-2 py-1.5" />
+                        ) : (
+                          fmtMoney(row.unitAmount)
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-gray-700">{fmtMoney(row.quantity * row.unitAmount)}</td>
+                      {canEditBill && (
+                        <td className="px-3 py-2">
+                          <button type="button" onClick={() => removeRow(row.key)} className="text-gray-300 hover:text-red-600">
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {canEditBill && (
+              <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
+                <button type="button" onClick={() => setRows((current) => [...current, newQueueBillRow(current.length)])} className="text-xs font-semibold text-[var(--color-primary)]">
+                  + Add custom line
+                </button>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-700">Draft total: {fmtMoney(draftTotal)}</span>
+                  <button
+                    type="button"
+                    onClick={saveBill}
+                    disabled={!hasUnsavedBillChanges || normalizedRows.length === 0 || update.isPending}
+                    className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    Save Bill
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg bg-teal-50 px-3 py-2">
+            <p className="text-xs font-medium uppercase text-teal-700">Pending on visit bill</p>
+            <p className="mt-1 text-lg font-bold text-[var(--color-primary)]">{fmtMoney(bill.dueAmount)}</p>
+            <p className="mt-1 text-xs text-teal-700">Payment is optional now. Any unpaid amount stays on the final bill.</p>
+            {hasUnsavedBillChanges && <p className="mt-1 text-xs font-semibold text-amber-700">Save bill changes before recording payment.</p>}
+          </div>
+
+          <div>
+            <label className={labelClass}>Amount</label>
+            <input type="number" min={1} max={bill.dueAmount} value={amount} onChange={(e) => setAmount(Number(e.target.value) || 0)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Mode</label>
+            <div className="flex flex-wrap gap-2">
+              {PAYMENT_MODES.map((paymentMode) => (
+                <button
+                  key={paymentMode}
+                  type="button"
+                  onClick={() => setMode(paymentMode)}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-xs font-medium',
+                    mode === paymentMode
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50',
+                  )}
+                >
+                  {MODE_LABEL[paymentMode]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {mode !== 'CASH' && (
+            <div>
+              <label className={labelClass}>Reference</label>
+              <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="UPI txn ID / card ref" className={inputClass} />
+            </div>
+          )}
+        </div>
+      )}
+    </FormModal>
+  );
+}
+
+function QueueItem({
+  appointment,
+  clinicName,
+  currentUser,
+  markArrivedPending,
+  onArrived,
+  onStart,
+  onDone,
+  onLink,
+  onVitals,
+  onAddCharge,
+  onNoShow,
+  onPayment,
+  queueConfirmationTemplate,
+}: {
+  appointment: AppointmentDetail;
+  clinicName?: string;
+  currentUser: ReturnType<typeof useAuthStore.getState>['user'];
+  markArrivedPending: boolean;
+  onArrived: (appointment: AppointmentDetail) => void;
+  onStart: (appointment: AppointmentDetail) => void;
+  onDone: (appointment: AppointmentDetail) => void;
+  onLink: (appointment: AppointmentDetail) => void;
+  onVitals: (appointment: AppointmentDetail) => void;
+  onAddCharge: (appointment: AppointmentDetail) => void;
+  onNoShow: (appointment: AppointmentDetail) => void;
+  onPayment: (appointment: AppointmentDetail) => void;
+  queueConfirmationTemplate?: string;
+}) {
+  const { data: bill, isLoading: billLoading } = useBillByVisitQuery(appointment.visitId ?? undefined);
+  const waitMinutes = appointment.status === 'ARRIVED' ? waitingMinutes(appointment.updatedAt) : null;
+  const isOverdue = waitMinutes !== null && waitMinutes >= WAITING_ALERT_MINUTES;
+  const canCollectPayment =
+    appointment.status === 'ARRIVED' &&
+    Boolean(appointment.visitId) &&
+    hasPermission(currentUser, 'billing:edit') &&
+    Boolean(bill && bill.dueAmount > 0);
+  const canStart = appointment.status === 'ARRIVED' && Boolean(appointment.visitId);
+
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center gap-4">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 font-semibold text-gray-700">
+          {appointment.tokenNo}
+        </span>
+        <div>
+          <p className="font-medium text-gray-800">{appointment.patientName}</p>
+          <p className="text-xs text-gray-400">
+            {appointment.timeSlot} | {appointment.mobile}
+            {appointment.doctorName && ` | ${appointment.doctorName}`}
+          </p>
+        </div>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[appointment.status]}`}>
+          {appointment.status.replace('_', ' ')}
+        </span>
+        {waitMinutes !== null && (
+          <span
+            className={cn(
+              'flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+              isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500',
+            )}
+          >
+            {isOverdue && <AlertCircle className="h-3 w-3" />}
+            Waiting {waitMinutes} min
+          </span>
+        )}
+        {appointment.visitId && bill && appointment.status !== 'BOOKED' && appointment.status !== 'CONFIRMED' && (
+          <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', bill.dueAmount > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')}>
+            {bill.dueAmount > 0 ? `Pending ${fmtMoney(bill.dueAmount)}` : 'Paid'}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <a href={`tel:${appointment.mobile}`} className="rounded-lg border border-gray-300 p-1.5 text-gray-500 hover:bg-gray-50" title="Call">
+          <Phone className="h-4 w-4" />
+        </a>
+        <a
+          href={waLink(
+            appointment.mobile,
+            renderWhatsAppTemplate(queueConfirmationTemplate, 'queueConfirmation', {
+              patientName: appointment.patientName,
+              clinicName: clinicName ?? 'the clinic',
+              appointmentDate: new Date(appointment.appointmentDate).toLocaleDateString('en-IN'),
+              timeSlot: appointment.timeSlot,
+              doctorName: appointment.doctorName,
+              tokenNo: appointment.tokenNo,
+            }),
+          )}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-lg border border-gray-300 p-1.5 text-green-600 hover:bg-green-50"
+          title="WhatsApp"
+        >
+          <MessageCircle className="h-4 w-4" />
+        </a>
+        {(appointment.status === 'BOOKED' || appointment.status === 'CONFIRMED') &&
+          (appointment.patientId ? (
+            <button
+              onClick={() => onArrived(appointment)}
+              disabled={markArrivedPending}
+              className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              Arrived
+            </button>
+          ) : (
+            <button
+              onClick={() => onLink(appointment)}
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              title="Register or link a patient before marking arrived"
+            >
+              <Link2 className="h-3.5 w-3.5" /> Link Patient
+            </button>
+          ))}
+        {canCollectPayment && (
+          <button
+            onClick={() => onPayment(appointment)}
+            className="flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+          >
+            <CreditCard className="h-3.5 w-3.5" /> Collect Payment
+          </button>
+        )}
+        {appointment.status === 'ARRIVED' && appointment.visitId && hasPermission(currentUser, 'vitals:edit') && (
+          <button
+            onClick={() => onVitals(appointment)}
+            className="relative flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            title={appointment.hasVitals ? 'Vitals recorded - click to view/edit' : 'Record vitals before the doctor starts'}
+          >
+            <Activity className="h-3.5 w-3.5" /> Vitals
+            {appointment.hasVitals && (
+              <CheckCircle2 className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-white text-green-600" />
+            )}
+          </button>
+        )}
+        {(appointment.status === 'ARRIVED' || appointment.status === 'IN_CONSULTATION') &&
+          appointment.visitId &&
+          hasPermission(currentUser, 'billing-charges:edit') && (
+            <button
+              onClick={() => onAddCharge(appointment)}
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              title="Add a charge to this visit's bill — injection, dressing, nebulization, etc."
+            >
+              <Receipt className="h-3.5 w-3.5" /> Add Charge
+            </button>
+          )}
+        {appointment.status === 'ARRIVED' && (
+          <button
+            onClick={() => onStart(appointment)}
+            disabled={!canStart}
+            title={billLoading ? 'Start consultation. Bill is still loading in the background.' : 'Start consultation'}
+            className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Start
+          </button>
+        )}
+        {appointment.status === 'IN_CONSULTATION' && (
+          <button
+            onClick={() => onDone(appointment)}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Done
+          </button>
+        )}
+        {(appointment.status === 'BOOKED' || appointment.status === 'CONFIRMED') && (
+          <button
+            onClick={() => onNoShow(appointment)}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+          >
+            No-show
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function QueueView() {
   const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.user);
   const { data: clinic } = useClinicQuery();
   const { data: queue, isLoading } = useAppointmentQueueQuery();
+  const { data: whatsAppTemplates } = useWhatsAppTemplatesQuery();
   const { updateStatus, markArrived } = useAppointmentMutations();
   const [linkTarget, setLinkTarget] = useState<AppointmentDetail | null>(null);
   const [noShowTarget, setNoShowTarget] = useState<AppointmentDetail | null>(null);
   const [vitalsTarget, setVitalsTarget] = useState<AppointmentDetail | null>(null);
+  const [addChargeTarget, setAddChargeTarget] = useState<AppointmentDetail | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<AppointmentDetail | null>(null);
 
   const onArrived = async (appointment: AppointmentDetail) => {
     try {
@@ -1500,111 +2166,24 @@ function QueueView() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {queue.items.map((a) => {
-            const waitMinutes = a.status === 'ARRIVED' ? waitingMinutes(a.updatedAt) : null;
-            const isOverdue = waitMinutes !== null && waitMinutes >= WAITING_ALERT_MINUTES;
-            return (
-              <div key={a.id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
-                <div className="flex items-center gap-4">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 font-semibold text-gray-700">
-                    {a.tokenNo}
-                  </span>
-                  <div>
-                    <p className="font-medium text-gray-800">{a.patientName}</p>
-                    <p className="text-xs text-gray-400">
-                      {a.timeSlot} · {a.mobile}
-                      {a.doctorName && ` · ${a.doctorName}`}
-                    </p>
-                  </div>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[a.status]}`}>
-                    {a.status.replace('_', ' ')}
-                  </span>
-                  {waitMinutes !== null && (
-                    <span
-                      className={cn(
-                        'flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
-                        isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500',
-                      )}
-                    >
-                      {isOverdue && <AlertCircle className="h-3 w-3" />}
-                      Waiting {waitMinutes} min
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <a href={`tel:${a.mobile}`} className="rounded-lg border border-gray-300 p-1.5 text-gray-500 hover:bg-gray-50" title="Call">
-                    <Phone className="h-4 w-4" />
-                  </a>
-                  <a
-                    href={waLink(
-                      a.mobile,
-                      `Dear ${a.patientName}, your appointment is confirmed at ${a.timeSlot}${clinic ? ` at ${clinic.name}` : ''}.`,
-                    )}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg border border-gray-300 p-1.5 text-green-600 hover:bg-green-50"
-                    title="WhatsApp"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </a>
-                  {(a.status === 'BOOKED' || a.status === 'CONFIRMED') &&
-                    (a.patientId ? (
-                      <button
-                        onClick={() => onArrived(a)}
-                        disabled={markArrived.isPending}
-                        className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-                      >
-                        Arrived
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setLinkTarget(a)}
-                        className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                        title="Register or link a patient before marking arrived"
-                      >
-                        <Link2 className="h-3.5 w-3.5" /> Link Patient
-                      </button>
-                    ))}
-                  {a.status === 'ARRIVED' && a.visitId && hasPermission(currentUser, 'vitals:edit') && (
-                    <button
-                      onClick={() => setVitalsTarget(a)}
-                      className="relative flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                      title={a.hasVitals ? 'Vitals recorded — click to view/edit' : 'Record vitals before the doctor starts'}
-                    >
-                      <Activity className="h-3.5 w-3.5" /> Vitals
-                      {a.hasVitals && (
-                        <CheckCircle2 className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-white text-green-600" />
-                      )}
-                    </button>
-                  )}
-                  {a.status === 'ARRIVED' && (
-                    <button
-                      onClick={() => onStart(a)}
-                      className="rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
-                    >
-                      Start
-                    </button>
-                  )}
-                  {a.status === 'IN_CONSULTATION' && (
-                    <button
-                      onClick={() => onDone(a)}
-                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                    >
-                      Done
-                    </button>
-                  )}
-                  {(a.status === 'BOOKED' || a.status === 'CONFIRMED') && (
-                    <button
-                      onClick={() => setNoShowTarget(a)}
-                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                    >
-                      No-show
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {queue.items.map((a) => (
+            <QueueItem
+              key={a.id}
+              appointment={a}
+              clinicName={clinic?.name}
+              currentUser={currentUser}
+              markArrivedPending={markArrived.isPending}
+              onArrived={onArrived}
+              onStart={onStart}
+              onDone={onDone}
+              onLink={setLinkTarget}
+              onVitals={setVitalsTarget}
+              onAddCharge={setAddChargeTarget}
+              onNoShow={setNoShowTarget}
+              onPayment={setPaymentTarget}
+              queueConfirmationTemplate={whatsAppTemplates?.templates.queueConfirmation}
+            />
+          ))}
         </div>
       )}
 
@@ -1614,6 +2193,8 @@ function QueueView() {
       {vitalsTarget && (
         <VitalsModal open={Boolean(vitalsTarget)} onClose={() => setVitalsTarget(null)} appointment={vitalsTarget} />
       )}
+      <AddChargeModal open={Boolean(addChargeTarget)} onClose={() => setAddChargeTarget(null)} appointment={addChargeTarget} />
+      <QueuePaymentModal appointment={paymentTarget} onClose={() => setPaymentTarget(null)} />
       <ReasonPromptModal
         open={Boolean(noShowTarget)}
         title={`Mark ${noShowTarget?.patientName} as no-show?`}
@@ -1625,14 +2206,28 @@ function QueueView() {
   );
 }
 
+const APPOINTMENT_VIEWS = [
+  { key: 'booking-info', label: 'Booking info' },
+  { key: 'day-view', label: 'Day view' },
+  { key: 'todays-queue', label: "Today's queue" },
+] as const;
+
+type AppointmentView = (typeof APPOINTMENT_VIEWS)[number]['key'];
+
 export function AppointmentsPage() {
-  const [tab, setTab] = useState<'day' | 'queue' | 'booking'>('booking');
+  const navigate = useNavigate();
+  const { view } = useParams<{ view?: string }>();
   const [date, setDate] = useState(todayIso());
+  const activeView = APPOINTMENT_VIEWS.some((item) => item.key === view) ? (view as AppointmentView) : null;
 
   const onJumpToDate = (targetDate: string) => {
     setDate(targetDate);
-    setTab('booking');
+    navigate('/appointments/booking-info');
   };
+
+  if (!activeView) {
+    return <Navigate to="/appointments/booking-info" replace />;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -1645,29 +2240,20 @@ export function AppointmentsPage() {
       </div>
 
       <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
-        <button
-          onClick={() => setTab('booking')}
-          className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'booking' ? 'bg-white text-[var(--color-primary)] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Booking info
-        </button>
-        <button
-          onClick={() => setTab('day')}
-          className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'day' ? 'bg-white text-[var(--color-primary)] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Day view
-        </button>
-        <button
-          onClick={() => setTab('queue')}
-          className={`rounded-md px-4 py-2 text-sm font-medium transition ${tab === 'queue' ? 'bg-white text-[var(--color-primary)] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Today's queue
-        </button>
+        {APPOINTMENT_VIEWS.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => navigate(`/appointments/${item.key}`)}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition ${activeView === item.key ? 'bg-white text-[var(--color-primary)] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      {tab === 'day' ? (
+      {activeView === 'day-view' ? (
         <DayView date={date} onDateChange={setDate} />
-      ) : tab === 'queue' ? (
+      ) : activeView === 'todays-queue' ? (
         <QueueView />
       ) : (
         <BookingInfoView date={date} onDateChange={setDate} />

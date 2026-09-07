@@ -9,6 +9,9 @@ import { CardGridSkeleton } from '@/components/Skeleton';
 import { pageStackClass, sectionCardClass } from '@/components/uiStyles';
 import { useFollowUpCountsQuery, useFollowUpListQuery, useFollowUpMutations } from '@/hooks/useFollowUps';
 import { cn, getErrorMessage } from '@/lib/utils';
+import { useClinicQuery } from '@/hooks/useClinic';
+import { useWhatsAppTemplatesQuery } from '@/hooks/useWhatsAppTemplates';
+import { renderWhatsAppTemplate } from '@/lib/whatsappTemplates';
 
 type View = 'due' | 'overdue' | 'upcoming' | 'missed' | 'call-list';
 
@@ -61,7 +64,7 @@ function waLink(mobile: string, message: string) {
   return `https://wa.me/91${mobile}?text=${encodeURIComponent(message)}`;
 }
 
-function FollowUpRow({ item }: { item: FollowUpItem }) {
+function FollowUpRow({ item, clinicName, followUpTemplate }: { item: FollowUpItem; clinicName?: string; followUpTemplate?: string }) {
   const navigate = useNavigate();
   const { markContacted, reschedule } = useFollowUpMutations();
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
@@ -157,7 +160,13 @@ function FollowUpRow({ item }: { item: FollowUpItem }) {
           <a
             href={waLink(
               item.patient.mobile,
-              `Dear ${item.patient.name}, your follow-up visit is due. Please visit us. Call to book an appointment.`,
+              renderWhatsAppTemplate(followUpTemplate, 'followUpReminder', {
+                patientName: item.patient.name,
+                clinicName: clinicName ?? 'the clinic',
+                dueDate: new Date(item.dueDate).toLocaleDateString('en-IN'),
+                daysOverdue: item.daysOverdue,
+                lastDiagnosis: item.lastDiagnosis,
+              }),
             )}
             target="_blank"
             rel="noreferrer"
@@ -253,6 +262,8 @@ export function FollowUpPage() {
   const { data: counts } = useFollowUpCountsQuery();
   const [view, setView] = useState<View>('due');
   const { data: items, isLoading } = useFollowUpListQuery(view);
+  const { data: clinic } = useClinicQuery();
+  const { data: whatsAppTemplates } = useWhatsAppTemplatesQuery();
 
   const calledToday = useMemo(
     () => (items ?? []).filter((i) => i.contactedOn && new Date(i.contactedOn).toDateString() === new Date().toDateString()).length,
@@ -349,7 +360,12 @@ export function FollowUpPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {items.map((item) => (
-              <FollowUpRow key={item.id} item={item} />
+              <FollowUpRow
+                key={item.id}
+                item={item}
+                clinicName={clinic?.name}
+                followUpTemplate={whatsAppTemplates?.templates.followUpReminder}
+              />
             ))}
           </div>
         )}

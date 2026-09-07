@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdviseLabTestsRequest,
+  AddBillableChargesRequest,
+  BillDetail,
+  BillItemInput,
   CreateVisitRequest,
   LabTestDetail,
   TodayVisitItem,
@@ -112,5 +115,27 @@ export function useVisitMutations() {
     onSuccess: invalidate,
   });
 
-  return { create, start, update, saveVitals, adviseLabTests };
+  const addBillableCharge = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: BillItemInput }) => {
+      const { data } = await api.post<BillDetail>(`/visits/${id}/bill-items`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+    },
+  });
+
+  const addBillableCharges = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: AddBillableChargesRequest }) => {
+      const { data } = await api.post<BillDetail>(`/visits/${id}/bill-items/bulk`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+    },
+  });
+
+  return { create, start, update, saveVitals, adviseLabTests, addBillableCharge, addBillableCharges };
 }

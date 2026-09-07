@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { FollowUp, Patient } from '@prisma/client';
+import type { FollowUp, Patient, Prisma } from '@prisma/client';
 import type { FollowUpCounts, FollowUpItem, PatientFollowUpSummary } from '@clinic-care/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { istDayBounds, parseIstDate } from '../../common/utils/ist-date';
@@ -165,20 +165,24 @@ export class FollowUpsService {
   }
 
   /** Called by VisitsService right after a new visit is created — Day 9 rule 2. */
-  async linkVisitIfFollowUpDue(patientId: string, visitId: string): Promise<void> {
+  async linkVisitIfFollowUpDue(
+    patientId: string,
+    visitId: string,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<void> {
     const now = new Date();
     const windowStart = new Date(now);
     windowStart.setDate(windowStart.getDate() - AUTO_LINK_WINDOW_DAYS);
     const windowEnd = new Date(now);
     windowEnd.setDate(windowEnd.getDate() + AUTO_LINK_WINDOW_DAYS);
 
-    const pending = await this.prisma.followUp.findFirst({
+    const pending = await tx.followUp.findFirst({
       where: { patientId, status: 'PENDING', dueDate: { gte: windowStart, lte: windowEnd } },
       orderBy: { dueDate: 'asc' },
     });
     if (!pending) return;
 
-    await this.prisma.followUp.update({
+    await tx.followUp.update({
       where: { id: pending.id },
       data: { status: 'DONE', attendedOn: now, attendedVisitId: visitId },
     });

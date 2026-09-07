@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { BillDetail, BillItemInput, BillListItem } from '@clinic-care/shared-types';
-import { Bill, BillItem, Patient, Payment } from '@prisma/client';
+import type { BillDetail, BillItemInput, BillListItem, ChargeDepartment } from '@clinic-care/shared-types';
+import { Bill, BillItem, Patient, Payment, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberService } from '../number/number.service';
 import { CreateBillDto } from './dto/create-bill.dto';
@@ -9,6 +9,13 @@ import { RecordPaymentDto } from './dto/record-payment.dto';
 import { CancelBillDto } from './dto/cancel-bill.dto';
 
 type BillWithRelations = Bill & { patient: Patient; items: BillItem[]; payments: Payment[] };
+
+/** Whoever is adding/removing a charge — id for the audit trail, role as a cheap
+ * attribution snapshot (already on the caller's JWT, no extra query). */
+export interface BillingActor {
+  id: string;
+  role: string;
+}
 
 const BILL_INCLUDE = {
   patient: true,
@@ -62,7 +69,55 @@ export class BillingService {
     return bill ? this.toDetail(bill) : null;
   }
 
-  async create(dto: CreateBillDto, createdBy: string): Promise<BillDetail> {
+  async ensureVisitBill(
+    visitId: string,
+    patientId: string,
+    createdBy: string,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+    actor?: BillingActor,
+  ): Promise<BillDetail> {
+    const existing = await tx.bill.findFirst({ where: { visitId }, include: BILL_INCLUDE });
+    if (existing) {
+      return this.toDetail(existing);
+    }
+
+    const consultationFee = await this.resolveConsultationFee(tx);
+    const itemsData = this.buildItemsData(
+      [
+        {
+          feeTypeId: consultationFee.feeTypeId,
+          name: consultationFee.name,
+          quantity: 1,
+          unitAmount: consultationFee.amount,
+          sortOrder: 0,
+          department: 'CONSULTATION',
+        },
+      ],
+      actor,
+    );
+    const { subtotal, taxAmount, totalAmount } = this.computeTotals(itemsData, 0, null);
+
+    const billNo = await this.numberService.getNext('BILL', tx);
+    const bill = await tx.bill.create({
+      data: {
+        billNo,
+        patientId,
+        visitId,
+        subtotal,
+        taxAmount,
+        totalAmount,
+        dueAmount: totalAmount,
+        status: totalAmount === 0 ? 'PAID' : 'UNPAID',
+        remark: consultationFee.amount === 0 ? 'Automatic visit bill created without a configured consultation fee.' : undefined,
+        createdBy,
+        items: { create: itemsData },
+      },
+      include: BILL_INCLUDE,
+    });
+    return this.toDetail(bill);
+  }
+
+  async create(dto: CreateBillDto, createdBy: string, actor?: BillingActor): Promise<BillDetail> {
     const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId }, select: { id: true } });
     if (!patient) {
       throw new NotFoundException('Patient not found');
@@ -75,7 +130,7 @@ export class BillingService {
       }
     }
 
-    const itemsData = this.buildItemsData(dto.items);
+    const itemsData = this.buildItemsData(dto.items, actor);
     const { subtotal, taxAmount, totalAmount } = this.computeTotals(itemsData, dto.discount ?? 0, dto.taxPercent ?? null);
 
     const billNo = await this.numberService.getNext('BILL');
@@ -141,14 +196,24 @@ export class BillingService {
    * becomes known partway through a visit, after the consultation fee is already paid.
    * Appends one item and recomputes totals off the existing discount/tax — existing items
    * and payments are untouched, so nothing already paid for is ever rewritten. */
-  async addItem(id: string, item: BillItemInput): Promise<BillDetail> {
+  async addItem(id: string, item: BillItemInput, actor?: BillingActor): Promise<BillDetail> {
     const existing = await this.findOrThrow(id);
     if (existing.status === 'CANCELLED') {
       throw new BadRequestException('Cannot add items to a cancelled bill');
     }
 
-    const [newItemData] = this.buildItemsData([item]);
-    const allAmounts = [...existing.items.map((i) => ({ amount: i.amount })), newItemData];
+    // Only a still-PENDING item counts as "already there" — one that was cancelled or
+    // waived by mistake can legitimately be re-added. Checked as "not cancelled/waived"
+    // rather than "=== PENDING" so a bill item saved before `status` existed (undefined
+    // in Mongo, not backfilled retroactively) still counts as pending instead of vanishing.
+    const pendingItems = existing.items.filter((i) => i.status !== 'CANCELLED' && i.status !== 'WAIVED');
+    const alreadyAdded = pendingItems.some((i) => this.isSameCharge(i, item));
+    if (alreadyAdded) {
+      return this.toDetail(existing);
+    }
+
+    const [newItemData] = this.buildItemsData([item], actor);
+    const allAmounts = [...pendingItems.map((i) => ({ amount: i.amount })), newItemData];
     const { subtotal, taxAmount, totalAmount } = this.computeTotals(allAmounts, existing.discount, existing.taxPercent);
     const dueAmount = totalAmount - existing.paidAmount;
 
@@ -165,6 +230,65 @@ export class BillingService {
       include: BILL_INCLUDE,
     });
     return this.toDetail(bill);
+  }
+
+  async addItemToVisitBill(
+    visitId: string,
+    patientId: string,
+    item: BillItemInput,
+    createdBy: string,
+    actor?: BillingActor,
+  ): Promise<BillDetail> {
+    const bill = await this.ensureVisitBill(visitId, patientId, createdBy, this.prisma, actor);
+    const alreadyAdded = bill.items.some((existing) => existing.status === 'PENDING' && this.isSameCharge(existing, item));
+
+    if (alreadyAdded) {
+      return bill;
+    }
+
+    return this.addItem(bill.id, item, actor);
+  }
+
+  async addItemsToVisitBill(
+    visitId: string,
+    patientId: string,
+    items: BillItemInput[],
+    createdBy: string,
+    actor?: BillingActor,
+  ): Promise<BillDetail> {
+    const bill = await this.ensureVisitBill(visitId, patientId, createdBy, this.prisma, actor);
+    const pendingItems = bill.items.filter((i) => i.status === 'PENDING');
+
+    const uniqueItems = items.filter(
+      (item, index, list) => list.findIndex((candidate) => this.isSameCharge(candidate, item)) === index,
+    );
+    const newItems = uniqueItems.filter((item) => !pendingItems.some((existing) => this.isSameCharge(existing, item)));
+
+    if (newItems.length === 0) {
+      return bill;
+    }
+
+    // One update carrying every new line item, instead of one findOrThrow+update round
+    // trip per item — adding several lab/procedure charges at once used to serialize
+    // that many separate writes.
+    const newItemsData = this.buildItemsData(newItems, actor);
+    const allAmounts = [...pendingItems.map((i) => ({ amount: i.amount })), ...newItemsData];
+    const { subtotal, taxAmount, totalAmount } = this.computeTotals(allAmounts, bill.discount, bill.taxPercent);
+    const dueAmount = totalAmount - bill.paidAmount;
+
+    const updated = await this.prisma.bill.update({
+      where: { id: bill.id },
+      data: {
+        subtotal,
+        taxAmount,
+        totalAmount,
+        dueAmount,
+        status: dueAmount === 0 ? 'PAID' : bill.paidAmount > 0 ? 'PARTIAL' : 'UNPAID',
+        items: { create: newItemsData },
+      },
+      include: BILL_INCLUDE,
+    });
+    return this.toDetail(updated);
   }
 
   async recordPayment(id: string, dto: RecordPaymentDto, createdBy: string): Promise<BillDetail> {
@@ -213,7 +337,100 @@ export class BillingService {
     return this.toDetail(bill);
   }
 
-  private buildItemsData(items: BillItemInput[]) {
+  /** Called when the visit that auto-created this bill gets cancelled (e.g. an ARRIVED
+   * appointment marked CANCELLED). Only voids it if nothing has been paid yet — a bill
+   * with money against it needs the real refund flow, not a silent cancel. Conditional
+   * updateMany rather than fetch-then-update, matching the equivalent guard on Visit.cancel. */
+  async cancelVisitBillIfUnpaid(
+    visitId: string,
+    reason: string | undefined,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<void> {
+    await tx.bill.updateMany({
+      where: { visitId, status: { not: 'CANCELLED' }, paidAmount: 0 },
+      data: { status: 'CANCELLED', cancelReason: reason ?? 'Linked appointment was cancelled' },
+    });
+  }
+
+  /** Removes one specific charge without touching the rest of the bill — the audited
+   * alternative to update()'s "replace every item" for a bill nobody wants to fully redo.
+   * CANCELLED means "shouldn't have been added"; WAIVED means "added correctly, but the
+   * clinic chose not to charge for it" — both exclude the item from the bill's totals,
+   * the difference is purely for the audit trail. */
+  async cancelItem(billId: string, itemId: string, reason: string, actor: BillingActor): Promise<BillDetail> {
+    return this.removeItem(billId, itemId, reason, actor, 'CANCELLED');
+  }
+
+  async waiveItem(billId: string, itemId: string, reason: string, actor: BillingActor): Promise<BillDetail> {
+    return this.removeItem(billId, itemId, reason, actor, 'WAIVED');
+  }
+
+  private async removeItem(
+    billId: string,
+    itemId: string,
+    reason: string,
+    actor: BillingActor,
+    status: 'CANCELLED' | 'WAIVED',
+  ): Promise<BillDetail> {
+    const existing = await this.findOrThrow(billId);
+    if (existing.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot modify a cancelled bill');
+    }
+    // Same rule update() already enforces for a full item-list replace, applied per-item:
+    // once money has moved against this bill, its existing charges are a financial
+    // record, not a draft.
+    if (existing.paidAmount > 0) {
+      throw new BadRequestException('Cannot remove a charge from a bill that already has a payment recorded');
+    }
+    const item = existing.items.find((i) => i.id === itemId);
+    if (!item) {
+      throw new NotFoundException('Charge not found on this bill');
+    }
+    if (item.status === 'CANCELLED' || item.status === 'WAIVED') {
+      throw new BadRequestException('This charge has already been cancelled or waived');
+    }
+
+    const remainingAmounts = existing.items
+      .filter((i) => i.id !== itemId && i.status !== 'CANCELLED' && i.status !== 'WAIVED')
+      .map((i) => ({ amount: i.amount }));
+    const { subtotal, taxAmount, totalAmount } = this.computeTotals(remainingAmounts, existing.discount, existing.taxPercent);
+
+    await this.prisma.$transaction([
+      this.prisma.billItem.update({
+        where: { id: itemId },
+        data: { status, removedBy: actor.id, removedByRole: actor.role, removedAt: new Date(), removeReason: reason },
+      }),
+      this.prisma.bill.update({
+        where: { id: billId },
+        data: { subtotal, taxAmount, totalAmount, dueAmount: totalAmount, status: totalAmount === 0 ? 'PAID' : 'UNPAID' },
+      }),
+    ]);
+    return this.getById(billId);
+  }
+
+  private isSameCharge(
+    a: { feeTypeId?: string | null; name: string; quantity: number; unitAmount: number },
+    b: { feeTypeId?: string | null; name: string; quantity: number; unitAmount: number },
+  ): boolean {
+    return (
+      (a.feeTypeId ?? null) === (b.feeTypeId ?? null) &&
+      a.name === b.name &&
+      a.quantity === b.quantity &&
+      a.unitAmount === b.unitAmount
+    );
+  }
+
+  /** Falls back to a default department from the adding user's role when the caller
+   * doesn't specify one — based on the seeded DOCTOR/ASSISTANT role names, so a clinic
+   * that renames those roles should have its frontend pass `department` explicitly. */
+  private resolveDepartment(explicit: ChargeDepartment | undefined, role: string | undefined): ChargeDepartment {
+    if (explicit) return explicit;
+    if (role === 'DOCTOR') return 'DOCTOR_PROCEDURE';
+    if (role === 'ASSISTANT') return 'NURSING';
+    return 'OTHER';
+  }
+
+  private buildItemsData(items: BillItemInput[], actor?: BillingActor) {
     return items.map((item, index) => ({
       feeTypeId: item.feeTypeId,
       name: item.name,
@@ -221,6 +438,10 @@ export class BillingService {
       unitAmount: item.unitAmount,
       amount: item.quantity * item.unitAmount,
       sortOrder: item.sortOrder ?? index,
+      department: this.resolveDepartment(item.department, actor?.role),
+      status: 'PENDING' as const,
+      createdBy: actor?.id ?? null,
+      createdByRole: actor?.role ?? null,
     }));
   }
 
@@ -229,6 +450,20 @@ export class BillingService {
     const taxableAmount = Math.max(subtotal - discount, 0);
     const taxAmount = taxPercent ? Math.round((taxableAmount * taxPercent) / 100) : 0;
     return { subtotal, taxAmount, totalAmount: taxableAmount + taxAmount };
+  }
+
+  private async resolveConsultationFee(
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<{ feeTypeId?: string; name: string; amount: number }> {
+    const feeType =
+      (await tx.feeType.findFirst({ where: { isActive: true, isDefault: true } })) ??
+      (await tx.feeType.findFirst({
+        where: { isActive: true, name: { contains: 'consult', mode: 'insensitive' } },
+      }));
+
+    return feeType
+      ? { feeTypeId: feeType.id, name: feeType.name, amount: feeType.amount }
+      : { name: 'Consultation Fee', amount: 0 };
   }
 
   private async findOrThrow(id: string): Promise<BillWithRelations> {
@@ -264,6 +499,9 @@ export class BillingService {
       patientMobile: bill.patient.mobile,
       visitId: bill.visitId,
       date: bill.date.toISOString(),
+      // Falls back defensively on every new field: a BillItem saved before this migration
+      // has none of them in Mongo at all (no retroactive backfill on @default for existing
+      // documents), so reading an old bill must not assume they're present.
       items: bill.items.map((item) => ({
         id: item.id,
         feeTypeId: item.feeTypeId ?? undefined,
@@ -272,6 +510,15 @@ export class BillingService {
         unitAmount: item.unitAmount,
         amount: item.amount,
         sortOrder: item.sortOrder,
+        department: (item.department ?? 'OTHER') as BillDetail['items'][number]['department'],
+        status: (item.status ?? 'PENDING') as BillDetail['items'][number]['status'],
+        createdBy: item.createdBy ?? null,
+        createdByRole: item.createdByRole ?? null,
+        createdAt: (item.createdAt ?? bill.createdAt).toISOString(),
+        removedBy: item.removedBy ?? null,
+        removedByRole: item.removedByRole ?? null,
+        removedAt: item.removedAt?.toISOString() ?? null,
+        removeReason: item.removeReason ?? null,
       })),
       payments: bill.payments.map((payment) => ({
         id: payment.id,

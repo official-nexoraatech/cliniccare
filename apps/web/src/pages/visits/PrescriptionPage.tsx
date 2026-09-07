@@ -97,7 +97,7 @@ function doseScheduleChip(row: Row): string {
     const count = row[slot.key];
     const suffix = count > 0 ? ` ${unit}` : '';
     return `${slot.label.slice(0, 1)}-${count}${suffix}`;
-  }).join(' · ');
+  }).join(' | ');
 }
 
 const inputClass = compactFieldInputClass;
@@ -193,7 +193,7 @@ export function PrescriptionPage() {
       return;
     }
     setItems(data.map((item, i) => ({ ...item, key: crypto.randomUUID(), sortOrder: i })));
-    toast.success('Loaded last prescription — review before saving.');
+    toast.success('Loaded last prescription. Review before saving.');
   };
 
   // Explicit field list, not a spread: rows loaded from a saved prescription carry PrescriptionItemDetail's
@@ -284,7 +284,7 @@ export function PrescriptionPage() {
           <p className="text-[11px] font-semibold uppercase text-slate-400">Patient</p>
           <p className="mt-1 text-lg font-semibold text-slate-950">{visit.patient.name}</p>
           <p className="mt-0.5 text-xs font-medium text-slate-500">
-            {patientMeta.join(' · ')}
+            {patientMeta.join(' | ')}
           </p>
         </div>
         <div className="text-right">
@@ -300,7 +300,7 @@ export function PrescriptionPage() {
               {visit.vital.bp && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">BP {visit.vital.bp}</span>}
               {visit.vital.pulse && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">Pulse {visit.vital.pulse}</span>}
               {visit.vital.weight && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">Weight {visit.vital.weight} kg</span>}
-              {visit.vital.temperature && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">Temp {visit.vital.temperature}°C</span>}
+              {visit.vital.temperature && <span className="rounded-lg bg-white px-2.5 py-1 font-medium text-slate-700">Temp {visit.vital.temperature} C</span>}
             </div>
           )}
           {visit.diagnosis && (
@@ -312,13 +312,20 @@ export function PrescriptionPage() {
       )}
 
       <table className={`${printTableClass} mt-6`}>
+        <colgroup>
+          <col className="w-10" />
+          <col className="w-[34%]" />
+          <col className="w-[34%]" />
+          <col className="w-24" />
+          <col className="w-16" />
+        </colgroup>
         <thead>
           <tr className={printTableHeaderRowClass}>
-            <th className={`${printTableHeaderCellClass} w-8 pr-2`}>#</th>
+            <th className={`${printTableHeaderCellClass} pr-2 text-center`}>#</th>
             <th className={printTableHeaderCellClass}>Medicine</th>
             <th className={printTableHeaderCellClass}>Schedule</th>
-            <th className={`${printTableHeaderCellClass} w-24`}>Duration</th>
-            <th className={`${printTableHeaderCellClass} w-16 pr-0 text-right`}>Qty</th>
+            <th className={`${printTableHeaderCellClass} text-center`}>Duration</th>
+            <th className={`${printTableHeaderCellClass} text-right`}>Qty</th>
           </tr>
         </thead>
         <tbody>
@@ -331,7 +338,7 @@ export function PrescriptionPage() {
           ) : (
             printableItems.map((row, index) => (
               <tr key={row.key} className={printTableRowClass}>
-                <td className="py-4 pr-2 align-top">
+                <td className="px-3 py-3 text-center align-top">
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500">
                     {index + 1}
                   </span>
@@ -339,7 +346,7 @@ export function PrescriptionPage() {
                 <td className={`${printTableCellClass} py-3`}>
                   <p className="text-sm font-semibold text-slate-950">{row.medicineName}</p>
                   <p className="mt-1 text-xs text-slate-400">
-                    {[row.strength, medicineFormLabel(row)].filter(Boolean).join(' · ')}
+                    {[row.strength, medicineFormLabel(row)].filter(Boolean).join(' | ')}
                   </p>
                 </td>
                 <td className={`${printTableCellClass} py-3`}>
@@ -352,8 +359,8 @@ export function PrescriptionPage() {
                     </span>
                   </div>
                 </td>
-                <td className={`${printTableCellClass} py-3 align-top text-sm font-semibold text-slate-700`}>{row.durationDays} days</td>
-                <td className="py-3 pr-0 text-right align-top text-sm font-semibold text-slate-900">{totalQuantity(row)}</td>
+                <td className={`${printTableCellClass} py-3 text-center text-sm font-semibold text-slate-700`}>{row.durationDays} days</td>
+                <td className={`${printTableCellClass} py-3 text-right text-sm font-semibold text-slate-900`}>{totalQuantity(row)}</td>
               </tr>
             ))
           )}
@@ -400,7 +407,7 @@ export function PrescriptionPage() {
           </div>
 
           {/* No overflow-x-auto wrapper here: overflow-x:auto forces the browser to also
-              compute overflow-y:auto on this container (CSS spec — one axis can't stay
+              compute overflow-y:auto on this container (CSS spec: one axis can't stay
               "visible" once the other is scrollable), which silently clips the medicine
               search dropdown whenever it opens below the container's bottom edge. The
               columns fit at normal widths without horizontal scroll anyway. */}
@@ -492,7 +499,7 @@ export function PrescriptionPage() {
                         className={numClass}
                       />
                     </td>
-                    <td className={`${compactTableCellClass} text-center text-gray-500`}>{row.medicineId ? totalQuantity(row) : '—'}</td>
+                    <td className={`${compactTableCellClass} text-center text-gray-500`}>{row.medicineId ? totalQuantity(row) : '-'}</td>
                     <td className={compactTableCellClass}>
                       <input
                         value={row.instruction ?? ''}
@@ -515,7 +522,7 @@ export function PrescriptionPage() {
           </table>
 
           <p className="mt-2 text-xs text-gray-400">
-            Tab across fields · Enter adds a row · Alt+Delete removes a row · Ctrl+S saves · Ctrl+P prints
+            Tab across fields | Enter adds a row | Alt+Delete removes a row | Ctrl+S saves | Ctrl+P prints
           </p>
         </div>
 

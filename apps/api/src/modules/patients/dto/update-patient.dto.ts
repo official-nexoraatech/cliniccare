@@ -11,6 +11,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import {
   BLOOD_GROUPS,
   GENDERS,
@@ -23,9 +24,18 @@ import {
 
 const MOBILE_REGEX = /^\d{10}$/;
 const NAME_REGEX = /^[A-Za-z ]+$/;
+const PINCODE_REGEX = /^[1-9]\d{5}$/;
+
+const optionalTrimmedString = () =>
+  Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed === '' ? undefined : trimmed;
+  });
 
 export class UpdatePatientDto {
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
   @MinLength(1)
   @Matches(NAME_REGEX, { message: 'Name can only contain letters and spaces' })
@@ -38,6 +48,7 @@ export class UpdatePatientDto {
   age?: number;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsISO8601()
   dob?: string;
 
@@ -46,27 +57,35 @@ export class UpdatePatientDto {
   gender?: Gender;
 
   @IsOptional()
+  @optionalTrimmedString()
   @Matches(MOBILE_REGEX, { message: 'Mobile number must be exactly 10 digits' })
   mobile?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @Matches(MOBILE_REGEX, { message: 'Alternate mobile number must be exactly 10 digits' })
   altMobile?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsEmail()
   email?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
+  @MinLength(1)
   address?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
   city?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
+  @Matches(PINCODE_REGEX, { message: 'Pincode must be a valid 6 digit Indian pincode' })
   pincode?: string;
 
   @IsOptional()
@@ -78,26 +97,34 @@ export class UpdatePatientDto {
   maritalStatus?: MaritalStatus;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
   occupation?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
   allergies?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
+  @MinLength(1)
   chronicDiseases?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
+  @MinLength(1)
   stage?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
   referredBy?: string;
 
   @IsOptional()
+  @optionalTrimmedString()
   @IsString()
   notes?: string;
 

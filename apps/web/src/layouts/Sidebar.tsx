@@ -15,8 +15,10 @@ import {
 } from 'lucide-react';
 import type { PermissionKey } from '@clinic-care/shared-types';
 import { cn } from '@/lib/utils';
+import { resolveServerUrl } from '@/lib/api';
 import { hasPermission } from '@/lib/permissions';
 import { useAuthStore } from '@/store/auth-store';
+import { useClinicQuery } from '@/hooks/useClinic';
 
 const navItems: { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean; permission?: PermissionKey }[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -35,15 +37,24 @@ const navItems: { to: string; label: string; icon: typeof LayoutDashboard; end?:
 
 export function Sidebar() {
   const currentUser = useAuthStore((state) => state.user);
+  const { data: clinic } = useClinicQuery();
   const visibleItems = navItems.filter((item) => !item.permission || hasPermission(currentUser, item.permission));
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r border-gray-200 bg-white">
       <div className="flex items-center gap-2 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-primary)] text-sm font-bold text-white">
-          CC
-        </div>
-        <span className="text-lg font-bold text-[var(--color-navy)]">ClinicCare</span>
+        {clinic?.logoPath ? (
+          <img
+            src={resolveServerUrl(clinic.logoPath)}
+            alt={clinic.name}
+            className="h-9 w-9 flex-shrink-0 rounded-lg object-contain"
+          />
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-primary)] text-sm font-bold text-white">
+            CC
+          </div>
+        )}
+        <span className="truncate text-lg font-bold text-[var(--color-navy)]">{clinic?.name ?? 'ClinicCare'}</span>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-2">
@@ -66,6 +77,14 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      {clinic?.doctorName && (
+        <div className="border-t border-gray-200 px-5 py-4">
+          <p className="truncate text-sm font-semibold text-[var(--color-navy)]">Dr. {clinic.doctorName}</p>
+          {clinic.degree && <p className="truncate text-xs text-gray-500">{clinic.degree}</p>}
+          {clinic.regnNumber && <p className="truncate text-xs text-gray-400">Regn. {clinic.regnNumber}</p>}
+        </div>
+      )}
     </aside>
   );
 }

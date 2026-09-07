@@ -7,14 +7,14 @@ export const standardFieldInputClass =
 export const compactFieldInputClass =
   'w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-800 shadow-sm shadow-slate-100 transition placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-teal-100';
 
-export const fieldLabelClass = 'mb-1.5 block text-xs font-semibold text-slate-500';
+export const fieldLabelClass = 'mb-1.5 block text-[13px] font-semibold text-slate-700';
 export const formLabelClass = 'mb-1.5 block text-sm font-semibold text-slate-700';
 
 export const pageStackClass = 'flex flex-col gap-5 pb-8';
 export const sectionCardClass = 'rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70';
 export const subtleSectionCardClass = 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40';
-export const sectionHeaderClass = 'mb-4 flex items-center gap-2 text-sm font-semibold text-[var(--color-navy)]';
-export const sectionIconClass = 'flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-[var(--color-primary)]';
+export const sectionHeaderClass = 'mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-semibold text-[var(--color-navy)]';
+export const sectionIconClass = 'flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-[var(--color-primary)] ring-1 ring-teal-100';
 
 export const emptyStateClass =
   'flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white py-16 text-center';

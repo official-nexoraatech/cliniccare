@@ -1,4 +1,5 @@
-import { IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { CHARGE_DEPARTMENTS, type ChargeDepartment } from '@clinic-care/shared-types';
 
 export class BillItemDto {
   @IsOptional()
@@ -20,4 +21,9 @@ export class BillItemDto {
   @IsInt()
   @Min(0)
   sortOrder!: number;
+
+  // Left unset by most callers — BillingService defaults it from the adding user's role.
+  @IsOptional()
+  @IsIn(CHARGE_DEPARTMENTS)
+  department?: ChargeDepartment;
 }

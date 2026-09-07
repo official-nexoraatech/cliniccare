@@ -1,4 +1,6 @@
 import type { Gender } from './patients';
+import type { BillItemInput } from './billing';
+import type { VisitCustomFieldValues } from './visit-fields';
 
 export const VISIT_TYPES = ['NEW', 'FOLLOW_UP', 'EMERGENCY'] as const;
 export type VisitType = (typeof VISIT_TYPES)[number];
@@ -97,6 +99,7 @@ export interface VisitDetail extends VisitSummary {
   followUpAfterDays: number | null;
   consultationFee: number | null;
   remark: string | null;
+  customFields: VisitCustomFieldValues;
   vital: VitalDetail | null;
   labTests: LabTestDetail[];
 }
@@ -128,10 +131,15 @@ export interface UpdateVisitRequest {
   consultationFee?: number;
   status?: VisitStatus;
   remark?: string;
+  customFields?: VisitCustomFieldValues;
 }
 
 export interface AdviseLabTestsRequest {
   testNames: string[];
+}
+
+export interface AddBillableChargesRequest {
+  items: BillItemInput[];
 }
 
 export interface EnterLabResultRequest {

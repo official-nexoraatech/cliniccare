@@ -9,17 +9,17 @@ import { ClinicProfilePage } from './ClinicProfilePage';
 import { RolesPermissionsPage } from './RolesPermissionsPage';
 import { FeeMasterPage } from './FeeMasterPage';
 import { NumberingSettingsPage } from './NumberingSettingsPage';
-import { PatientFieldsPage } from './PatientFieldsPage';
-import { MedicineFieldsPage } from './MedicineFieldsPage';
+import { FieldsSettingsPage } from './FieldsSettingsPage';
 import { BackupSettingsPage } from './BackupSettingsPage';
+import { WhatsAppMessagesPage } from './WhatsAppMessagesPage';
 
 const TABS = [
   { key: 'users', label: 'Users', permission: 'administration:view' as const },
   { key: 'roles', label: 'Roles & Permissions', permission: 'administration:view' as const },
   { key: 'clinic', label: 'Clinic Profile', permission: null },
   { key: 'fees', label: 'Fee Master', permission: null },
-  { key: 'patientFields', label: 'Patient Fields', permission: null },
-  { key: 'medicineFields', label: 'Medicine Fields', permission: null },
+  { key: 'fields', label: 'Fields Settings', permission: null },
+  { key: 'whatsapp', label: 'WhatsApp Messages', permission: null },
   { key: 'numbering', label: 'Numbering', permission: null },
   // Host-only (see the isHost check below) — a Client machine has no local Mongo of its
   // own to back up, so the tab would just be a dead control pointed at the Host's DB.
@@ -59,6 +59,10 @@ export function SettingsPage() {
     return <PageSkeleton />;
   }
 
+  if (tab === 'patientFields' || tab === 'medicineFields') {
+    return <Navigate to="/settings/fields" replace />;
+  }
+
   if (!isValidTab(tab)) {
     const fallback = visibleTabs[0]?.key ?? 'clinic';
     return <Navigate to={`/settings/${fallback}`} replace />;
@@ -89,8 +93,8 @@ export function SettingsPage() {
       {tab === 'roles' && <RolesPermissionsPage />}
       {tab === 'clinic' && <ClinicProfilePage />}
       {tab === 'fees' && <FeeMasterPage />}
-      {tab === 'patientFields' && <PatientFieldsPage />}
-      {tab === 'medicineFields' && <MedicineFieldsPage />}
+      {tab === 'fields' && <FieldsSettingsPage />}
+      {tab === 'whatsapp' && <WhatsAppMessagesPage />}
       {tab === 'numbering' && <NumberingSettingsPage />}
       {tab === 'backup' && <BackupSettingsPage />}
     </div>

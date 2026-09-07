@@ -31,8 +31,7 @@ export function MainLayout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="no-print flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
           <div>
-            <p className="text-sm font-semibold text-[var(--color-navy)]">ClinicCare Demo Clinic</p>
-            <p className="text-xs text-gray-400">{today}</p>
+            <p className="text-sm font-bold text-[var(--color-navy)]">{today}</p>
           </div>
 
           <GlobalPatientSearch />

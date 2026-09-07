@@ -5,8 +5,6 @@ import type {
   BookAppointmentResponse,
   CreateAppointmentRequest,
   DoctorOption,
-  PublicAppointmentSummary,
-  ReminderResponse,
   RescheduleAppointmentRequest,
   UpdateAppointmentRequest,
 } from '@clinic-care/shared-types';
@@ -70,28 +68,6 @@ export function usePatientAppointmentsQuery(patientId: string | undefined) {
   });
 }
 
-/** Public, unauthenticated — backs the WhatsApp-reminder confirmation page a patient opens on their own phone. */
-export function usePublicAppointmentQuery(id: string | undefined) {
-  return useQuery({
-    queryKey: ['public-appointments', id],
-    queryFn: async () => {
-      const { data } = await api.get<PublicAppointmentSummary>(`/public/appointments/${id}`);
-      return data;
-    },
-    enabled: Boolean(id),
-    retry: false,
-  });
-}
-
-export function useRespondToReminderMutation(id: string | undefined) {
-  return useMutation({
-    mutationFn: async (response: ReminderResponse) => {
-      const { data } = await api.post<PublicAppointmentSummary>(`/public/appointments/${id}/respond`, { response });
-      return data;
-    },
-  });
-}
-
 export function useAppointmentMutations() {
   const queryClient = useQueryClient();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: APPOINTMENTS_KEY });
@@ -106,7 +82,7 @@ export function useAppointmentMutations() {
 
   const update = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: UpdateAppointmentRequest }) => {
-      const { data } = await api.patch<AppointmentDetail>(`/appointments/${id}`, payload);
+      const { data } = await api.patch<BookAppointmentResponse>(`/appointments/${id}`, payload);
       return data;
     },
     onSuccess: invalidate,
@@ -141,7 +117,10 @@ export function useAppointmentMutations() {
       const { data } = await api.post<AppointmentDetail>(`/appointments/${id}/arrived`);
       return data;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+    },
   });
 
   return { book, update, reschedule, linkPatient, updateStatus, markArrived };

@@ -25,6 +25,7 @@ const MODELS = [
   'patientFieldDefinition',
   'counter',
   'medicineFieldDefinition',
+  'visitFieldDefinition',
   'patient',
   'medicine',
   'visit',

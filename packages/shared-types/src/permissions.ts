@@ -7,6 +7,9 @@ export const PERMISSION_MODULES = [
   'medicines',
   'clinic',
   'billing',
+  // Narrower than `billing` — lets a doctor/nurse add a charge to a visit's running
+  // bill without granting payments/cancel/full-edit rights that `billing:edit` carries.
+  'billing-charges',
   'administration',
 ] as const;
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

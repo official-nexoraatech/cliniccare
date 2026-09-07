@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 
 const MOBILE_REGEX = /^\d{10}$/;
 const NAME_REGEX = /^[A-Za-z ]+$/;
+const PINCODE_REGEX = /^[1-9]\d{5}$/;
 
 function isTodayOrPast(value: string) {
   if (!value) return true;
@@ -39,7 +40,7 @@ export const patientSchema = z.object({
   email: z.union([z.string().email('Enter a valid email'), z.literal('')]).optional(),
   address: z.string().optional(),
   city: z.string().optional(),
-  pincode: z.string().optional(),
+  pincode: z.union([z.string().regex(PINCODE_REGEX, 'Pincode must be a valid 6 digit Indian pincode'), z.literal('')]).optional(),
   bloodGroup: z.union([z.enum(BLOOD_GROUPS), z.literal('')]).optional(),
   maritalStatus: z.union([z.enum(MARITAL_STATUSES), z.literal('')]).optional(),
   occupation: z.string().optional(),
@@ -129,7 +130,7 @@ export function PatientFormFields({ register, errors, watch, coreFieldDefs }: Pa
       {isActive('mobile') && (
         <div>
           <label className={labelClass}>Mobile Number {isRequired('mobile') && '*'}</label>
-          <input {...register('mobile')} maxLength={10} className={inputClass} placeholder="10 digits" />
+          <input {...register('mobile')} inputMode="numeric" maxLength={10} className={inputClass} placeholder="10 digits" />
           {errors.mobile && <p className="mt-1 text-xs text-red-600">{errors.mobile.message}</p>}
         </div>
       )}
@@ -137,7 +138,7 @@ export function PatientFormFields({ register, errors, watch, coreFieldDefs }: Pa
       {isActive('altMobile') && (
         <div>
           <label className={labelClass}>Alternate Mobile {isRequired('altMobile') && '*'}</label>
-          <input {...register('altMobile')} maxLength={10} className={inputClass} />
+          <input {...register('altMobile')} inputMode="numeric" maxLength={10} className={inputClass} />
           {errors.altMobile && <p className="mt-1 text-xs text-red-600">{errors.altMobile.message}</p>}
         </div>
       )}
@@ -184,7 +185,8 @@ export function PatientFormFields({ register, errors, watch, coreFieldDefs }: Pa
       {isActive('pincode') && (
         <div>
           <label className={labelClass}>Pincode {isRequired('pincode') && '*'}</label>
-          <input {...register('pincode')} className={inputClass} />
+          <input {...register('pincode')} inputMode="numeric" maxLength={6} className={inputClass} />
+          {errors.pincode && <p className="mt-1 text-xs text-red-600">{errors.pincode.message}</p>}
         </div>
       )}
 
@@ -266,8 +268,26 @@ export function validateCustomFields(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const field of fields) {
-    if (field.isActive && field.required && !String(values[field.key] ?? '').trim()) {
+    if (!field.isActive) continue;
+
+    const value = String(values[field.key] ?? '').trim();
+    if (field.required && !value) {
       errors[field.key] = `${field.label} is required`;
+      continue;
+    }
+    if (!value) continue;
+
+    if (field.fieldType === 'NUMBER' && !Number.isFinite(Number(value))) {
+      errors[field.key] = `${field.label} must be a valid number`;
+    }
+    if (field.fieldType === 'DATE' && Number.isNaN(new Date(`${value}T00:00:00`).getTime())) {
+      errors[field.key] = `${field.label} must be a valid date`;
+    }
+    if (field.fieldType === 'SELECT' && field.options?.length && !field.options.includes(value)) {
+      errors[field.key] = `${field.label} must be one of the configured options`;
+    }
+    if (field.fieldType === 'BOOLEAN' && value !== 'true' && value !== 'false') {
+      errors[field.key] = `${field.label} must be checked or unchecked`;
     }
   }
   return errors;

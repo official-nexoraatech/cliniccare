@@ -5,6 +5,7 @@ import { UpdateBillDto } from './dto/update-bill.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { CancelBillDto } from './dto/cancel-bill.dto';
 import { BillItemDto } from './dto/bill-item.dto';
+import { RemoveBillItemDto } from './dto/remove-bill-item.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -43,7 +44,7 @@ export class BillingController {
   @RequiresPermission('billing:edit')
   @Post()
   create(@Body() dto: CreateBillDto, @CurrentUser() user: RequestUser) {
-    return this.billingService.create(dto, user.username);
+    return this.billingService.create(dto, user.username, { id: user.username, role: user.role });
   }
 
   @RequiresPermission('billing:edit')
@@ -57,8 +58,20 @@ export class BillingController {
   // can be added to the same bill instead of being stuck with no way to bill it at all.
   @RequiresPermission('billing:edit')
   @Post(':id/items')
-  addItem(@Param('id') id: string, @Body() dto: BillItemDto) {
-    return this.billingService.addItem(id, dto);
+  addItem(@Param('id') id: string, @Body() dto: BillItemDto, @CurrentUser() user: RequestUser) {
+    return this.billingService.addItem(id, dto, { id: user.username, role: user.role });
+  }
+
+  @RequiresPermission('billing:edit')
+  @Patch(':id/items/:itemId/cancel')
+  cancelItem(@Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: RemoveBillItemDto, @CurrentUser() user: RequestUser) {
+    return this.billingService.cancelItem(id, itemId, dto.reason, { id: user.username, role: user.role });
+  }
+
+  @RequiresPermission('billing:edit')
+  @Patch(':id/items/:itemId/waive')
+  waiveItem(@Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: RemoveBillItemDto, @CurrentUser() user: RequestUser) {
+    return this.billingService.waiveItem(id, itemId, dto.reason, { id: user.username, role: user.role });
   }
 
   @RequiresPermission('billing:edit')

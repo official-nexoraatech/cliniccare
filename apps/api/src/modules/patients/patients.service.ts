@@ -316,13 +316,56 @@ export class PatientsService {
    * be bypassed by simply omitting it from the request.
    */
   private assertRequiredFieldsSatisfied(
-    defs: { key: string; label: string; required: boolean }[],
+    defs: { key: string; label: string; fieldType: string; options: string | null; required: boolean; isActive?: boolean }[],
     values: Record<string, unknown>,
   ): void {
-    const missingLabels = defs.filter((d) => d.required && !String(values[d.key] ?? '').trim()).map((d) => d.label);
-    if (missingLabels.length) {
-      throw new BadRequestException(`Missing required field(s): ${missingLabels.join(', ')}`);
+    const errors: string[] = [];
+
+    for (const field of defs) {
+      if (field.isActive === false) continue;
+
+      const rawValue = values[field.key];
+      const value = String(rawValue ?? '').trim();
+      if (field.required && !value) {
+        errors.push(`${field.label} is required`);
+        continue;
+      }
+      if (!value) continue;
+
+      if (field.fieldType === 'NUMBER' && !Number.isFinite(Number(rawValue))) {
+        errors.push(`${field.label} must be a valid number`);
+      }
+      if (field.fieldType === 'DATE' && !this.isValidFieldDate(rawValue)) {
+        errors.push(`${field.label} must be a valid date`);
+      }
+      const options = this.parseFieldOptions(field.options);
+      if (field.fieldType === 'SELECT' && options.length > 0 && !options.includes(value)) {
+        errors.push(`${field.label} must be one of the configured options`);
+      }
+      if (field.fieldType === 'BOOLEAN' && rawValue !== true && rawValue !== false && value !== 'true' && value !== 'false') {
+        errors.push(`${field.label} must be checked or unchecked`);
+      }
     }
+
+    if (errors.length) {
+      throw new BadRequestException(errors.join(', '));
+    }
+  }
+
+  private parseFieldOptions(optionsJson: string | null): string[] {
+    if (!optionsJson) return [];
+    try {
+      const parsed: unknown = JSON.parse(optionsJson);
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private isValidFieldDate(value: unknown): boolean {
+    if (value instanceof Date) return !Number.isNaN(value.getTime());
+    if (typeof value !== 'string') return false;
+    return !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
   }
 
   private assertDobIsNotFuture(dob?: string): void {
@@ -371,6 +414,7 @@ export class PatientsService {
       followUpAfterDays: visit.followUpAfterDays,
       consultationFee: visit.consultationFee,
       remark: visit.remark,
+      customFields: visit.customFields ? JSON.parse(visit.customFields) : {},
       vital: visit.vital
         ? {
             id: visit.vital.id,

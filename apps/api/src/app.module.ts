@@ -13,6 +13,7 @@ import { ClinicModule } from './modules/clinic/clinic.module';
 import { FeeTypesModule } from './modules/fee-types/fee-types.module';
 import { PatientFieldsModule } from './modules/patient-fields/patient-fields.module';
 import { MedicineFieldsModule } from './modules/medicine-fields/medicine-fields.module';
+import { VisitFieldsModule } from './modules/visit-fields/visit-fields.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { FollowUpsModule } from './modules/followups/followups.module';
@@ -22,6 +23,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { AccountsModule } from './modules/accounts/accounts.module';
 import { HealthModule } from './modules/health/health.module';
 import { BackupModule } from './modules/backup/backup.module';
+import { WhatsAppTemplatesModule } from './modules/whatsapp-templates/whatsapp-templates.module';
 
 @Module({
   imports: [
@@ -39,6 +41,7 @@ import { BackupModule } from './modules/backup/backup.module';
     FeeTypesModule,
     PatientFieldsModule,
     MedicineFieldsModule,
+    VisitFieldsModule,
     DocumentsModule,
     ComplianceModule,
     FollowUpsModule,
@@ -48,6 +51,7 @@ import { BackupModule } from './modules/backup/backup.module';
     AccountsModule,
     HealthModule,
     BackupModule,
+    WhatsAppTemplatesModule,
   ],
 })
 export class AppModule {}

@@ -46,7 +46,12 @@ export class PrescriptionsService {
   }
 
   async save(visitId: string, dto: SavePrescriptionDto, createdBy: string): Promise<PrescriptionDetail> {
-    const visit = await this.prisma.visit.findUnique({ where: { id: visitId }, select: { patientId: true } });
+    // These two lookups don't depend on each other's result — run them together instead
+    // of paying two sequential round trips on every prescription save.
+    const [visit, existing] = await Promise.all([
+      this.prisma.visit.findUnique({ where: { id: visitId }, select: { patientId: true } }),
+      this.prisma.prescription.findUnique({ where: { visitId }, select: { id: true } }),
+    ]);
     if (!visit) {
       throw new NotFoundException('Visit not found');
     }
@@ -67,8 +72,6 @@ export class PrescriptionsService {
       instruction: item.instruction,
       sortOrder: item.sortOrder ?? index,
     }));
-
-    const existing = await this.prisma.prescription.findUnique({ where: { visitId }, select: { id: true } });
 
     const prescription = existing
       ? await this.prisma.$transaction(async (tx) => {

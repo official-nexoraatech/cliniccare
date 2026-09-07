@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Counter } from '@clinic-care/shared-types';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCounterDto } from './dto/update-counter.dto';
 
@@ -47,10 +48,14 @@ export class NumberService {
    * e.g. PATIENT -> "P-2526-1". Prisma's `increment` maps to a Mongo `$inc` on
    * a single document, which is itself atomic, so concurrent callers can never
    * be handed the same number without needing an extra transaction wrapper.
+   *
+   * Accepts an optional transaction client so callers chaining several writes
+   * (e.g. AppointmentsService.markArrived: visit -> bill -> appointment) can run
+   * them as one Mongo transaction instead of one journal-commit per call.
    */
-  async getNext(key: CounterKey): Promise<string> {
+  async getNext(key: CounterKey, tx: Prisma.TransactionClient | PrismaService = this.prisma): Promise<string> {
     try {
-      const counter = await this.prisma.counter.update({
+      const counter = await tx.counter.update({
         where: { key },
         data: { currentValue: { increment: 1 } },
       });

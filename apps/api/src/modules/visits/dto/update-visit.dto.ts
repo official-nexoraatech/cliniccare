@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsObject, IsOptional, IsString, Max, Min } from 'class-validator';
 import { VISIT_STATUSES, type VisitStatus } from '@clinic-care/shared-types';
 
 export class UpdateVisitDto {
@@ -51,4 +51,8 @@ export class UpdateVisitDto {
   @IsOptional()
   @IsString()
   remark?: string;
+
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, string>;
 }

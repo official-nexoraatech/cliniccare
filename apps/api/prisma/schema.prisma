@@ -236,6 +236,23 @@ model MedicineFieldDefinition {
   updatedAt DateTime @updatedAt
 }
 
+// Same field-definition pattern as Patient and Medicine, for the consultation/visit form.
+// Core rows control real Visit/Vital columns; custom rows save into Visit.customFields.
+model VisitFieldDefinition {
+  id        String  @id @default(cuid()) @map("_id")
+  key       String  @unique
+  label     String
+  fieldType String  @default("TEXT")
+  options   String? // JSON string array, only meaningful for SELECT
+  required  Boolean @default(false)
+  isActive  Boolean @default(true)
+  isCore    Boolean @default(false)
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum BeforeAfterFood {
   BEFORE_FOOD
   AFTER_FOOD
@@ -304,6 +321,7 @@ model Visit {
   consultationFee       Int?
   status                VisitStatus @default(WAITING)
   remark                String?
+  customFields          String? // JSON blob of {[VisitFieldDefinition.key]: value}, admin-configured
   createdBy             String?
 
   vital        Vital?
@@ -567,6 +585,12 @@ model Appointment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Token numbers are a single global sequence per day (see AppointmentsService.nextTokenForDay),
+  // handed out via count()+1 inside a transaction rather than an atomic $inc — Mongo
+  // transactions don't lock the count's range, so two concurrent bookings can still compute
+  // the same count. This unique index is the actual safety net: the loser's create() fails
+  // with a unique-constraint error, which AppointmentsService retries.
+  @@unique([appointmentDate, tokenNo])
   @@index([appointmentDate])
   @@index([status])
   @@index([patientId])
@@ -664,6 +688,21 @@ model Bill {
   @@index([visitId])
 }
 
+enum ChargeDepartment {
+  CONSULTATION
+  DOCTOR_PROCEDURE
+  MEDICINE
+  NURSING
+  LAB_TEST
+  OTHER
+}
+
+enum BillItemStatus {
+  PENDING
+  CANCELLED
+  WAIVED
+}
+
 model BillItem {
   id         String  @id @default(cuid()) @map("_id")
   billId     String
@@ -678,6 +717,21 @@ model BillItem {
   unitAmount Int
   amount     Int
   sortOrder  Int     @default(0)
+
+  department ChargeDepartment @default(OTHER)
+  status     BillItemStatus   @default(PENDING)
+  // createdByRole/removedByRole are a cheap snapshot of the acting user's role at the
+  // time (already on their JWT, no extra query) — this is what answers "doctor, nurse,
+  // receptionist" directly; createdBy/removedBy (user id) is the deeper audit trail.
+  createdBy     String?
+  createdByRole String?
+  removedBy     String?
+  removedByRole String?
+  removedAt     DateTime?
+  removeReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([billId])
 }

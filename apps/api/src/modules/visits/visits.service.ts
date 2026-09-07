@@ -7,15 +7,18 @@ import type {
   VisitSummary,
   VitalDetail,
 } from '@clinic-care/shared-types';
-import { LabTest, Patient, Vital, Visit } from '@prisma/client';
+import { LabTest, Patient, Prisma, Vital, Visit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NumberService } from '../number/number.service';
 import { FollowUpsService } from '../followups/followups.service';
+import { BillingService, type BillingActor } from '../billing/billing.service';
 import { CreateVisitDto } from './dto/create-visit.dto';
 import { UpdateVisitDto } from './dto/update-visit.dto';
 import { SaveVitalsDto } from './dto/save-vitals.dto';
 import { AdviseLabTestsDto } from './dto/advise-lab-tests.dto';
 import { EnterLabResultDto } from './dto/enter-lab-result.dto';
+import { BillItemDto } from '../billing/dto/bill-item.dto';
+import { AddBillableChargesDto } from './dto/add-billable-charges.dto';
 
 type VisitWithRelations = Visit & { patient: Patient; vital: Vital | null; labTests: LabTest[] };
 
@@ -27,6 +30,7 @@ export class VisitsService {
     private readonly prisma: PrismaService,
     private readonly numberService: NumberService,
     private readonly followUpsService: FollowUpsService,
+    private readonly billingService: BillingService,
   ) {}
 
   async listToday(): Promise<TodayVisitItem[]> {
@@ -72,13 +76,18 @@ export class VisitsService {
    * visit for this patient already exists — without this check, clicking it again (e.g.
    * after already recording vitals) silently spawned a second, blank visit instead of
    * resuming the one already in progress, making vitals/notes just entered seem to vanish. */
-  async create(dto: CreateVisitDto, doctorId: string, createdBy: string): Promise<VisitDetail> {
+  async create(
+    dto: CreateVisitDto,
+    doctorId: string | null,
+    createdBy: string,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<VisitDetail> {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    const openVisit = await this.prisma.visit.findFirst({
+    const openVisit = await tx.visit.findFirst({
       where: {
         patientId: dto.patientId,
         status: { in: ['WAITING', 'IN_CONSULTATION'] },
@@ -90,8 +99,8 @@ export class VisitsService {
       return this.toDetail(openVisit);
     }
 
-    const visitNo = await this.numberService.getNext('VISIT');
-    const visit = await this.prisma.visit.create({
+    const visitNo = await this.numberService.getNext('VISIT', tx);
+    const visit = await tx.visit.create({
       data: {
         visitNo,
         patientId: dto.patientId,
@@ -104,7 +113,7 @@ export class VisitsService {
 
     // Day 9 rule: a new visit within 7 days of a pending follow-up counts as that
     // follow-up being kept, not missed — link it automatically.
-    await this.followUpsService.linkVisitIfFollowUpDue(dto.patientId, visit.id);
+    await this.followUpsService.linkVisitIfFollowUpDue(dto.patientId, visit.id, tx);
 
     return this.toDetail(visit);
   }
@@ -119,13 +128,33 @@ export class VisitsService {
     return this.toDetail(visit);
   }
 
+  /** Called when the appointment that started this visit gets cancelled (e.g. patient
+   * marked arrived by mistake). A conditional updateMany rather than fetch-then-update:
+   * a visit already COMPLETED (or already CANCELLED) is left untouched either way. */
+  async cancel(id: string, tx: Prisma.TransactionClient | PrismaService = this.prisma): Promise<void> {
+    await tx.visit.updateMany({
+      where: { id, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+      data: { status: 'CANCELLED' },
+    });
+  }
+
   async update(id: string, dto: UpdateVisitDto): Promise<VisitDetail> {
     const existing = await this.assertExists(id);
 
     const visit = await this.prisma.visit.update({
       where: { id },
       data: {
-        ...dto,
+        complaint: dto.complaint,
+        complaintDurationDays: dto.complaintDurationDays,
+        examination: dto.examination,
+        diagnosis: dto.diagnosis,
+        advice: dto.advice,
+        testsAdvised: dto.testsAdvised,
+        followUpAfterDays: dto.followUpAfterDays,
+        consultationFee: dto.consultationFee,
+        status: dto.status,
+        remark: dto.remark,
+        customFields: dto.customFields ? JSON.stringify(dto.customFields) : undefined,
         nextFollowUpDate: dto.nextFollowUpDate ? new Date(dto.nextFollowUpDate) : undefined,
       },
       include: VISIT_INCLUDE,
@@ -173,6 +202,16 @@ export class VisitsService {
 
     const labTests = await this.prisma.labTest.findMany({ where: { visitId }, orderBy: { advisedOn: 'asc' } });
     return labTests.map((test) => this.toLabTestDetail(test));
+  }
+
+  async addBillableCharge(visitId: string, dto: BillItemDto, createdBy: string, actor?: BillingActor) {
+    const visit = await this.assertExists(visitId);
+    return this.billingService.addItemToVisitBill(visitId, visit.patientId, dto, createdBy, actor);
+  }
+
+  async addBillableCharges(visitId: string, dto: AddBillableChargesDto, createdBy: string, actor?: BillingActor) {
+    const visit = await this.assertExists(visitId);
+    return this.billingService.addItemsToVisitBill(visitId, visit.patientId, dto.items, createdBy, actor);
   }
 
   async enterLabResult(labTestId: string, dto: EnterLabResultDto): Promise<LabTestDetail> {
@@ -275,6 +314,7 @@ export class VisitsService {
       followUpAfterDays: visit.followUpAfterDays,
       consultationFee: visit.consultationFee,
       remark: visit.remark,
+      customFields: visit.customFields ? JSON.parse(visit.customFields) : {},
       vital: visit.vital ? this.toVitalDetail(visit.vital) : null,
       labTests: visit.labTests.map((test) => this.toLabTestDetail(test)),
     };

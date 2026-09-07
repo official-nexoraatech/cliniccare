@@ -5,6 +5,8 @@ import { UpdateVisitDto } from './dto/update-visit.dto';
 import { SaveVitalsDto } from './dto/save-vitals.dto';
 import { AdviseLabTestsDto } from './dto/advise-lab-tests.dto';
 import { EnterLabResultDto } from './dto/enter-lab-result.dto';
+import { BillItemDto } from '../billing/dto/bill-item.dto';
+import { AddBillableChargesDto } from './dto/add-billable-charges.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -76,5 +78,19 @@ export class VisitsController {
   @Post(':id/lab-tests')
   adviseLabTests(@Param('id') id: string, @Body() dto: AdviseLabTestsDto) {
     return this.visitsService.adviseLabTests(id, dto);
+  }
+
+  // Narrower than visits:edit — lets a doctor OR nurse add a charge to the visit's
+  // running bill without granting the rest of visits:edit (diagnosis, prescriptions, ...).
+  @RequiresPermission('billing-charges:edit')
+  @Post(':id/bill-items')
+  addBillableCharge(@Param('id') id: string, @Body() dto: BillItemDto, @CurrentUser() user: RequestUser) {
+    return this.visitsService.addBillableCharge(id, dto, user.username, { id: user.username, role: user.role });
+  }
+
+  @RequiresPermission('billing-charges:edit')
+  @Post(':id/bill-items/bulk')
+  addBillableCharges(@Param('id') id: string, @Body() dto: AddBillableChargesDto, @CurrentUser() user: RequestUser) {
+    return this.visitsService.addBillableCharges(id, dto, user.username, { id: user.username, role: user.role });
   }
 }

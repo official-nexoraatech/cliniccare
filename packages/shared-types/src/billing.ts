@@ -4,6 +4,15 @@ export type BillStatus = (typeof BILL_STATUSES)[number];
 export const PAYMENT_MODES = ['CASH', 'CARD', 'UPI', 'BANK_TRANSFER'] as const;
 export type PaymentMode = (typeof PAYMENT_MODES)[number];
 
+/** Which staff area a charge belongs to. Optional on input — the server infers a
+ * sensible default from the adding user's role (DOCTOR -> DOCTOR_PROCEDURE, ASSISTANT
+ * -> NURSING, otherwise OTHER) when omitted, so most callers never need to set this. */
+export const CHARGE_DEPARTMENTS = ['CONSULTATION', 'DOCTOR_PROCEDURE', 'MEDICINE', 'NURSING', 'LAB_TEST', 'OTHER'] as const;
+export type ChargeDepartment = (typeof CHARGE_DEPARTMENTS)[number];
+
+export const BILL_ITEM_STATUSES = ['PENDING', 'CANCELLED', 'WAIVED'] as const;
+export type BillItemStatus = (typeof BILL_ITEM_STATUSES)[number];
+
 export interface BillItemInput {
   /** null/omitted = ad-hoc line typed free-hand, not picked from the FeeType master. */
   feeTypeId?: string;
@@ -11,11 +20,21 @@ export interface BillItemInput {
   quantity: number;
   unitAmount: number;
   sortOrder: number;
+  department?: ChargeDepartment;
 }
 
 export interface BillItemDetail extends BillItemInput {
   id: string;
   amount: number;
+  department: ChargeDepartment;
+  status: BillItemStatus;
+  createdBy: string | null;
+  createdByRole: string | null;
+  createdAt: string;
+  removedBy: string | null;
+  removedByRole: string | null;
+  removedAt: string | null;
+  removeReason: string | null;
 }
 
 export interface PaymentInput {
@@ -96,5 +115,10 @@ export interface RecordPaymentRequest {
 }
 
 export interface CancelBillRequest {
+  reason: string;
+}
+
+/** Cancelling or waiving one specific charge — see billing.service.ts cancelItem/waiveItem. */
+export interface RemoveBillItemRequest {
   reason: string;
 }

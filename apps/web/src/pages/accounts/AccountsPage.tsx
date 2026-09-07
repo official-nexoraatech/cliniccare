@@ -92,7 +92,7 @@ export function AccountsPage() {
         {cards.map((card) => (
           <div key={card.label} className="rounded-xl border border-gray-200 bg-white p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{card.label}</p>
-            <p className="mt-2 text-2xl font-bold text-[var(--color-navy)]">{card.value}</p>
+            <div className="mt-2 text-2xl font-bold text-[var(--color-navy)]">{card.value}</div>
           </div>
         ))}
       </div>

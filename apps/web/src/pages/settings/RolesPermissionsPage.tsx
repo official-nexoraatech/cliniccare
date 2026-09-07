@@ -32,6 +32,7 @@ const MODULE_LABELS: Record<PermissionModule, string> = {
   medicines: 'Medicines',
   clinic: 'Clinic Settings',
   billing: 'Billing & Accounts',
+  'billing-charges': 'Add Charges (Doctor/Nurse)',
   administration: 'Users & Roles',
 };
 

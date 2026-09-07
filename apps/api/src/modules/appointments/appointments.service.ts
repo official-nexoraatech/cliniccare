@@ -1,16 +1,15 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Appointment, Prisma } from '@prisma/client';
-import { RESCHEDULE_REQUESTED_REMARK } from '@clinic-care/shared-types';
+import type { Appointment } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type {
   AppointmentDetail,
   AppointmentStatus,
   BookAppointmentResponse,
   DoctorOption,
-  PublicAppointmentSummary,
-  ReminderResponse,
 } from '@clinic-care/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { VisitsService } from '../visits/visits.service';
+import { BillingService } from '../billing/billing.service';
 import { istDayBounds, parseIstDate } from '../../common/utils/ist-date';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
@@ -37,15 +36,12 @@ const RESCHEDULABLE_STATUSES: AppointmentStatus[] = ['BOOKED', 'CONFIRMED', 'ARR
 const MAX_ADVANCE_DAYS = 90;
 const SEARCH_LIMIT = 20;
 
-// Only an appointment still awaiting the patient can be responded to from that link —
-// everything else (arrived, done, cancelled...) has already moved past the question.
-const REMINDER_RESPONDABLE_STATUSES: AppointmentStatus[] = ['BOOKED', 'CONFIRMED'];
-
 @Injectable()
 export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly visitsService: VisitsService,
+    private readonly billingService: BillingService,
   ) {}
 
   async book(dto: CreateAppointmentDto, createdBy: string): Promise<BookAppointmentResponse> {
@@ -57,28 +53,31 @@ export class AppointmentsService {
       this.resolveDoctor(dto.doctorId),
     ]);
 
-    // Token allocation must be atomic — two receptionist computers booking at the same
-    // moment (the guide's own multi-computer setup) could otherwise both read the same
-    // count and hand out the same token number. An interactive transaction makes the
-    // count-then-create one unit instead of two racing calls.
-    const appointment = await this.prisma.$transaction(async (tx) => {
-      const tokenNo = await this.nextTokenForDay(tx, start, end);
-      return tx.appointment.create({
-        data: {
-          patientId: dto.patientId,
-          patientName: dto.patientName,
-          mobile: dto.mobile,
-          appointmentDate: start,
-          timeSlot: dto.timeSlot,
-          tokenNo,
-          doctorId: doctor?.id,
-          doctorName: doctor?.name,
-          purpose: dto.purpose,
-          source: dto.source ?? 'WALK_IN',
-          createdBy,
-        },
-      });
-    });
+    // Token allocation must be unique per day — two receptionist computers booking at the
+    // same moment (the guide's own multi-computer setup) could otherwise both count the
+    // same total and hand out the same token number, since Mongo transactions don't lock
+    // the count's range. The @@unique([appointmentDate, tokenNo]) index is the real
+    // safety net: the loser's create() fails and withTokenRetry recomputes a fresh token.
+    const appointment = await this.withTokenRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        const tokenNo = await this.nextTokenForDay(tx, start, end);
+        return tx.appointment.create({
+          data: {
+            patientId: dto.patientId,
+            patientName: dto.patientName,
+            mobile: dto.mobile,
+            appointmentDate: start,
+            timeSlot: dto.timeSlot,
+            tokenNo,
+            doctorId: doctor?.id,
+            doctorName: doctor?.name,
+            purpose: dto.purpose,
+            source: dto.source ?? 'WALK_IN',
+            createdBy,
+          },
+        });
+      }),
+    );
 
     return { duplicateSlotWarning, duplicatePatientWarning, appointment: this.toDetail(appointment) };
   }
@@ -99,26 +98,28 @@ export class AppointmentsService {
       existing.patientId ? this.hasActivePatientConflict(start, end, existing.patientId, id) : Promise.resolve(false),
     ]);
 
-    const appointment = await this.prisma.$transaction(async (tx) => {
-      const tokenNo = await this.nextTokenForDay(tx, start, end);
-      return tx.appointment.update({
-        where: { id },
-        data: {
-          appointmentDate: start,
-          timeSlot,
-          tokenNo,
-          status: 'BOOKED',
-          // Clears any stale "reschedule requested" flag (or old cancel reason) — this
-          // reschedule is the resolution of it, not something still pending.
-          remark: null,
-        },
-      });
-    });
+    const appointment = await this.withTokenRetry(() =>
+      this.prisma.$transaction(async (tx) => {
+        const tokenNo = await this.nextTokenForDay(tx, start, end);
+        return tx.appointment.update({
+          where: { id },
+          data: {
+            appointmentDate: start,
+            timeSlot,
+            tokenNo,
+            status: 'BOOKED',
+            // Clears any stale "reschedule requested" flag (or old cancel reason) — this
+            // reschedule is the resolution of it, not something still pending.
+            remark: null,
+          },
+        });
+      }),
+    );
 
     return { duplicateSlotWarning, duplicatePatientWarning, appointment: this.toDetail(appointment) };
   }
 
-  async update(id: string, dto: UpdateAppointmentDto): Promise<AppointmentDetail> {
+  async update(id: string, dto: UpdateAppointmentDto): Promise<BookAppointmentResponse> {
     const existing = await this.findOrThrow(id);
     this.assertNotStale(existing, dto.expectedUpdatedAt);
     if (!EDITABLE_STATUSES.includes(existing.status as AppointmentStatus)) {
@@ -129,6 +130,14 @@ export class AppointmentsService {
 
     const doctor = dto.doctorId !== undefined ? await this.resolveDoctor(dto.doctorId) : undefined;
 
+    // book()/reschedule() both check for a double-booked slot before committing — update()
+    // can also change the doctor onto this same date/time and was silently skipping the
+    // same check, letting two patients land on one doctor's calendar at the same slot.
+    const duplicateSlotWarning =
+      doctor !== undefined && (doctor?.id ?? null) !== existing.doctorId
+        ? await this.hasActiveConflict(existing.appointmentDate, existing.appointmentDate, existing.timeSlot, doctor?.id, id)
+        : false;
+
     const updated = await this.prisma.appointment.update({
       where: { id },
       data: {
@@ -138,7 +147,7 @@ export class AppointmentsService {
         ...(doctor !== undefined ? { doctorId: doctor?.id ?? null, doctorName: doctor?.name ?? null } : {}),
       },
     });
-    return this.toDetail(updated);
+    return { duplicateSlotWarning, duplicatePatientWarning: false, appointment: this.toDetail(updated) };
   }
 
   /** Claims a walk-in ("new caller") appointment for a patient record created after the fact. */
@@ -246,15 +255,29 @@ export class AppointmentsService {
       throw new BadRequestException(`A reason is required to mark this appointment ${status.toLowerCase().replace('_', ' ')}.`);
     }
 
-    const updated = await this.prisma.appointment.update({
-      where: { id },
-      data: { status, ...(reason ? { remark: reason } : {}) },
-    });
+    // Cancelling an ARRIVED appointment leaves behind the Visit and auto-billed
+    // consultation fee that markArrived already created — without this, they'd sit
+    // around forever as a phantom WAITING visit and an unpaid bill nobody asked for.
+    // Only this path needs a transaction; every other status change is a single write.
+    const needsCascadeCancel = status === 'CANCELLED' && Boolean(existing.visitId);
+    const updated = needsCascadeCancel
+      ? await this.prisma.$transaction(async (tx) => {
+          await this.visitsService.cancel(existing.visitId!, tx);
+          await this.billingService.cancelVisitBillIfUnpaid(existing.visitId!, reason, tx);
+          return tx.appointment.update({
+            where: { id },
+            data: { status, ...(reason ? { remark: reason } : {}) },
+          });
+        })
+      : await this.prisma.appointment.update({
+          where: { id },
+          data: { status, ...(reason ? { remark: reason } : {}) },
+        });
     return this.toDetail(updated);
   }
 
   /** Marks the appointment arrived AND starts a real Visit — Day 10 rule 2. */
-  async markArrived(id: string, doctorId: string, createdBy: string): Promise<AppointmentDetail> {
+  async markArrived(id: string, createdBy: string, createdByRole?: string): Promise<AppointmentDetail> {
     const appointment = await this.findOrThrow(id);
 
     // Idempotent: a double-click or retry must not create a second Visit for the same
@@ -262,53 +285,42 @@ export class AppointmentsService {
     if (appointment.status !== 'BOOKED' && appointment.status !== 'CONFIRMED') {
       return this.toDetail(appointment);
     }
-    if (!appointment.patientId) {
+    const { patientId } = appointment;
+    if (!patientId) {
       throw new BadRequestException(
         'This appointment has no registered patient yet — register the patient first, then mark arrived.',
       );
     }
 
-    const visit = await this.visitsService.create({ patientId: appointment.patientId }, doctorId, createdBy);
-    const updated = await this.prisma.appointment.update({
-      where: { id },
-      data: { status: 'ARRIVED', visitId: visit.id },
-    });
+    // The Visit's doctor is whoever the appointment was actually booked with, not whoever
+    // is logged in and clicking this button — usually reception staff marking the patient
+    // arrived, not the doctor themselves.
+    const doctorId = appointment.doctorId;
+
+    // One Mongo transaction for the whole chain (visit -> bill -> appointment) instead of
+    // 3 independently-committed writes — each commit on the single-node replica set used
+    // for local/LAN deployments pays its own journal-flush latency, which made this button
+    // noticeably slow before batching it into one commit. Given an explicit, longer timeout
+    // (Prisma's interactive-transaction default is 5s) — on a remote Atlas connection this
+    // chain's several round trips can legitimately take longer than that default allows.
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        const visit = await this.visitsService.create({ patientId }, doctorId, createdBy, tx);
+        await this.billingService.ensureVisitBill(
+          visit.id,
+          patientId,
+          createdBy,
+          tx,
+          createdByRole ? { id: createdBy, role: createdByRole } : undefined,
+        );
+        return tx.appointment.update({
+          where: { id },
+          data: { status: 'ARRIVED', visitId: visit.id },
+        });
+      },
+      { timeout: 15000 },
+    );
     return this.toDetail(updated);
-  }
-
-  /** Public, unauthenticated read for the WhatsApp-reminder confirmation page. */
-  async getPublicSummary(id: string): Promise<PublicAppointmentSummary> {
-    const appointment = await this.findOrThrow(id);
-    return this.toPublicSummary(appointment);
-  }
-
-  /** Public, unauthenticated write for the same page — a patient tapping Yes/No on their own phone. */
-  async respondToReminder(id: string, response: ReminderResponse): Promise<PublicAppointmentSummary> {
-    const existing = await this.findOrThrow(id);
-    if (!REMINDER_RESPONDABLE_STATUSES.includes(existing.status as AppointmentStatus)) {
-      throw new BadRequestException('This appointment can no longer be responded to.');
-    }
-
-    const updated = await this.prisma.appointment.update({
-      where: { id },
-      data:
-        response === 'CONFIRM'
-          ? { status: 'CONFIRMED' }
-          : { remark: RESCHEDULE_REQUESTED_REMARK },
-    });
-    return this.toPublicSummary(updated);
-  }
-
-  private async toPublicSummary(appointment: Appointment): Promise<PublicAppointmentSummary> {
-    const clinic = await this.prisma.clinic.findFirst({ select: { name: true } });
-    return {
-      patientName: appointment.patientName,
-      clinicName: clinic?.name ?? 'the clinic',
-      appointmentDate: appointment.appointmentDate.toISOString(),
-      timeSlot: appointment.timeSlot,
-      status: appointment.status as AppointmentStatus,
-      rescheduleRequested: appointment.remark === RESCHEDULE_REQUESTED_REMARK,
-    };
   }
 
   private assertValidDate(dateStr: string): void {
@@ -381,6 +393,22 @@ export class AppointmentsService {
   private async nextTokenForDay(tx: Prisma.TransactionClient, start: Date, end: Date): Promise<number> {
     const countForDay = await tx.appointment.count({ where: { appointmentDate: { gte: start, lte: end } } });
     return countForDay + 1;
+  }
+
+  /** Retries a token-assigning transaction when the @@unique([appointmentDate, tokenNo])
+   * index catches two concurrent bookings computing the same token — the loser just
+   * recomputes a fresh count and tries again, invisibly to the caller. */
+  private async withTokenRetry<T>(run: () => Promise<T>): Promise<T> {
+    const MAX_ATTEMPTS = 5;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        return await run();
+      } catch (error) {
+        const isTokenClash = error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+        if (!isTokenClash || attempt === MAX_ATTEMPTS) throw error;
+      }
+    }
+    throw new Error('Unreachable');
   }
 
   private async findOrThrow(id: string) {

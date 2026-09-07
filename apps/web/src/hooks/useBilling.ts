@@ -6,6 +6,7 @@ import type {
   CancelBillRequest,
   CreateBillRequest,
   RecordPaymentRequest,
+  RemoveBillItemRequest,
   UpdateBillRequest,
 } from '@clinic-care/shared-types';
 import { api } from '@/lib/api';
@@ -107,5 +108,21 @@ export function useBillMutations() {
     onSuccess: invalidate,
   });
 
-  return { create, update, addItem, recordPayment, markPrinted, cancel };
+  const cancelItem = useMutation({
+    mutationFn: async ({ id, itemId, payload }: { id: string; itemId: string; payload: RemoveBillItemRequest }) => {
+      const { data } = await api.patch<BillDetail>(`/billing/${id}/items/${itemId}/cancel`, payload);
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+
+  const waiveItem = useMutation({
+    mutationFn: async ({ id, itemId, payload }: { id: string; itemId: string; payload: RemoveBillItemRequest }) => {
+      const { data } = await api.patch<BillDetail>(`/billing/${id}/items/${itemId}/waive`, payload);
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+
+  return { create, update, addItem, recordPayment, markPrinted, cancel, cancelItem, waiveItem };
 }

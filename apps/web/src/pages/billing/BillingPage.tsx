@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Ban, CreditCard, Download, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import type { BillDetail, BillItemInput, BillListItem, BillStatus, PatientSearchResult, PaymentMode } from '@clinic-care/shared-types';
+import { Ban, CreditCard, Download, Eye, Gift, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import type {
+  BillDetail,
+  BillItemDetail,
+  BillItemInput,
+  BillListItem,
+  BillStatus,
+  ChargeDepartment,
+  PatientSearchResult,
+  PaymentMode,
+} from '@clinic-care/shared-types';
 import { PAYMENT_MODES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
@@ -41,6 +50,14 @@ const STATUS_STYLE: Record<BillStatus, string> = {
   CANCELLED: 'bg-gray-200 text-gray-600',
 };
 const MODE_LABEL: Record<PaymentMode, string> = { CASH: 'Cash', CARD: 'Card', UPI: 'UPI', BANK_TRANSFER: 'Bank Transfer' };
+const DEPARTMENT_LABEL: Record<ChargeDepartment, string> = {
+  CONSULTATION: 'Consultation',
+  DOCTOR_PROCEDURE: 'Doctor / Procedure',
+  MEDICINE: 'Medicine',
+  NURSING: 'Nursing',
+  LAB_TEST: 'Lab Test',
+  OTHER: 'Other',
+};
 
 const inputClass = standardFieldInputClass;
 const labelClass = formLabelClass;
@@ -167,7 +184,29 @@ function BillItemsEditor({ rows, onChange }: { rows: ItemRow[]; onChange: (rows:
   );
 }
 
-function BillBody({ bill }: { bill: BillDetail }) {
+/** canModifyItems + onCancelItem/onWaiveItem are only passed from the interactive preview
+ * modal — the print/receipt usage of BillBody passes neither, so a printed bill never
+ * shows action buttons, only the item.status badge (for an already-cancelled/waived line
+ * that's part of the historical record either way). */
+function BillBody({
+  bill,
+  canModifyItems,
+  onCancelItem,
+  onWaiveItem,
+}: {
+  bill: BillDetail;
+  canModifyItems?: boolean;
+  onCancelItem?: (item: BillItemDetail) => void;
+  onWaiveItem?: (item: BillItemDetail) => void;
+}) {
+  const activeItems = bill.items.filter((item) => item.status === 'PENDING');
+  const consultationTotal = activeItems
+    .filter((item) => item.department === 'CONSULTATION')
+    .reduce((sum, item) => sum + item.amount, 0);
+  const otherChargesTotal = activeItems
+    .filter((item) => item.department !== 'CONSULTATION')
+    .reduce((sum, item) => sum + item.amount, 0);
+
   return (
     <div>
       <div className="flex items-start justify-between text-xs text-gray-500">
@@ -188,20 +227,52 @@ function BillBody({ bill }: { bill: BillDetail }) {
           </tr>
         </thead>
         <tbody>
-          {bill.items.map((item) => (
-            <tr key={item.id} className={printTableRowClass}>
-              <td className={`${printTableCellClass} text-gray-800`}>{item.name}</td>
-              <td className={`${printTableCellClass} text-gray-500`}>{item.quantity}</td>
-              <td className={`${printTableCellClass} text-gray-500`}>{fmtMoney(item.unitAmount)}</td>
-              <td className="py-2 font-medium text-gray-700">{fmtMoney(item.amount)}</td>
-            </tr>
-          ))}
+          {bill.items.map((item) => {
+            const removed = item.status !== 'PENDING';
+            return (
+              <tr key={item.id} className={printTableRowClass}>
+                <td className={`${printTableCellClass} ${removed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                  {item.name}
+                  <span className="ml-2 text-[10px] font-normal text-gray-400 no-underline">{DEPARTMENT_LABEL[item.department]}</span>
+                  {item.createdByRole && <span className="ml-1 text-[10px] font-normal text-gray-400 no-underline">· {item.createdByRole}</span>}
+                  {removed && (
+                    <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium no-underline ${item.status === 'CANCELLED' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
+                      {item.status === 'CANCELLED' ? 'Cancelled' : 'Waived'}
+                    </span>
+                  )}
+                </td>
+                <td className={`${printTableCellClass} ${removed ? 'text-gray-400 line-through' : 'text-gray-500'}`}>{item.quantity}</td>
+                <td className={`${printTableCellClass} ${removed ? 'text-gray-400 line-through' : 'text-gray-500'}`}>{fmtMoney(item.unitAmount)}</td>
+                <td className={`py-2 font-medium ${removed ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                  {fmtMoney(item.amount)}
+                  {canModifyItems && !removed && (
+                    <span className="no-print ml-2 inline-flex gap-1 align-middle">
+                      <button onClick={() => onWaiveItem?.(item)} title="Waive this charge" className="rounded p-0.5 text-gray-400 hover:bg-amber-50 hover:text-amber-600">
+                        <Gift className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => onCancelItem?.(item)} title="Cancel this charge" className="rounded p-0.5 text-gray-400 hover:bg-red-50 hover:text-red-600">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
       <div className="mt-3 flex justify-end">
         <div className="w-56 text-xs">
           <div className="flex justify-between py-1 text-gray-500">
+            <span>Consultation fee</span>
+            <span>{fmtMoney(consultationTotal)}</span>
+          </div>
+          <div className="flex justify-between py-1 text-gray-500">
+            <span>Other service charges</span>
+            <span>{fmtMoney(otherChargesTotal)}</span>
+          </div>
+          <div className="flex justify-between border-t border-gray-100 py-1 text-gray-500">
             <span>Subtotal</span>
             <span>{fmtMoney(bill.subtotal)}</span>
           </div>
@@ -218,15 +289,19 @@ function BillBody({ bill }: { bill: BillDetail }) {
             </div>
           )}
           <div className="flex justify-between border-t border-gray-200 py-1.5 text-sm font-semibold text-gray-800">
-            <span>Total</span>
+            <span>Total bill</span>
             <span>{fmtMoney(bill.totalAmount)}</span>
           </div>
           <div className="flex justify-between py-1 text-gray-500">
-            <span>Paid</span>
+            <span>Already paid</span>
             <span>{fmtMoney(bill.paidAmount)}</span>
           </div>
           <div className="flex justify-between py-1 font-medium text-red-600">
-            <span>Due</span>
+            <span>Remaining amount</span>
+            <span>{fmtMoney(bill.dueAmount)}</span>
+          </div>
+          <div className="mt-1 flex justify-between rounded-lg bg-teal-50 px-3 py-2 text-sm font-bold text-[var(--color-primary)]">
+            <span>Final payable amount</span>
             <span>{fmtMoney(bill.dueAmount)}</span>
           </div>
         </div>
@@ -745,6 +820,66 @@ function CancelBillModal({ bill, onClose }: { bill: BillListItem | null; onClose
   );
 }
 
+/** Cancel or waive one specific charge without touching the rest of the bill — reused for
+ * both actions since they only differ in which mutation/wording is used. */
+function RemoveItemModal({
+  bill,
+  item,
+  action,
+  onClose,
+}: {
+  bill: BillDetail | null;
+  item: BillItemDetail | null;
+  action: 'cancel' | 'waive';
+  onClose: () => void;
+}) {
+  const { cancelItem, waiveItem } = useBillMutations();
+  const [reason, setReason] = useState('');
+  const mutation = action === 'cancel' ? cancelItem : waiveItem;
+
+  const submit = async () => {
+    if (!bill || !item || !reason.trim()) return;
+    try {
+      await mutation.mutateAsync({ id: bill.id, itemId: item.id, payload: { reason } });
+      toast.success(action === 'cancel' ? 'Charge cancelled' : 'Charge waived');
+      setReason('');
+      onClose();
+    } catch (error) {
+      toast.error(getErrorMessage(error, `Could not ${action} this charge.`));
+    }
+  };
+
+  return (
+    <FormModal
+      open={Boolean(bill && item)}
+      title={`${action === 'cancel' ? 'Cancel' : 'Waive'} — ${item?.name ?? ''}`}
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50">
+            Back
+          </button>
+          <button
+            onClick={submit}
+            disabled={!reason.trim() || mutation.isPending}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {action === 'cancel' ? 'Cancel Charge' : 'Waive Charge'}
+          </button>
+        </>
+      }
+    >
+      <p className="text-sm text-gray-500">
+        {action === 'cancel'
+          ? 'This charge stops counting toward the bill total. It stays visible on the bill, marked cancelled, for the audit trail.'
+          : "This charge stops counting toward the bill total — the clinic is choosing not to charge for it. It stays visible on the bill, marked waived."}
+      </p>
+      <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason" className={`${inputClass} mt-3`} />
+    </FormModal>
+  );
+}
+
 export function BillingPage() {
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = hasPermission(currentUser, 'billing:edit');
@@ -754,6 +889,7 @@ export function BillingPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [removeItemTarget, setRemoveItemTarget] = useState<{ item: BillItemDetail; action: 'cancel' | 'waive' } | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<BillListItem | null>(null);
   const [cancelTarget, setCancelTarget] = useState<BillListItem | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -879,10 +1015,24 @@ export function BillingPage() {
       {clinic && previewTarget && (
         <FormModal open onClose={() => setPreviewId(null)} title="Bill Preview" size="lg">
           <PrintLayout clinic={clinic} documentTitle="Bill / Receipt" onPrint={() => { handlePrint(previewTarget); setPreviewId(null); }}>
-            <BillBody bill={previewTarget} />
+            <BillBody
+              bill={previewTarget}
+              canModifyItems={canEdit && previewTarget.status !== 'CANCELLED' && previewTarget.paidAmount === 0}
+              onCancelItem={(item) => setRemoveItemTarget({ item, action: 'cancel' })}
+              onWaiveItem={(item) => setRemoveItemTarget({ item, action: 'waive' })}
+            />
           </PrintLayout>
           {canEdit && previewTarget.status !== 'CANCELLED' && <AddBillItemInline bill={previewTarget} />}
         </FormModal>
+      )}
+
+      {previewTarget && (
+        <RemoveItemModal
+          bill={previewTarget}
+          item={removeItemTarget?.item ?? null}
+          action={removeItemTarget?.action ?? 'cancel'}
+          onClose={() => setRemoveItemTarget(null)}
+        />
       )}
 
       {clinic && printTarget && (

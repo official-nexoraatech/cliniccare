@@ -79,6 +79,6 @@ export class AppointmentsController {
   @RequiresPermission('appointments:edit')
   @Post(':id/arrived')
   markArrived(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.appointmentsService.markArrived(id, user.id, user.id);
+    return this.appointmentsService.markArrived(id, user.id, user.role);
   }
 }

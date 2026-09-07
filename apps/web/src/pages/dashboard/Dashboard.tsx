@@ -37,7 +37,7 @@ export function Dashboard() {
             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
               {card.label}
             </p>
-            <p className="mt-2 text-2xl font-bold text-[var(--color-navy)]">{card.value}</p>
+            <div className="mt-2 text-2xl font-bold text-[var(--color-navy)]">{card.value}</div>
           </div>
         ))}
       </div>
