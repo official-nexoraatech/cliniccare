@@ -8,7 +8,7 @@ export const tableCellClass = 'whitespace-nowrap px-4 py-3';
 
 export const compactTableShellClass = 'overflow-x-auto rounded-lg border border-gray-200 bg-white';
 export const compactTableClass = 'w-full min-w-max text-sm';
-export const compactTableHeaderClass = 'bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500';
+export const compactTableHeaderClass = 'bg-gray-50 text-left text-xs uppercase tracking-wide text-slate-700';
 export const compactTableHeaderCellClass = 'whitespace-nowrap px-3 py-2 font-medium';
 export const compactTableBodyClass = 'divide-y divide-gray-100';
 export const compactTableRowClass = 'bg-white transition hover:bg-gray-50';

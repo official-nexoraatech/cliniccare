@@ -324,14 +324,23 @@ export class BillingService {
     return this.toDetail(bill);
   }
 
-  async cancel(id: string, dto: CancelBillDto): Promise<BillDetail> {
+  async cancel(id: string, dto: CancelBillDto, actor: BillingActor): Promise<BillDetail> {
     const existing = await this.findOrThrow(id);
     if (existing.status === 'CANCELLED') {
       throw new BadRequestException('Bill is already cancelled');
     }
+    if (existing.dueAmount > 0) {
+      throw new BadRequestException('Cannot cancel a bill with an outstanding due amount');
+    }
     const bill = await this.prisma.bill.update({
       where: { id },
-      data: { status: 'CANCELLED', cancelReason: dto.reason },
+      data: {
+        status: 'CANCELLED',
+        cancelReason: dto.reason,
+        cancelledBy: actor.id,
+        cancelledByRole: actor.role,
+        cancelledAt: new Date(),
+      },
       include: BILL_INCLUDE,
     });
     return this.toDetail(bill);
@@ -376,12 +385,6 @@ export class BillingService {
     if (existing.status === 'CANCELLED') {
       throw new BadRequestException('Cannot modify a cancelled bill');
     }
-    // Same rule update() already enforces for a full item-list replace, applied per-item:
-    // once money has moved against this bill, its existing charges are a financial
-    // record, not a draft.
-    if (existing.paidAmount > 0) {
-      throw new BadRequestException('Cannot remove a charge from a bill that already has a payment recorded');
-    }
     const item = existing.items.find((i) => i.id === itemId);
     if (!item) {
       throw new NotFoundException('Charge not found on this bill');
@@ -395,6 +398,17 @@ export class BillingService {
       .map((i) => ({ amount: i.amount }));
     const { subtotal, taxAmount, totalAmount } = this.computeTotals(remainingAmounts, existing.discount, existing.taxPercent);
 
+    // A charge can be removed as long as what's already been paid still fits inside the
+    // bill total once it's gone — e.g. an item added by mistake after a partial payment,
+    // where the payment never actually covered it. Only block when removing it would leave
+    // the bill owing less than what's already in hand — that's a refund, not an edit.
+    if (existing.paidAmount > totalAmount) {
+      throw new BadRequestException(
+        `Cannot remove this charge — ${existing.paidAmount} is already paid, which would exceed the ${totalAmount} bill total left after removing it. Process a refund first.`,
+      );
+    }
+    const dueAmount = totalAmount - existing.paidAmount;
+
     await this.prisma.$transaction([
       this.prisma.billItem.update({
         where: { id: itemId },
@@ -402,7 +416,13 @@ export class BillingService {
       }),
       this.prisma.bill.update({
         where: { id: billId },
-        data: { subtotal, taxAmount, totalAmount, dueAmount: totalAmount, status: totalAmount === 0 ? 'PAID' : 'UNPAID' },
+        data: {
+          subtotal,
+          taxAmount,
+          totalAmount,
+          dueAmount,
+          status: dueAmount === 0 ? 'PAID' : existing.paidAmount > 0 ? 'PARTIAL' : 'UNPAID',
+        },
       }),
     ]);
     return this.getById(billId);
@@ -538,6 +558,9 @@ export class BillingService {
       status: bill.status as BillDetail['status'],
       remark: bill.remark,
       cancelReason: bill.cancelReason,
+      cancelledBy: bill.cancelledBy ?? null,
+      cancelledByRole: bill.cancelledByRole ?? null,
+      cancelledAt: bill.cancelledAt?.toISOString() ?? null,
       printedAt: bill.printedAt?.toISOString() ?? null,
       printCount: bill.printCount,
       createdBy: bill.createdBy,

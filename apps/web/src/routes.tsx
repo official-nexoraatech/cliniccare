@@ -1,7 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/layouts/MainLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { PlaceholderPage } from '@/components/PlaceholderPage';
 import { Login } from '@/pages/auth/Login';
 import { Dashboard } from '@/pages/dashboard/Dashboard';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
@@ -19,6 +18,7 @@ import { PrescriptionPage } from '@/pages/visits/PrescriptionPage';
 import { CertificatesPage } from '@/pages/certificates/CertificatesPage';
 import { BillingPage } from '@/pages/billing/BillingPage';
 import { AccountsPage } from '@/pages/accounts/AccountsPage';
+import { ReportsPage } from '@/pages/reports/ReportsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -45,7 +45,7 @@ export const router = createBrowserRouter([
           { path: '/certificates', element: <CertificatesPage /> },
           { path: '/billing', element: <BillingPage /> },
           { path: '/accounts', element: <AccountsPage /> },
-          { path: '/reports', element: <PlaceholderPage title="Reports" day="Day 13" /> },
+          { path: '/reports', element: <ReportsPage /> },
           { path: '/settings', element: <Navigate to="/settings/clinic" replace /> },
           { path: '/settings/:tab', element: <SettingsPage /> },
         ],

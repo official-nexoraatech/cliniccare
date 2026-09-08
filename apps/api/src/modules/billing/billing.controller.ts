@@ -88,7 +88,7 @@ export class BillingController {
 
   @RequiresPermission('billing:edit')
   @Patch(':id/cancel')
-  cancel(@Param('id') id: string, @Body() dto: CancelBillDto) {
-    return this.billingService.cancel(id, dto);
+  cancel(@Param('id') id: string, @Body() dto: CancelBillDto, @CurrentUser() user: RequestUser) {
+    return this.billingService.cancel(id, dto, { id: user.username, role: user.role });
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Ban, CreditCard, Download, Eye, Gift, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Ban, CreditCard, Download, Eye, Gift, Pencil, Trash2 } from 'lucide-react';
 import type {
   BillDetail,
   BillItemDetail,
@@ -9,7 +9,6 @@ import type {
   BillListItem,
   BillStatus,
   ChargeDepartment,
-  PatientSearchResult,
   PaymentMode,
 } from '@clinic-care/shared-types';
 import { PAYMENT_MODES } from '@clinic-care/shared-types';
@@ -32,8 +31,6 @@ import {
   printTableHeaderRowClass,
   printTableRowClass,
 } from '@/components/tableStyles';
-import { usePatientSearchQuery } from '@/hooks/usePatients';
-import { usePatientVisitsQuery } from '@/hooks/useVisits';
 import { useClinicQuery } from '@/hooks/useClinic';
 import { useFeeTypesQuery } from '@/hooks/useFeeTypes';
 import { useBillMutations, useBillQuery, useBillsQuery } from '@/hooks/useBilling';
@@ -217,6 +214,19 @@ function BillBody({
         {bill.patientName} <span className="text-gray-400">· {bill.patientMobile}</span>
       </p>
 
+      {bill.status === 'CANCELLED' && (
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <p className="font-semibold">Bill cancelled{bill.cancelledAt ? ` on ${fmtDate(bill.cancelledAt)}` : ''}</p>
+          {(bill.cancelledBy || bill.cancelledByRole) && (
+            <p>
+              By {bill.cancelledBy ?? 'unknown'}
+              {bill.cancelledByRole ? ` (${bill.cancelledByRole})` : ''}
+            </p>
+          )}
+          {bill.cancelReason && <p>Reason: {bill.cancelReason}</p>}
+        </div>
+      )}
+
       <table className={printTableClass}>
         <thead>
           <tr className={printTableHeaderRowClass}>
@@ -229,12 +239,17 @@ function BillBody({
         <tbody>
           {bill.items.map((item) => {
             const removed = item.status !== 'PENDING';
+            // Safe to remove exactly when what's already paid still fits under the bill
+            // total once this charge is gone — mirrors the backend's check in removeItem().
+            // Keeps the buttons available for a mistaken charge added after a partial
+            // payment, while hiding them for a charge that payment actually covers.
+            const removable = item.amount <= bill.dueAmount;
             return (
               <tr key={item.id} className={printTableRowClass}>
                 <td className={`${printTableCellClass} ${removed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                   {item.name}
                   <span className="ml-2 text-[10px] font-normal text-gray-400 no-underline">{DEPARTMENT_LABEL[item.department]}</span>
-                  {item.createdByRole && <span className="ml-1 text-[10px] font-normal text-gray-400 no-underline">· {item.createdByRole}</span>}
+                  {item.createdByRole && <span className="no-print ml-1 text-[10px] font-normal text-gray-400 no-underline">· {item.createdByRole}</span>}
                   {removed && (
                     <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium no-underline ${item.status === 'CANCELLED' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
                       {item.status === 'CANCELLED' ? 'Cancelled' : 'Waived'}
@@ -245,7 +260,7 @@ function BillBody({
                 <td className={`${printTableCellClass} ${removed ? 'text-gray-400 line-through' : 'text-gray-500'}`}>{fmtMoney(item.unitAmount)}</td>
                 <td className={`py-2 font-medium ${removed ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
                   {fmtMoney(item.amount)}
-                  {canModifyItems && !removed && (
+                  {canModifyItems && removable && !removed && (
                     <span className="no-print ml-2 inline-flex gap-1 align-middle">
                       <button onClick={() => onWaiveItem?.(item)} title="Waive this charge" className="rounded p-0.5 text-gray-400 hover:bg-amber-50 hover:text-amber-600">
                         <Gift className="h-3.5 w-3.5" />
@@ -314,7 +329,7 @@ function BillBody({
             <p key={p.id}>
               {fmtDate(p.paidOn)} — {fmtMoney(p.amount)} via {MODE_LABEL[p.mode]}
               {p.reference ? ` (${p.reference})` : ''}
-              {p.createdBy ? ` · Collected by ${p.createdBy}` : ''}
+              {p.createdBy && <span className="no-print"> · Collected by {p.createdBy}</span>}
             </p>
           ))}
         </div>
@@ -392,177 +407,6 @@ function AddBillItemInline({ bill }: { bill: BillDetail }) {
         Add to Bill
       </button>
     </div>
-  );
-}
-
-function CreateBillModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (bill: BillDetail, print: boolean) => void }) {
-  const { create } = useBillMutations();
-  const { data: clinic } = useClinicQuery();
-
-  const [search, setSearch] = useState('');
-  const { data: results = [] } = usePatientSearchQuery(search);
-  const [patient, setPatient] = useState<PatientSearchResult | null>(null);
-  const { data: visits = [] } = usePatientVisitsQuery(patient?.id);
-  const [visitId, setVisitId] = useState('');
-
-  const [rows, setRows] = useState<ItemRow[]>([newRow(0)]);
-  const [discount, setDiscount] = useState(0);
-  const [taxPercent, setTaxPercent] = useState(0);
-  const [remark, setRemark] = useState('');
-
-  const reset = () => {
-    setSearch('');
-    setPatient(null);
-    setVisitId('');
-    setRows([newRow(0)]);
-    setDiscount(0);
-    setTaxPercent(0);
-    setRemark('');
-  };
-
-  const handleClose = () => {
-    reset();
-    onClose();
-  };
-
-  const subtotal = rows.reduce((sum, row) => sum + row.quantity * row.unitAmount, 0);
-  const taxableAmount = Math.max(subtotal - (discount || 0), 0);
-  const taxAmount = clinic?.taxEnabled && taxPercent ? Math.round((taxableAmount * taxPercent) / 100) : 0;
-  const total = taxableAmount + taxAmount;
-
-  const submit = async (andPrint: boolean) => {
-    const validRows = rows.filter((row) => row.name.trim() && row.unitAmount >= 0);
-    if (!patient || validRows.length === 0) {
-      toast.error('Pick a patient and add at least one line item.');
-      return;
-    }
-    try {
-      const bill = await create.mutateAsync({
-        patientId: patient.id,
-        visitId: visitId || undefined,
-        items: validRows.map((row, index) => ({
-          feeTypeId: row.feeTypeId,
-          name: row.name,
-          quantity: row.quantity,
-          unitAmount: row.unitAmount,
-          sortOrder: index,
-        })),
-        discount: clinic?.discountEnabled ? discount || undefined : undefined,
-        taxPercent: clinic?.taxEnabled && taxPercent ? taxPercent : undefined,
-        remark: remark || undefined,
-      });
-      toast.success(`Bill ${bill.billNo} created`);
-      onCreated(bill, andPrint);
-      handleClose();
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not create bill.'));
-    }
-  };
-
-  return (
-    <FormModal open={open} title="New Bill" size="lg" onClose={handleClose}>
-      <div className="flex flex-col gap-4">
-        {!patient ? (
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              autoFocus
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search patient by mobile or name"
-              className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
-            />
-            {results.length > 0 && (
-              <div className="mt-2 overflow-hidden rounded-lg border border-gray-200">
-                {results.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setPatient(p)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50"
-                  >
-                    <span>
-                      {p.name} <span className="text-gray-400">· {p.age}/{p.gender.charAt(0)}</span>
-                    </span>
-                    <span className="text-gray-400">{p.mobile}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-              <p className="text-sm">
-                <span className="font-medium text-gray-800">{patient.name}</span>{' '}
-                <span className="text-gray-500">
-                  · {patient.age}/{patient.gender.charAt(0)} · {patient.mobile}
-                </span>
-              </p>
-              <button onClick={() => setPatient(null)} className="text-xs font-medium text-[var(--color-primary)]">
-                Change
-              </button>
-            </div>
-
-            {visits.length > 0 && (
-              <div>
-                <label className={labelClass}>Link to visit (optional)</label>
-                <select value={visitId} onChange={(e) => setVisitId(e.target.value)} className={inputClass}>
-                  <option value="">No visit — standalone bill</option>
-                  {visits.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.visitNo} — {fmtDate(v.visitDate)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <BillItemsEditor rows={rows} onChange={setRows} />
-
-            <div className="grid grid-cols-3 gap-3">
-              {clinic?.discountEnabled && (
-                <div>
-                  <label className={labelClass}>Discount</label>
-                  <input type="number" min={0} value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} className={inputClass} />
-                </div>
-              )}
-              {clinic?.taxEnabled && (
-                <div>
-                  <label className={labelClass}>{clinic.taxLabel} %</label>
-                  <input type="number" min={0} max={100} value={taxPercent} onChange={(e) => setTaxPercent(Number(e.target.value) || 0)} className={inputClass} />
-                </div>
-              )}
-              <div className={clinic?.discountEnabled || clinic?.taxEnabled ? '' : 'col-span-3'}>
-                <label className={labelClass}>Remark (optional)</label>
-                <input value={remark} onChange={(e) => setRemark(e.target.value)} className={inputClass} />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg bg-teal-50 px-4 py-3">
-              <p className="text-sm text-gray-600">Total payable</p>
-              <p className="text-lg font-bold text-[var(--color-primary)]">{fmtMoney(total)}</p>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => submit(false)}
-                disabled={create.isPending}
-                className="rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-teal-50 disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => submit(true)}
-                disabled={create.isPending}
-                className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              >
-                Save & Print
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </FormModal>
   );
 }
 
@@ -887,7 +731,6 @@ export function BillingPage() {
   const { data: clinic } = useClinicQuery();
   const { markPrinted } = useBillMutations();
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [removeItemTarget, setRemoveItemTarget] = useState<{ item: BillItemDetail; action: 'cancel' | 'waive' } | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<BillListItem | null>(null);
@@ -968,7 +811,7 @@ export function BillingPage() {
               <CreditCard className="h-3.5 w-3.5" />
             </button>
           )}
-          {canEdit && row.original.status !== 'CANCELLED' && (
+          {canEdit && row.original.status !== 'CANCELLED' && row.original.dueAmount === 0 && (
             <button onClick={() => setCancelTarget(row.original)} title="Cancel" className="rounded-lg border border-gray-300 p-1.5 text-red-500 hover:bg-red-50">
               <Ban className="h-3.5 w-3.5" />
             </button>
@@ -993,14 +836,6 @@ export function BillingPage() {
           >
             <Download className="h-4 w-4" /> Export CSV
           </button>
-          {canEdit && (
-            <button
-              onClick={() => setCreateOpen(true)}
-              className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" /> New Bill
-            </button>
-          )}
         </div>
       </div>
 
@@ -1008,7 +843,6 @@ export function BillingPage() {
         {isLoading ? <TableSkeleton rows={6} columns={8} /> : <DataTable columns={columns} data={bills ?? []} emptyMessage="No bills yet." />}
       </div>
 
-      <CreateBillModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={(bill, print) => print && handlePrint(bill)} />
       <EditBillModal billId={editId} onClose={() => setEditId(null)} />
       <RecordPaymentModal bill={paymentTarget} onClose={() => setPaymentTarget(null)} />
       <CancelBillModal bill={cancelTarget} onClose={() => setCancelTarget(null)} />
@@ -1018,7 +852,7 @@ export function BillingPage() {
           <PrintLayout clinic={clinic} documentTitle="Bill / Receipt" onPrint={() => { handlePrint(previewTarget); setPreviewId(null); }}>
             <BillBody
               bill={previewTarget}
-              canModifyItems={canEdit && previewTarget.status !== 'CANCELLED' && previewTarget.paidAmount === 0}
+              canModifyItems={canEdit && previewTarget.status !== 'CANCELLED'}
               onCancelItem={(item) => setRemoveItemTarget({ item, action: 'cancel' })}
               onWaiveItem={(item) => setRemoveItemTarget({ item, action: 'waive' })}
             />

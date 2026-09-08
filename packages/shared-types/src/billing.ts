@@ -69,6 +69,9 @@ export interface BillDetail {
   status: BillStatus;
   remark: string | null;
   cancelReason: string | null;
+  cancelledBy: string | null;
+  cancelledByRole: string | null;
+  cancelledAt: string | null;
   printedAt: string | null;
   printCount: number;
   createdBy: string | null;

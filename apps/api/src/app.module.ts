@@ -24,6 +24,7 @@ import { AccountsModule } from './modules/accounts/accounts.module';
 import { HealthModule } from './modules/health/health.module';
 import { BackupModule } from './modules/backup/backup.module';
 import { WhatsAppTemplatesModule } from './modules/whatsapp-templates/whatsapp-templates.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { WhatsAppTemplatesModule } from './modules/whatsapp-templates/whatsapp-t
     HealthModule,
     BackupModule,
     WhatsAppTemplatesModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

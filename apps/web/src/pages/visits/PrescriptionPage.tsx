@@ -421,7 +421,7 @@ export function PrescriptionPage() {
                 <th className={`${compactTableHeaderCellClass} w-12 text-center`}>E</th>
                 <th className={`${compactTableHeaderCellClass} w-12 text-center`}>N</th>
                 <th className={`${compactTableHeaderCellClass} w-36`}>Before/After Food</th>
-                <th className={`${compactTableHeaderCellClass} w-20`}>Days</th>
+                <th className={`${compactTableHeaderCellClass} w-20 text-center`}>Days</th>
                 <th className={`${compactTableHeaderCellClass} w-16 text-center`}>Qty</th>
                 <th className={compactTableHeaderCellClass}>Instruction</th>
                 <th className={`${compactTableHeaderCellClass} w-8`} />

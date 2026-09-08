@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ import {
   Search,
   XCircle,
 } from 'lucide-react';
-import { GENDERS, PAYMENT_MODES } from '@clinic-care/shared-types';
+import { APPOINTMENT_STATUSES, GENDERS, PAYMENT_MODES } from '@clinic-care/shared-types';
 import type { AppointmentDetail, AppointmentStatus, BillItemInput, Gender, PaymentMode } from '@clinic-care/shared-types';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -114,6 +114,11 @@ function newQueueBillRow(sortOrder: number): QueueBillRow {
 
 const inputClass = standardFieldInputClass;
 const labelClass = formLabelClass;
+
+// number inputs otherwise accept e/E/+/- as valid exponent characters
+function blockNonNumericKeys(e: KeyboardEvent<HTMLInputElement>) {
+  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+}
 
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1); // 1..12
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => i);
@@ -691,7 +696,7 @@ function LinkPatientModal({ open, onClose, appointment }: { open: boolean; onClo
               </div>
               <div>
                 <label className={labelClass}>Age</label>
-                <input type="number" min={0} value={age} onChange={(e) => setAge(e.target.value)} className={inputClass} />
+                <input type="number" min={0} value={age} onChange={(e) => setAge(e.target.value)} onKeyDown={blockNonNumericKeys} className={inputClass} />
               </div>
               <div>
                 <label className={labelClass}>Gender</label>
@@ -1204,6 +1209,8 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentDetail | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<AppointmentDetail | null>(null);
   const [cancelTarget, setCancelTarget] = useState<AppointmentDetail | null>(null);
+  const [statusFilter, setStatusFilter] = useState<AppointmentStatus | 'ALL'>('ALL');
+  const [tokenFilter, setTokenFilter] = useState('');
   const { data: appointments, isLoading } = useAppointmentsByDayQuery(date);
   const { data: clinic } = useClinicQuery();
   const { data: whatsAppTemplates } = useWhatsAppTemplatesQuery();
@@ -1211,6 +1218,9 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
   const totalAppointments = appointments?.length ?? 0;
   const activeAppointments = appointments?.filter((a) => ACTIVE_STATUSES.includes(a.status)).length ?? 0;
   const cancelledAppointments = appointments?.filter((a) => a.status === 'CANCELLED' || a.status === 'NO_SHOW').length ?? 0;
+  const visibleAppointments = appointments
+    ?.filter((a) => statusFilter === 'ALL' || a.status === statusFilter)
+    .filter((a) => !tokenFilter.trim() || String(a.tokenNo).includes(tokenFilter.trim()));
 
   const onConfirmSubmit = async () => {
     if (!confirmTarget) return;
@@ -1249,15 +1259,37 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
             <span className="rounded-lg bg-green-50 px-2.5 py-1 text-green-700">{activeAppointments} active</span>
             <span className="rounded-lg bg-red-50 px-2.5 py-1 text-red-700">{cancelledAppointments} closed</span>
           </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as AppointmentStatus | 'ALL')}
+            className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+          >
+            <option value="ALL">All</option>
+            {APPOINTMENT_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status.replace('_', ' ')}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Filter by token #"
+            value={tokenFilter}
+            onChange={(e) => setTokenFilter(e.target.value.replace(/\D/g, ''))}
+            className="h-10 w-36 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+          />
         </div>
       </div>
 
       {isLoading ? (
         <TableSkeleton rows={7} columns={7} />
-      ) : !appointments || appointments.length === 0 ? (
+      ) : !visibleAppointments || visibleAppointments.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
           <CalendarDays className="h-8 w-8 text-gray-300" />
-          <p className="mt-2 text-sm text-gray-400">No appointments booked for this day.</p>
+          <p className="mt-2 text-sm text-gray-400">
+            {totalAppointments === 0 ? 'No appointments booked for this day.' : 'No appointments match this status.'}
+          </p>
         </div>
       ) : (
         <div className={tableShellClass}>
@@ -1274,7 +1306,7 @@ function DayView({ date, onDateChange }: { date: string; onDateChange: (date: st
               </tr>
             </thead>
             <tbody className={tableBodyClass}>
-              {appointments.map((a) => (
+              {visibleAppointments.map((a) => (
                 <tr key={a.id} className={tableRowClass}>
                   <td className={tableCellClass}>
                     <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-gray-100 px-2 text-xs font-semibold text-gray-700">
@@ -1483,7 +1515,7 @@ function AddChargeModal({ open, onClose, appointment }: { open: boolean; onClose
         )}
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_100px_auto]">
           <input value={customChargeName} onChange={(e) => setCustomChargeName(e.target.value)} placeholder="Custom charge name" className={inputClass} />
-          <input type="number" min={1} value={customChargeAmount} onChange={(e) => setCustomChargeAmount(e.target.value)} placeholder="Amount" className={inputClass} />
+          <input type="number" min={1} value={customChargeAmount} onChange={(e) => setCustomChargeAmount(e.target.value)} onKeyDown={blockNonNumericKeys} placeholder="Amount" className={inputClass} />
           <button type="button" onClick={addCustomCharge} className="flex items-center justify-center rounded-lg border border-gray-300 px-3 text-gray-600 hover:bg-gray-50">
             <Plus className="h-4 w-4" />
           </button>
@@ -1613,23 +1645,23 @@ function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: (
         </div>
         <div>
           <label className={labelClass}>Pulse</label>
-          <input type="number" value={pulse} onChange={(e) => setPulse(e.target.value)} className={inputClass} />
+          <input type="number" value={pulse} onChange={(e) => setPulse(e.target.value)} onKeyDown={blockNonNumericKeys} className={inputClass} />
         </div>
         <div>
           <label className={labelClass}>Temperature (°C)</label>
-          <input type="number" step="0.1" value={temperature} onChange={(e) => setTemperature(e.target.value)} className={inputClass} />
+          <input type="number" step="0.1" value={temperature} onChange={(e) => setTemperature(e.target.value)} onKeyDown={blockNonNumericKeys} className={inputClass} />
         </div>
         <div>
           <label className={labelClass}>Weight (kg)</label>
-          <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} className={inputClass} />
+          <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} onKeyDown={blockNonNumericKeys} className={inputClass} />
         </div>
         <div>
           <label className={labelClass}>Height (cm)</label>
-          <input type="number" step="0.1" value={height} onChange={(e) => setHeight(e.target.value)} className={inputClass} />
+          <input type="number" step="0.1" value={height} onChange={(e) => setHeight(e.target.value)} onKeyDown={blockNonNumericKeys} className={inputClass} />
         </div>
         <div>
           <label className={labelClass}>SpO2 (%)</label>
-          <input type="number" value={spo2} onChange={(e) => setSpo2(e.target.value)} className={inputClass} />
+          <input type="number" value={spo2} onChange={(e) => setSpo2(e.target.value)} onKeyDown={blockNonNumericKeys} className={inputClass} />
         </div>
         <div className="col-span-2">
           <label className={labelClass}>Notes</label>
@@ -1826,14 +1858,14 @@ function QueuePaymentModal({ appointment, onClose }: { appointment: AppointmentD
                       </td>
                       <td className="px-3 py-2">
                         {canEditBill ? (
-                          <input type="number" min={1} value={row.quantity} onChange={(event) => updateRow(row.key, { quantity: Number(event.target.value) || 1 })} className="w-full rounded-md border border-gray-200 px-2 py-1.5" />
+                          <input type="number" min={1} value={row.quantity} onChange={(event) => updateRow(row.key, { quantity: Number(event.target.value) || 1 })} onKeyDown={blockNonNumericKeys} className="w-full rounded-md border border-gray-200 px-2 py-1.5" />
                         ) : (
                           row.quantity
                         )}
                       </td>
                       <td className="px-3 py-2">
                         {canEditBill ? (
-                          <input type="number" min={0} value={row.unitAmount} onChange={(event) => updateRow(row.key, { unitAmount: Number(event.target.value) || 0 })} className="w-full rounded-md border border-gray-200 px-2 py-1.5" />
+                          <input type="number" min={0} value={row.unitAmount} onChange={(event) => updateRow(row.key, { unitAmount: Number(event.target.value) || 0 })} onKeyDown={blockNonNumericKeys} className="w-full rounded-md border border-gray-200 px-2 py-1.5" />
                         ) : (
                           fmtMoney(row.unitAmount)
                         )}
@@ -1880,7 +1912,7 @@ function QueuePaymentModal({ appointment, onClose }: { appointment: AppointmentD
 
           <div>
             <label className={labelClass}>Amount</label>
-            <input type="number" min={1} max={bill.dueAmount} value={amount} onChange={(e) => setAmount(Number(e.target.value) || 0)} className={inputClass} />
+            <input type="number" min={1} max={bill.dueAmount} value={amount} onChange={(e) => setAmount(Number(e.target.value) || 0)} onKeyDown={blockNonNumericKeys} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>Mode</label>

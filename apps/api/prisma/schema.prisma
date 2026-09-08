@@ -647,10 +647,10 @@ enum BillStatus {
 }
 
 model Bill {
-  id           String     @id @default(cuid()) @map("_id")
-  billNo       String     @unique
-  patientId    String
-  patient      Patient    @relation(fields: [patientId], references: [id])
+  id              String     @id @default(cuid()) @map("_id")
+  billNo          String     @unique
+  patientId       String
+  patient         Patient    @relation(fields: [patientId], references: [id])
   // Optional — a bill can stand alone (lab-only charge, product sale) instead of
   // always coming from a completed visit.
   //
@@ -660,21 +660,24 @@ model Bill {
   // ever created would fail with a duplicate-key error. The actual "one bill per visit"
   // constraint is instead enforced by a partial unique index created out-of-band by
   // src/database/ensure-mongo-indexes.ts (run on every boot, see start:prod).
-  visitId      String?
-  date         DateTime   @default(now())
-  subtotal     Int
-  discount     Int        @default(0)
-  taxPercent   Float?
-  taxAmount    Int        @default(0)
-  totalAmount  Int
-  paidAmount   Int        @default(0)
-  dueAmount    Int
-  status       BillStatus @default(UNPAID)
-  remark       String?
-  cancelReason String?
-  printedAt    DateTime?
-  printCount   Int        @default(0)
-  createdBy    String?
+  visitId         String?
+  date            DateTime   @default(now())
+  subtotal        Int
+  discount        Int        @default(0)
+  taxPercent      Float?
+  taxAmount       Int        @default(0)
+  totalAmount     Int
+  paidAmount      Int        @default(0)
+  dueAmount       Int
+  status          BillStatus @default(UNPAID)
+  remark          String?
+  cancelReason    String?
+  cancelledBy     String?
+  cancelledByRole String?
+  cancelledAt     DateTime?
+  printedAt       DateTime?
+  printCount      Int        @default(0)
+  createdBy       String?
 
   items    BillItem[]
   payments Payment[]
@@ -718,8 +721,8 @@ model BillItem {
   amount     Int
   sortOrder  Int     @default(0)
 
-  department ChargeDepartment @default(OTHER)
-  status     BillItemStatus   @default(PENDING)
+  department    ChargeDepartment @default(OTHER)
+  status        BillItemStatus   @default(PENDING)
   // createdByRole/removedByRole are a cheap snapshot of the acting user's role at the
   // time (already on their JWT, no extra query) — this is what answers "doctor, nurse,
   // receptionist" directly; createdBy/removedBy (user id) is the deeper audit trail.

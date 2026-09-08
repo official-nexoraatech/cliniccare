@@ -22,3 +22,4 @@ export * from './billing';
 export * from './accounts';
 export * from './backup';
 export * from './whatsapp';
+export * from './reports';
