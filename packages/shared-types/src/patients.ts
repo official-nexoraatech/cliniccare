@@ -34,7 +34,6 @@ export interface PatientDetail extends PatientSummary {
   bloodGroup: string | null;
   maritalStatus: string | null;
   occupation: string | null;
-  photoPath: string | null;
   allergies: string | null;
   chronicDiseases: string | null;
   referredBy: string | null;

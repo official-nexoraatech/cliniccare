@@ -1,6 +1,5 @@
 import { AlertTriangle, User } from 'lucide-react';
 import type { VisitPatientSummary } from '@clinic-care/shared-types';
-import { resolveServerUrl } from '@/lib/api';
 import {
   patientAlertClass,
   patientAvatarClass,
@@ -22,15 +21,7 @@ export function PatientStrip({ patient, visitNo }: PatientStripProps) {
     <div className={patientStripClass}>
       <div className="flex items-center gap-4">
         <div className={patientAvatarClass}>
-          {patient.photoPath ? (
-            <img
-              src={resolveServerUrl(patient.photoPath)}
-              alt={patient.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <User className="h-6 w-6" />
-          )}
+          <User className="h-6 w-6" />
         </div>
         <div className="flex-1">
           <p className={patientNameClass}>{patient.name}</p>

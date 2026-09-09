@@ -283,7 +283,6 @@ export class VisitsService {
       age: patient.age,
       gender: patient.gender as VisitPatientSummary['gender'],
       mobile: patient.mobile,
-      photoPath: patient.photoPath,
       allergies: patient.allergies,
       chronicDiseases: patient.chronicDiseases,
     };

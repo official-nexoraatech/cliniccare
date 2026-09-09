@@ -73,7 +73,6 @@ export interface VisitPatientSummary {
   age: number;
   gender: Gender;
   mobile: string;
-  photoPath: string | null;
   allergies: string | null;
   chronicDiseases: string | null;
 }

@@ -15,7 +15,7 @@ export const SERVER_ORIGIN = import.meta.env.VITE_API_URL
     : 'http://localhost:4100';
 export const API_BASE_URL = `${SERVER_ORIGIN}/api`;
 
-/** Resolves a server-relative path (e.g. a patient photo's `/files/...` path) to a full URL.
+/** Resolves a server-relative path (e.g. a document's `/files/...` path) to a full URL.
  * Clinic branding (logo/letterhead) is stored as a data: URL in Mongo instead of a disk path
  * — Render's filesystem isn't persistent across redeploys — so those pass through unchanged. */
 export function resolveServerUrl(path: string): string {

@@ -20,7 +20,14 @@ import {
   XCircle,
 } from 'lucide-react';
 import { APPOINTMENT_STATUSES, GENDERS, PAYMENT_MODES } from '@clinic-care/shared-types';
-import type { AppointmentDetail, AppointmentStatus, BillItemInput, Gender, PaymentMode } from '@clinic-care/shared-types';
+import type {
+  AppointmentDetail,
+  AppointmentStatus,
+  BillItemInput,
+  Gender,
+  PatientCustomFieldValues,
+  PaymentMode,
+} from '@clinic-care/shared-types';
 import { FormModal } from '@/components/FormModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
@@ -42,6 +49,8 @@ import {
 } from '@/components/tableStyles';
 import { CardGridSkeleton, TableSkeleton } from '@/components/Skeleton';
 import { usePatientMutations, usePatientSearchQuery } from '@/hooks/usePatients';
+import { usePatientFieldsQuery } from '@/hooks/usePatientFields';
+import { PatientCustomFields, validateCustomFields } from '@/pages/patients/patientFormShared';
 import {
   useAppointmentMutations,
   useAppointmentQueueQuery,
@@ -372,6 +381,114 @@ function ReasonPromptModal({
   );
 }
 
+/** Name + Age + Gender, plus whatever custom fields Settings → Patient Fields has switched
+ * on — shared by the walk-in booking flow and the ghost-appointment link flow so a clinic's
+ * own required fields can never silently block patient creation in either place. */
+function NewFamilyMemberForm({
+  mobile,
+  initialName = '',
+  submitLabel = 'Add & Continue',
+  onCreated,
+}: {
+  mobile: string;
+  initialName?: string;
+  submitLabel?: string;
+  onCreated: (patient: { id: string; name: string }) => void;
+}) {
+  const { create } = usePatientMutations();
+  const { data: allFieldDefs } = usePatientFieldsQuery();
+  const customFieldDefs = useMemo(() => (allFieldDefs ?? []).filter((f) => !f.isCore), [allFieldDefs]);
+
+  const [name, setName] = useState(initialName);
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState<Gender>('MALE');
+  const [customFieldValues, setCustomFieldValues] = useState<PatientCustomFieldValues>({});
+  const [customFieldErrors, setCustomFieldErrors] = useState<Record<string, string>>({});
+
+  const onSubmit = async () => {
+    if (!name.trim() || !age) {
+      toast.error('Name and age are required.');
+      return;
+    }
+    const fieldErrors = validateCustomFields(customFieldDefs, customFieldValues);
+    if (Object.keys(fieldErrors).length > 0) {
+      setCustomFieldErrors(fieldErrors);
+      toast.error(Object.values(fieldErrors).join(' '));
+      return;
+    }
+    try {
+      const { patient } = await create.mutateAsync({
+        name: name.trim(),
+        age: Number(age),
+        gender,
+        mobile,
+        address: 'Not provided',
+        chronicDiseases: 'Not recorded',
+        stage: 'New',
+        customFields: customFieldValues,
+      });
+      onCreated(patient);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not register patient.'));
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} autoFocus />
+        </div>
+        <div>
+          <label className={labelClass}>Age</label>
+          <input
+            type="number"
+            min={0}
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+            onKeyDown={blockNonNumericKeys}
+            className={inputClass}
+          />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>Gender</label>
+          <select value={gender} onChange={(e) => setGender(e.target.value as Gender)} className={inputClass}>
+            {GENDERS.filter((g) => g !== 'UNSPECIFIED').map((g) => (
+              <option key={g} value={g}>
+                {g.charAt(0) + g.slice(1).toLowerCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {customFieldDefs.length > 0 && (
+        <PatientCustomFields
+          fields={customFieldDefs}
+          values={customFieldValues}
+          errors={customFieldErrors}
+          onChange={(key, value) => {
+            setCustomFieldValues((prev) => ({ ...prev, [key]: value }));
+            setCustomFieldErrors((prev) => {
+              if (!prev[key]) return prev;
+              const { [key]: _removed, ...rest } = prev;
+              return rest;
+            });
+          }}
+        />
+      )}
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={create.isPending}
+        className="self-start rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+      >
+        {create.isPending ? 'Adding...' : submitLabel}
+      </button>
+    </div>
+  );
+}
+
 function BookAppointmentModal({
   open,
   onClose,
@@ -391,10 +508,12 @@ function BookAppointmentModal({
   const [patientId, setPatientId] = useState<string | undefined>();
   const [patientName, setPatientName] = useState('');
   const [mobile, setMobile] = useState('');
+  const [addingNew, setAddingNew] = useState(false);
   const [timeSlot, setTimeSlot] = useState('');
   const [doctorId, setDoctorId] = useState('');
   const [purpose, setPurpose] = useState('');
   const [conflictLabel, setConflictLabel] = useState<string | null>(null);
+  const [keepOpenIntent, setKeepOpenIntent] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -404,14 +523,28 @@ function BookAppointmentModal({
     }
   }, [open, date, initialDoctorId, initialTimeSlot]);
 
-  // Typing the mobile number IS the search — no upfront "existing vs new" choice needed.
-  // A match found means existing patient; no match just means it'll register a new one.
-  const { data: results = [] } = usePatientSearchQuery(patientId ? '' : mobile);
+  // Typing the mobile number surfaces every family member on that number as a pickable
+  // card (see below) — there is no free-text name field, so a booking can never go out
+  // without a real patientId behind it (that's what used to create "ghost" appointments).
+  const { data: familyResults = [] } = usePatientSearchQuery(patientId ? '' : mobile);
+
+  const statusForPatient = (id: string) => {
+    const appt = dayAppointments?.find((a) => a.patientId === id && ACTIVE_STATUSES.includes(a.status));
+    return appt ? `Already booked today at ${appt.timeSlot}` : 'No visit today';
+  };
+
+  const selectPatient = (p: { id: string; name: string; mobile?: string }) => {
+    setPatientId(p.id);
+    setPatientName(p.name);
+    if (p.mobile) setMobile(p.mobile);
+    setAddingNew(false);
+  };
 
   const reset = () => {
     setPatientId(undefined);
     setPatientName('');
     setMobile('');
+    setAddingNew(false);
     setTimeSlot('');
     setDoctorId('');
     setPurpose('');
@@ -430,8 +563,18 @@ function BookAppointmentModal({
         source: 'WALK_IN',
       });
       toast.success(`Appointment booked — token #${result.appointment.tokenNo}`);
-      reset();
-      onClose();
+      if (keepOpenIntent) {
+        // Family stays on the same mobile/date/doctor — only the picked person and slot
+        // reset, so the next family member is a couple of clicks away, not a re-typed number.
+        setPatientId(undefined);
+        setPatientName('');
+        setAddingNew(false);
+        setTimeSlot('');
+        setPurpose('');
+      } else {
+        reset();
+        onClose();
+      }
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not book appointment.'));
     } finally {
@@ -439,11 +582,12 @@ function BookAppointmentModal({
     }
   };
 
-  const onSave = () => {
-    if (!patientName || !mobile || !timeSlot) {
-      toast.error('Name, mobile and time slot are required.');
+  const onSave = (keepOpen: boolean) => {
+    if (!patientId || !timeSlot) {
+      toast.error('Select who this appointment is for, and a time slot.');
       return;
     }
+    setKeepOpenIntent(keepOpen);
     const label = formatTimeSlot(timeSlot);
     const slotConflict = dayAppointments?.find(
       (a) => a.timeSlot === label && (a.doctorId ?? '') === doctorId && ACTIVE_STATUSES.includes(a.status),
@@ -452,8 +596,7 @@ function BookAppointmentModal({
       setConflictLabel(`${label} is already booked for ${slotConflict.patientName} (token #${slotConflict.tokenNo}).`);
       return;
     }
-    const patientConflict =
-      patientId && dayAppointments?.find((a) => a.patientId === patientId && ACTIVE_STATUSES.includes(a.status));
+    const patientConflict = dayAppointments?.find((a) => a.patientId === patientId && ACTIVE_STATUSES.includes(a.status));
     if (patientConflict) {
       setConflictLabel(`${patientName} already has an appointment today at ${patientConflict.timeSlot} (token #${patientConflict.tokenNo}).`);
       return;
@@ -476,11 +619,18 @@ function BookAppointmentModal({
             Cancel
           </button>
           <button
-            onClick={onSave}
+            onClick={() => onSave(true)}
+            disabled={book.isPending}
+            className="rounded-lg border border-[var(--color-primary)] px-4 py-2 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50 disabled:opacity-50"
+          >
+            {book.isPending && keepOpenIntent ? 'Booking...' : 'Book & Add Another'}
+          </button>
+          <button
+            onClick={() => onSave(false)}
             disabled={book.isPending}
             className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {book.isPending ? 'Booking...' : 'Book'}
+            {book.isPending && !keepOpenIntent ? 'Booking...' : 'Confirm & Done'}
           </button>
         </>
       }
@@ -495,49 +645,63 @@ function BookAppointmentModal({
               onChange={(e) => {
                 setMobile(e.target.value);
                 setPatientId(undefined);
+                setPatientName('');
+                setAddingNew(false);
               }}
               maxLength={10}
               placeholder="10-digit mobile number"
               className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
             />
           </div>
-          {!patientId && mobile && results.length > 0 && (
-            <div className="mt-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-              {results.map((p) => (
+        </div>
+
+        {patientId ? (
+          <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm">
+            <span className="font-medium text-green-800">Booking for {patientName}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setPatientId(undefined);
+                setPatientName('');
+              }}
+              className="text-xs font-medium text-green-700 underline"
+            >
+              Change
+            </button>
+          </div>
+        ) : addingNew ? (
+          <NewFamilyMemberForm mobile={mobile} onCreated={selectPatient} />
+        ) : (
+          mobile.trim().length >= 3 && (
+            <div className="flex flex-col gap-2">
+              {familyResults.map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => {
-                    setPatientId(p.id);
-                    setPatientName(p.name);
-                    setMobile(p.mobile);
-                  }}
-                  className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50"
+                  type="button"
+                  onClick={() => selectPatient(p)}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm hover:border-[var(--color-primary)] hover:bg-gray-50"
                 >
-                  <span>{p.name}</span>
-                  <span className="text-gray-400">{p.mobile}</span>
+                  <span>
+                    <span className="font-medium text-gray-800">{p.name}</span>
+                    <span className="ml-2 text-xs text-gray-400">
+                      {p.age} yrs · {p.gender.charAt(0) + p.gender.slice(1).toLowerCase()}
+                    </span>
+                  </span>
+                  <span className="text-xs text-gray-400">{statusForPatient(p.id)}</span>
                 </button>
               ))}
+              {mobile.trim().length === 10 && (
+                <button
+                  type="button"
+                  onClick={() => setAddingNew(true)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm font-medium text-[var(--color-primary)] hover:bg-gray-50"
+                >
+                  <Plus className="h-4 w-4" /> Add New Family Member
+                </button>
+              )}
             </div>
+          )
           )}
-        </div>
-        <div>
-          <label className={labelClass}>Name</label>
-          <input
-            value={patientName}
-            onChange={(e) => {
-              setPatientName(e.target.value);
-              setPatientId(undefined);
-            }}
-            className={inputClass}
-          />
-          {patientId ? (
-            <p className="mt-1 text-xs font-medium text-green-600">Matched existing patient</p>
-          ) : (
-            mobile.trim().length >= 10 && (
-              <p className="mt-1 text-xs text-gray-400">No match for this number — will register as a new patient.</p>
-            )
-          )}
-        </div>
 
         <div>
           <label className={labelClass}>Date</label>
@@ -573,23 +737,13 @@ function BookAppointmentModal({
 
 function LinkPatientModal({ open, onClose, appointment }: { open: boolean; onClose: () => void; appointment: AppointmentDetail }) {
   const { linkPatient } = useAppointmentMutations();
-  const { create: createPatient } = usePatientMutations();
   const [mode, setMode] = useState<'search' | 'new'>('search');
   const [search, setSearch] = useState('');
   const { data: results = [] } = usePatientSearchQuery(search);
 
-  const [name, setName] = useState(appointment.patientName);
-  const [mobile, setMobile] = useState(appointment.mobile);
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState<Gender>('MALE');
-
   const reset = () => {
     setMode('search');
     setSearch('');
-    setName(appointment.patientName);
-    setMobile(appointment.mobile);
-    setAge('');
-    setGender('MALE');
   };
 
   const onLink = async (patientId: string) => {
@@ -603,28 +757,7 @@ function LinkPatientModal({ open, onClose, appointment }: { open: boolean; onClo
     }
   };
 
-  const onRegisterAndLink = async () => {
-    if (!name || !mobile || !age) {
-      toast.error('Name, mobile and age are required.');
-      return;
-    }
-    try {
-      const { patient } = await createPatient.mutateAsync({
-        name,
-        mobile,
-        age: Number(age),
-        gender,
-        address: 'Not provided',
-        chronicDiseases: 'Not recorded',
-        stage: 'New',
-      });
-      await onLink(patient.id);
-    } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not register patient.'));
-    }
-  };
-
-  const isPending = linkPatient.isPending || createPatient.isPending;
+  const isPending = linkPatient.isPending;
 
   return (
     <FormModal
@@ -685,39 +818,12 @@ function LinkPatientModal({ open, onClose, appointment }: { open: boolean; onClo
             )}
           </>
         ) : (
-          <>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass}>Name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Mobile</label>
-                <input value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Age</label>
-                <input type="number" min={0} value={age} onChange={(e) => setAge(e.target.value)} onKeyDown={blockNonNumericKeys} className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Gender</label>
-                <select value={gender} onChange={(e) => setGender(e.target.value as Gender)} className={inputClass}>
-                  {GENDERS.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <button
-              onClick={onRegisterAndLink}
-              disabled={isPending}
-              className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {isPending ? 'Registering...' : 'Register & Link'}
-            </button>
-          </>
+          <NewFamilyMemberForm
+            mobile={appointment.mobile}
+            initialName={appointment.patientName}
+            submitLabel="Register & Link"
+            onCreated={(p) => onLink(p.id)}
+          />
         )}
       </div>
     </FormModal>

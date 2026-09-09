@@ -80,17 +80,5 @@ export function usePatientMutations() {
     onSuccess: invalidate,
   });
 
-  const uploadPhoto = useMutation({
-    mutationFn: async ({ id, file }: { id: string; file: File }) => {
-      const formData = new FormData();
-      formData.append('photo', file);
-      const { data } = await api.post<PatientDetail>(`/patients/${id}/photo`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return data;
-    },
-    onSuccess: invalidate,
-  });
-
-  return { create, update, deactivate, reactivate, uploadPhoto };
+  return { create, update, deactivate, reactivate };
 }

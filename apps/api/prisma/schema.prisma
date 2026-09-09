@@ -180,7 +180,6 @@ model Patient {
   bloodGroup      String?
   maritalStatus   String?
   occupation      String?
-  photoPath       String?
   allergies       String?
   chronicDiseases String?
   stage           String?

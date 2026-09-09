@@ -249,12 +249,6 @@ export class PatientsService {
     return this.toDetailWithCounts(patient);
   }
 
-  async setPhoto(id: string, photoPath: string): Promise<PatientDetail> {
-    await this.assertExists(id);
-    const patient = await this.prisma.patient.update({ where: { id }, data: { photoPath } });
-    return this.toDetailWithCounts(patient);
-  }
-
   /**
    * Merges submitted custom values into whatever's already stored (so a field that
    * got deactivated after being set isn't silently dropped on the next edit) and
@@ -412,7 +406,6 @@ export class PatientsService {
         age: visit.patient.age,
         gender: visit.patient.gender as PatientHistoryVisit['patient']['gender'],
         mobile: visit.patient.mobile,
-        photoPath: visit.patient.photoPath,
         allergies: visit.patient.allergies,
         chronicDiseases: visit.patient.chronicDiseases,
       },
@@ -496,7 +489,6 @@ export class PatientsService {
       bloodGroup: patient.bloodGroup,
       maritalStatus: patient.maritalStatus,
       occupation: patient.occupation,
-      photoPath: patient.photoPath,
       allergies: patient.allergies,
       chronicDiseases: patient.chronicDiseases,
       referredBy: patient.referredBy,

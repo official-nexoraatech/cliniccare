@@ -1,20 +1,4 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
-import { extname } from 'node:path';
-import type { Express } from 'express';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -24,11 +8,6 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { RequestUser } from '../../common/guards/jwt-auth.guard';
-
-const ALLOWED_PHOTO_TYPES = new Set(['.jpg', '.jpeg', '.png', '.webp']);
-
-const toDataUrl = (file: Express.Multer.File): string =>
-  `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('patients')
@@ -81,28 +60,5 @@ export class PatientsController {
   @Patch(':id/reactivate')
   reactivate(@Param('id') id: string) {
     return this.patientsService.reactivate(id);
-  }
-
-  @RequiresPermission('patients:edit')
-  @Post(':id/photo')
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_req, file, callback) => {
-        const ext = extname(file.originalname).toLowerCase();
-        if (!ALLOWED_PHOTO_TYPES.has(ext)) {
-          callback(new BadRequestException('Only JPG, PNG or WEBP images are allowed'), false);
-          return;
-        }
-        callback(null, true);
-      },
-    }),
-  )
-  uploadPhoto(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('No photo file was uploaded');
-    }
-    return this.patientsService.setPhoto(id, toDataUrl(file));
   }
 }

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, Camera } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import type { PatientCustomFieldValues } from '@clinic-care/shared-types';
 import { usePatientMutations } from '@/hooks/usePatients';
 import { usePatientFieldsQuery } from '@/hooks/usePatientFields';
@@ -19,16 +19,13 @@ import {
 
 export function PatientForm() {
   const navigate = useNavigate();
-  const { create, uploadPhoto } = usePatientMutations();
+  const { create } = usePatientMutations();
   const { data: allFieldDefs } = usePatientFieldsQuery();
   const coreFieldDefs = allFieldDefs?.filter((f) => f.isCore);
   const customFieldDefs = allFieldDefs?.filter((f) => !f.isCore);
 
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [customFieldValues, setCustomFieldValues] = useState<PatientCustomFieldValues>({});
   const [customFieldErrors, setCustomFieldErrors] = useState<Record<string, string>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -47,11 +44,6 @@ export function PatientForm() {
       setValue('age', calculateAge(dob), { shouldValidate: true });
     }
   }, [dob, setValue]);
-
-  const onPhotoSelected = (file: File | null) => {
-    setPhotoFile(file);
-    if (file) setPhotoPreview(URL.createObjectURL(file));
-  };
 
   const onSubmit = async (values: PatientFormValues) => {
     const fieldErrors = validateCustomFields(allFieldDefs ?? [], { ...values, ...customFieldValues });
@@ -79,11 +71,6 @@ export function PatientForm() {
         toast.warning('Another active patient already uses this mobile number — saved anyway (families often share one).');
       }
       toast.success(`Patient registered as ${result.patient.patientId}`);
-
-      if (photoFile) {
-        await uploadPhoto.mutateAsync({ id: patientId, file: photoFile });
-      }
-
       navigate(`/patients/${patientId}`);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not save patient.'));
@@ -102,28 +89,6 @@ export function PatientForm() {
       <h1 className="mb-6 text-xl font-semibold text-[var(--color-navy)]">New Patient Registration</h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-[var(--color-primary)]"
-          >
-            {photoPreview ? (
-              <img src={photoPreview} alt="Patient" className="h-full w-full object-cover" />
-            ) : (
-              <Camera className="h-6 w-6" />
-            )}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={(e) => onPhotoSelected(e.target.files?.[0] ?? null)}
-          />
-          <p className="text-sm text-gray-500">Click to add a photo (optional, JPG/PNG/WEBP)</p>
-        </div>
-
         <PatientFormFields register={register} errors={errors} watch={watch} coreFieldDefs={coreFieldDefs} />
 
         {(customFieldDefs?.length ?? 0) > 0 && (
