@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { CheckCircle2, Landmark, Plus, Power, RotateCcw } from 'lucide-react';
 import type { OutstandingDueItem, PaymentAccount, PaymentAccountType, PaymentMode } from '@clinic-care/shared-types';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable } from '@/components/DataTable';
 import { InlineSkeleton, TableSkeleton } from '@/components/Skeleton';
 import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
@@ -16,6 +17,13 @@ const MODE_LABEL: Record<PaymentMode, string> = { CASH: 'Cash', CARD: 'Card', UP
 
 const inputClass = standardFieldInputClass;
 const labelClass = formLabelClass;
+
+type AccountConfirmAction = 'default' | 'deactivate' | 'reactivate';
+
+interface AccountConfirmTarget {
+  account: PaymentAccount;
+  action: AccountConfirmAction;
+}
 
 function fmtMoney(paise: number) {
   return `₹${paise.toLocaleString('en-IN')}`;
@@ -47,6 +55,7 @@ export function AccountsPage() {
   const [openingBalance, setOpeningBalance] = useState('0');
   const [openingBalanceDate, setOpeningBalanceDate] = useState(todayIso());
   const [makeDefault, setMakeDefault] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<AccountConfirmTarget | null>(null);
   const { data: summary, isLoading } = useAccountsSummaryQuery(from, to);
   const { data: dues, isLoading: duesLoading } = useOutstandingDuesQuery();
   const { data: paymentAccounts = [], isLoading: accountsLoading } = usePaymentAccountsQuery();
@@ -92,6 +101,7 @@ export function AccountsPage() {
     try {
       await update.mutateAsync({ id: account.id, payload: { isDefault: true, status: 'ACTIVE' } });
       toast.success(`${account.name} set as default`);
+      setConfirmTarget(null);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not update account.'));
     }
@@ -101,6 +111,7 @@ export function AccountsPage() {
     try {
       await remove.mutateAsync(account.id);
       toast.success(`${account.name} deactivated`);
+      setConfirmTarget(null);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not deactivate account.'));
     }
@@ -110,10 +121,51 @@ export function AccountsPage() {
     try {
       await updateStatus.mutateAsync({ id: account.id, status: 'ACTIVE' });
       toast.success(`${account.name} reactivated`);
+      setConfirmTarget(null);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not reactivate account.'));
     }
   };
+
+  const onConfirmAccountAction = () => {
+    if (!confirmTarget) return;
+    if (confirmTarget.action === 'default') {
+      void onSetDefault(confirmTarget.account);
+      return;
+    }
+    if (confirmTarget.action === 'deactivate') {
+      void onDeactivateAccount(confirmTarget.account);
+      return;
+    }
+    void onReactivateAccount(confirmTarget.account);
+  };
+
+  const accountTypeLabel = confirmTarget?.account.type === 'CASH' ? 'cash' : 'bank';
+  const confirmTitle =
+    confirmTarget?.action === 'default'
+      ? `Make "${confirmTarget.account.name}" default?`
+      : confirmTarget?.action === 'deactivate'
+        ? `Deactivate "${confirmTarget.account.name}"?`
+        : confirmTarget?.action === 'reactivate'
+          ? `Reactivate "${confirmTarget.account.name}"?`
+          : '';
+  const confirmDescription =
+    confirmTarget?.action === 'default'
+      ? `New ${accountTypeLabel} payments will auto-select this account. The old default ${accountTypeLabel} account will stop being default, but past payments stay unchanged.`
+      : confirmTarget?.action === 'deactivate'
+        ? `This account will be hidden from billing payment selection. It is not deleted, and old bills/payments linked to it will still show this account name.`
+        : confirmTarget?.action === 'reactivate'
+          ? `This account will appear again in billing payment selection. It will not become default unless you choose the default option separately.`
+          : undefined;
+  const confirmLabel =
+    confirmTarget?.action === 'default'
+      ? 'Make Default'
+      : confirmTarget?.action === 'deactivate'
+        ? 'Deactivate'
+        : confirmTarget?.action === 'reactivate'
+          ? 'Reactivate'
+          : 'Confirm';
+  const confirmBusy = update.isPending || updateStatus.isPending || remove.isPending;
 
   const dueColumns: ColumnDef<OutstandingDueItem>[] = [
     { accessorKey: 'billNo', header: 'Bill No' },
@@ -334,7 +386,7 @@ export function AccountsPage() {
                       {account.status === 'ACTIVE' && !account.isDefault && (
                         <button
                           type="button"
-                          onClick={() => onSetDefault(account)}
+                          onClick={() => setConfirmTarget({ account, action: 'default' })}
                           className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50"
                           title="Make default"
                         >
@@ -344,7 +396,7 @@ export function AccountsPage() {
                       {account.status === 'ACTIVE' ? (
                         <button
                           type="button"
-                          onClick={() => onDeactivateAccount(account)}
+                          onClick={() => setConfirmTarget({ account, action: 'deactivate' })}
                           className="rounded-lg border border-red-100 p-1.5 text-red-500 hover:bg-red-50"
                           title="Deactivate"
                         >
@@ -353,7 +405,7 @@ export function AccountsPage() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => onReactivateAccount(account)}
+                          onClick={() => setConfirmTarget({ account, action: 'reactivate' })}
                           className="rounded-lg border border-emerald-100 p-1.5 text-emerald-600 hover:bg-emerald-50"
                           title="Reactivate"
                         >
@@ -373,6 +425,16 @@ export function AccountsPage() {
         <p className="mb-3 text-sm font-semibold text-[var(--color-navy)]">Outstanding Dues</p>
         {duesLoading ? <TableSkeleton rows={5} columns={6} /> : <DataTable columns={dueColumns} data={dues ?? []} emptyMessage="No outstanding dues — all bills settled." />}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(confirmTarget)}
+        title={confirmTitle}
+        description={confirmDescription}
+        confirmLabel={confirmBusy ? 'Saving...' : confirmLabel}
+        destructive={confirmTarget?.action === 'deactivate'}
+        onConfirm={confirmBusy ? () => undefined : onConfirmAccountAction}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }
