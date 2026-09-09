@@ -12,4 +12,8 @@ export class RecordPaymentDto {
   @IsOptional()
   @IsString()
   reference?: string;
+
+  @IsOptional()
+  @IsString()
+  accountId?: string;
 }

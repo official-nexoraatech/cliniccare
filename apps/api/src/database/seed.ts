@@ -100,6 +100,20 @@ async function main() {
     });
   }
 
+  const paymentAccounts = [
+    { name: 'Cash Counter', type: 'CASH' as const, openingBalance: 0, openingBalanceDate: new Date(), isDefault: true },
+    { name: 'Main Bank Account', type: 'BANK' as const, openingBalance: 0, openingBalanceDate: new Date(), isDefault: true },
+    { name: 'UPI Account', type: 'BANK' as const, openingBalance: 0, openingBalanceDate: new Date(), isDefault: false },
+  ];
+
+  for (const account of paymentAccounts) {
+    await prisma.paymentAccount.upsert({
+      where: { name: account.name },
+      update: { type: account.type, status: 'ACTIVE' },
+      create: account,
+    });
+  }
+
   // Seeds one PatientFieldDefinition per built-in Patient form field so admin can
   // toggle their visibility/required-ness from Settings → Patient Fields the same
   // way as custom ones. isCore locks key/fieldType (tied to the real column); label,
@@ -242,7 +256,7 @@ async function main() {
   }
 
   // eslint-disable-next-line no-console
-  console.log('Seed complete: admin/admin123 (no other users, patients, medicines, or fee types seeded)');
+  console.log('Seed complete: admin/admin123 (default payment accounts only; no patients, medicines, or fee types seeded)');
 }
 
 main()

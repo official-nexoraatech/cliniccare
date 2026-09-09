@@ -35,6 +35,7 @@ import {
 import { useClinicQuery } from '@/hooks/useClinic';
 import { useFeeTypesQuery } from '@/hooks/useFeeTypes';
 import { useBillMutations, useBillQuery, useBillsQuery } from '@/hooks/useBilling';
+import { usePaymentAccountsQuery } from '@/hooks/useAccounts';
 import { useAuthStore } from '@/store/auth-store';
 import { hasPermission } from '@/lib/permissions';
 import { downloadCsv } from '@/lib/csv';
@@ -339,6 +340,7 @@ function BillBody({
           {bill.payments.map((p) => (
             <p key={p.id}>
               {fmtDate(p.paidOn)} — {fmtMoney(p.amount)} via {MODE_LABEL[p.mode]}
+              {p.accountName ? ` into ${p.accountName}` : ''}
               {p.reference ? ` (${p.reference})` : ''}
               {p.createdBy && <span className="no-print"> · Collected by {p.createdBy}</span>}
             </p>
@@ -548,28 +550,44 @@ function EditBillModal({ billId, onClose }: { billId: string | null; onClose: ()
 
 function RecordPaymentModal({ bill, onClose }: { bill: BillListItem | null; onClose: () => void }) {
   const { recordPayment } = useBillMutations();
+  const { data: paymentAccounts = [] } = usePaymentAccountsQuery(Boolean(bill));
   const [amount, setAmount] = useState(0);
   const [mode, setMode] = useState<PaymentMode>('CASH');
   const [reference, setReference] = useState('');
+  const [accountId, setAccountId] = useState('');
 
   const open = Boolean(bill);
+  const activeBankAccounts = paymentAccounts.filter((account) => account.type === 'BANK' && account.status === 'ACTIVE');
 
   // Prefill once per bill, without fighting the user's own edits to the field.
   useEffect(() => {
     if (bill) setAmount(bill.dueAmount);
   }, [bill?.id]);
 
+  useEffect(() => {
+    if (!bill || mode === 'CASH') {
+      setAccountId('');
+      return;
+    }
+    if (activeBankAccounts.length === 0 || accountId) return;
+    setAccountId(activeBankAccounts.find((account) => account.isDefault)?.id ?? activeBankAccounts[0].id);
+  }, [accountId, activeBankAccounts, bill, mode]);
+
   const handleClose = () => {
     setAmount(0);
     setMode('CASH');
     setReference('');
+    setAccountId('');
     onClose();
   };
 
   const submit = async () => {
     if (!bill || amount <= 0) return;
     try {
-      await recordPayment.mutateAsync({ id: bill.id, payload: { amount, mode, reference: reference || undefined } });
+      await recordPayment.mutateAsync({
+        id: bill.id,
+        payload: { amount, mode, reference: reference || undefined, accountId: mode === 'CASH' ? undefined : accountId || undefined },
+      });
       toast.success('Payment recorded');
       handleClose();
     } catch (error) {
@@ -620,6 +638,22 @@ function RecordPaymentModal({ bill, onClose }: { bill: BillListItem | null; onCl
             ))}
           </div>
         </div>
+        {mode !== 'CASH' && (
+          <div>
+            <label className={labelClass}>Deposited to</label>
+            {activeBankAccounts.length > 0 ? (
+              <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputClass}>
+                {activeBankAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}{account.isDefault ? ' (default)' : ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-gray-400">No active bank account configured yet. Add one in Accounts.</p>
+            )}
+          </div>
+        )}
         {mode !== 'CASH' && (
           <div>
             <label className={labelClass}>Reference (optional)</label>

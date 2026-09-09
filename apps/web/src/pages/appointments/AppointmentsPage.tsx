@@ -52,6 +52,7 @@ import {
 import { useClinicQuery } from '@/hooks/useClinic';
 import { useVisitMutations, useVisitQuery } from '@/hooks/useVisits';
 import { useBillByVisitQuery, useBillMutations } from '@/hooks/useBilling';
+import { usePaymentAccountsQuery } from '@/hooks/useAccounts';
 import { useFeeTypesQuery } from '@/hooks/useFeeTypes';
 import { useWhatsAppTemplatesQuery } from '@/hooks/useWhatsAppTemplates';
 import { useAuthStore } from '@/store/auth-store';
@@ -1675,11 +1676,14 @@ function VitalsModal({ open, onClose, appointment }: { open: boolean; onClose: (
 function QueuePaymentModal({ appointment, onClose }: { appointment: AppointmentDetail | null; onClose: () => void }) {
   const { data: bill, isLoading } = useBillByVisitQuery(appointment?.visitId ?? undefined);
   const { data: feeTypes = [] } = useFeeTypesQuery();
+  const { data: paymentAccounts = [] } = usePaymentAccountsQuery(Boolean(appointment));
   const { recordPayment, update } = useBillMutations();
   const [rows, setRows] = useState<QueueBillRow[]>([]);
   const [amount, setAmount] = useState(0);
   const [mode, setMode] = useState<PaymentMode>('CASH');
   const [reference, setReference] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const activeBankAccounts = paymentAccounts.filter((account) => account.type === 'BANK' && account.status === 'ACTIVE');
 
   useEffect(() => {
     if (bill) {
@@ -1696,6 +1700,15 @@ function QueuePaymentModal({ appointment, onClose }: { appointment: AppointmentD
       setAmount(bill.dueAmount);
     }
   }, [bill?.id, bill?.dueAmount]);
+
+  useEffect(() => {
+    if (!appointment || mode === 'CASH') {
+      setAccountId('');
+      return;
+    }
+    if (activeBankAccounts.length === 0 || accountId) return;
+    setAccountId(activeBankAccounts.find((account) => account.isDefault)?.id ?? activeBankAccounts[0].id);
+  }, [accountId, activeBankAccounts, appointment, mode]);
 
   const updateRow = (key: string, patch: Partial<QueueBillRow>) => {
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -1752,6 +1765,7 @@ function QueuePaymentModal({ appointment, onClose }: { appointment: AppointmentD
     setAmount(0);
     setMode('CASH');
     setReference('');
+    setAccountId('');
     onClose();
   };
 
@@ -1779,7 +1793,7 @@ function QueuePaymentModal({ appointment, onClose }: { appointment: AppointmentD
     try {
       await recordPayment.mutateAsync({
         id: bill.id,
-        payload: { amount, mode, reference: reference.trim() || undefined },
+        payload: { amount, mode, reference: reference.trim() || undefined, accountId: mode === 'CASH' ? undefined : accountId || undefined },
       });
       toast.success('Payment recorded');
       handleClose();
@@ -1934,6 +1948,22 @@ function QueuePaymentModal({ appointment, onClose }: { appointment: AppointmentD
               ))}
             </div>
           </div>
+          {mode !== 'CASH' && (
+            <div>
+              <label className={labelClass}>Deposited to</label>
+              {activeBankAccounts.length > 0 ? (
+                <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputClass}>
+                  {activeBankAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}{account.isDefault ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-xs text-gray-400">No active bank account configured yet. Add one in Accounts.</p>
+              )}
+            </div>
+          )}
           {mode !== 'CASH' && (
             <div>
               <label className={labelClass}>Reference</label>

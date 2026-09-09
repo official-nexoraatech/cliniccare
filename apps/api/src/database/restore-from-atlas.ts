@@ -40,6 +40,7 @@ const MODELS = [
   'certificate',
   'bill',
   'billItem',
+  'paymentAccount',
   'payment',
 ] as const;
 

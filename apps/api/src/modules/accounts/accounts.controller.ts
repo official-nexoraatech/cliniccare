@@ -1,5 +1,7 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
+import { CreatePaymentAccountDto } from './dto/create-payment-account.dto';
+import { UpdatePaymentAccountDto } from './dto/update-payment-account.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -12,6 +14,30 @@ function todayIso() {
 @Controller('accounts')
 export class AccountsController {
   constructor(private readonly accountsService: AccountsService) {}
+
+  @RequiresPermission('billing:view')
+  @Get('payment-accounts')
+  getPaymentAccounts() {
+    return this.accountsService.listPaymentAccounts();
+  }
+
+  @RequiresPermission('billing:edit')
+  @Post('payment-accounts')
+  createPaymentAccount(@Body() dto: CreatePaymentAccountDto) {
+    return this.accountsService.createPaymentAccount(dto);
+  }
+
+  @RequiresPermission('billing:edit')
+  @Patch('payment-accounts/:id')
+  updatePaymentAccount(@Param('id') id: string, @Body() dto: UpdatePaymentAccountDto) {
+    return this.accountsService.updatePaymentAccount(id, dto);
+  }
+
+  @RequiresPermission('billing:edit')
+  @Delete('payment-accounts/:id')
+  deactivatePaymentAccount(@Param('id') id: string) {
+    return this.accountsService.deactivatePaymentAccount(id);
+  }
 
   @RequiresPermission('billing:view')
   @Get('summary')

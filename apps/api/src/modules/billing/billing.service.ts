@@ -7,6 +7,7 @@ import { CreateBillDto } from './dto/create-bill.dto';
 import { UpdateBillDto } from './dto/update-bill.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { CancelBillDto } from './dto/cancel-bill.dto';
+import { AccountsService } from '../accounts/accounts.service';
 
 type BillWithRelations = Bill & { patient: Patient; items: BillItem[]; payments: Payment[] };
 
@@ -28,6 +29,7 @@ export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly numberService: NumberService,
+    private readonly accountsService: AccountsService,
   ) {}
 
   async list(filters: { status?: string; from?: string; to?: string }): Promise<BillListItem[]> {
@@ -300,11 +302,20 @@ export class BillingService {
     if (paidAmount > existing.totalAmount) {
       throw new BadRequestException(`Payment of ${dto.amount} exceeds the due amount of ${existing.dueAmount}`);
     }
+    const account = await this.accountsService.resolvePaymentAccount(dto.mode, dto.accountId);
     const dueAmount = existing.totalAmount - paidAmount;
 
     await this.prisma.$transaction([
       this.prisma.payment.create({
-        data: { billId: id, amount: dto.amount, mode: dto.mode, reference: dto.reference, createdBy },
+        data: {
+          billId: id,
+          amount: dto.amount,
+          mode: dto.mode,
+          reference: dto.reference,
+          accountId: account?.id,
+          accountName: account?.name,
+          createdBy,
+        },
       }),
       this.prisma.bill.update({
         where: { id },
@@ -545,6 +556,8 @@ export class BillingService {
         amount: payment.amount,
         mode: payment.mode as BillDetail['payments'][number]['mode'],
         reference: payment.reference ?? undefined,
+        accountId: payment.accountId ?? null,
+        accountName: payment.accountName ?? null,
         paidOn: payment.paidOn.toISOString(),
         createdBy: payment.createdBy,
       })),

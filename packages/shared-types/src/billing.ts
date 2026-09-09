@@ -45,6 +45,8 @@ export interface PaymentInput {
 
 export interface PaymentDetail extends PaymentInput {
   id: string;
+  accountId: string | null;
+  accountName: string | null;
   paidOn: string;
   createdBy: string | null;
 }
@@ -115,6 +117,7 @@ export interface RecordPaymentRequest {
   amount: number;
   mode: PaymentMode;
   reference?: string;
+  accountId?: string;
 }
 
 export interface CancelBillRequest {
