@@ -17,7 +17,6 @@ import {
   compactTableCellClass,
   compactTableClass,
   compactTableHeaderCellClass,
-  compactTableHeaderClass,
   compactTableRowClass,
 } from '@/components/tableStyles';
 import { useRoleMutations, useRolesQuery } from '@/hooks/useRoles';
@@ -77,7 +76,7 @@ function PermissionMatrix({
 
   return (
     <table className={compactTableClass}>
-      <thead className={compactTableHeaderClass}>
+      <thead className="bg-[var(--color-navy)] text-left text-xs uppercase tracking-wide text-white">
         <tr>
           <th className={compactTableHeaderCellClass}>Module</th>
           {PERMISSION_ACTIONS.map((action) => (
