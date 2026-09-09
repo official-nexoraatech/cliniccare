@@ -4,25 +4,27 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Activity, ArrowLeft, CalendarPlus, ClipboardCheck, CreditCard, History, NotebookPen, Plus, X } from 'lucide-react';
+import { Activity, ArrowLeft, CalendarPlus, ChevronRight, ClipboardCheck, CreditCard, FlaskConical, History, NotebookPen, Pill, Plus, X } from 'lucide-react';
 import {
   COMMON_TESTS,
   FOLLOW_UP_QUICK_OPTIONS,
   QUICK_ADVICE_TEMPLATES,
+  type PatientHistoryVisit,
   type VisitFieldDefinition,
 } from '@clinic-care/shared-types';
 import {
   useComplaintSuggestions,
   useDiagnosisSuggestions,
-  usePatientVisitsQuery,
   useVisitMutations,
   useVisitQuery,
 } from '@/hooks/useVisits';
 import { useFeeTypesQuery } from '@/hooks/useFeeTypes';
 import { useVisitFieldsQuery } from '@/hooks/useVisitFields';
+import { usePatientHistoryQuery } from '@/hooks/usePatientHistory';
 import { SuggestInput } from '@/components/SuggestInput';
 import { PatientStrip } from '@/components/PatientStrip';
 import { ComplianceEntryModal } from '@/components/ComplianceEntryModal';
+import { VisitSummaryModal } from '@/components/VisitSummaryModal';
 import { FormSkeleton } from '@/components/Skeleton';
 import {
   emptyStateClass,
@@ -156,7 +158,7 @@ export function ConsultationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: visit, isLoading } = useVisitQuery(id);
-  const { data: previousVisits } = usePatientVisitsQuery(visit?.patientId);
+  const { data: history } = usePatientHistoryQuery(visit?.patientId);
   const { data: feeTypes = [] } = useFeeTypesQuery();
   const { data: visitFields } = useVisitFieldsQuery();
   const { update, saveVitals, adviseLabTests, addBillableCharges } = useVisitMutations();
@@ -167,6 +169,7 @@ export function ConsultationPage() {
   const [customChargeName, setCustomChargeName] = useState('');
   const [customChargeAmount, setCustomChargeAmount] = useState('');
   const [complianceOpen, setComplianceOpen] = useState(false);
+  const [viewVisit, setViewVisit] = useState<PatientHistoryVisit | null>(null);
 
   const {
     register,
@@ -454,7 +457,7 @@ export function ConsultationPage() {
     );
   }
 
-  const otherVisits = (previousVisits ?? []).filter((previousVisit) => previousVisit.id !== visit.id).slice(0, 5);
+  const otherVisits = (history?.visits ?? []).filter((previousVisit) => previousVisit.id !== visit.id).slice(0, 5);
 
   return (
     <div className={pageStackClass}>
@@ -821,29 +824,56 @@ export function ConsultationPage() {
         </div>
 
         <aside className={`${sectionCardClass} h-fit xl:sticky xl:top-20`}>
-          <p className={sectionHeaderClass}>
-            <span className={sectionIconClass}>
-              <History className="h-4 w-4" />
+          <div className={`${sectionHeaderClass} justify-between`}>
+            <span className="flex items-center gap-2">
+              <span className={sectionIconClass}>
+                <History className="h-4 w-4" />
+              </span>
+              Previous visits
             </span>
-            Previous visits
-          </p>
+            {otherVisits.length > 0 && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{otherVisits.length}</span>
+            )}
+          </div>
           {otherVisits.length === 0 ? (
             <div className={smallEmptyStateClass}>No previous visits.</div>
           ) : (
-            <div className="flex flex-col gap-2.5">
-              {otherVisits.map((previousVisit) => (
-                <button
-                  key={previousVisit.id}
-                  onClick={() => navigate(`/visits/${previousVisit.id}`)}
-                  className="rounded-lg border border-slate-100 bg-slate-50/70 p-3 text-left text-xs transition hover:border-teal-200 hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-100"
-                >
-                  <p className="font-semibold text-[var(--color-navy)]">
-                    {new Date(previousVisit.visitDate).toLocaleDateString('en-IN')}
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-slate-500">
-                    {previousVisit.diagnosis || previousVisit.complaint || 'No diagnosis recorded'}
-                  </p>
-                </button>
+            <div className="flex flex-col">
+              {otherVisits.map((previousVisit, index) => (
+                <div key={previousVisit.id} className="flex gap-3">
+                  <div className="flex w-2.5 flex-none flex-col items-center">
+                    <span className="mt-4.5 h-1.5 w-1.5 flex-none rounded-full bg-[var(--color-primary)]" />
+                    {index < otherVisits.length - 1 && <span className="w-px flex-1 bg-slate-200" />}
+                  </div>
+                  <button
+                    onClick={() => setViewVisit(previousVisit)}
+                    className="group flex-1 rounded-lg py-2.5 pr-2 text-left text-xs transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-[var(--color-navy)]">
+                        {new Date(previousVisit.visitDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                      <ChevronRight className="h-3.5 w-3.5 flex-none text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[var(--color-primary)]" />
+                    </div>
+                    <p className="mt-0.5 line-clamp-2 text-slate-500">
+                      {previousVisit.diagnosis || previousVisit.complaint || 'No diagnosis recorded'}
+                    </p>
+                    {(previousVisit.prescription || previousVisit.labTests.length > 0) && (
+                      <div className="mt-1.5 flex items-center gap-3 text-slate-400">
+                        {previousVisit.prescription && (
+                          <span className="flex items-center gap-1">
+                            <Pill className="h-3 w-3" /> {previousVisit.prescription.itemCount}
+                          </span>
+                        )}
+                        {previousVisit.labTests.length > 0 && (
+                          <span className="flex items-center gap-1">
+                            <FlaskConical className="h-3 w-3" /> {previousVisit.labTests.length}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -856,6 +886,16 @@ export function ConsultationPage() {
           onClose={() => setComplianceOpen(false)}
           patientId={visit.patientId}
           visitId={id}
+        />
+      )}
+
+      {viewVisit && (
+        <VisitSummaryModal
+          visit={viewVisit}
+          documents={history?.documents ?? []}
+          onClose={() => setViewVisit(null)}
+          onEdit={() => navigate(`/visits/${viewVisit.id}`)}
+          onReprint={() => navigate(`/visits/${viewVisit.id}/prescription`)}
         />
       )}
     </div>
