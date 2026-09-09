@@ -35,7 +35,7 @@ export class AccountsController {
 
   @RequiresPermission('billing:edit')
   @Delete('payment-accounts/:id')
-  deactivatePaymentAccount(@Param('id') id: string) {
+  softDeletePaymentAccount(@Param('id') id: string) {
     return this.accountsService.deactivatePaymentAccount(id);
   }
 

@@ -77,7 +77,8 @@ export class AccountsService {
             : {}),
           ...(dto.ifsc !== undefined ? { ifsc: existing.type === 'BANK' ? dto.ifsc.trim().toUpperCase() || null : null } : {}),
           ...(dto.isDefault !== undefined ? { isDefault: dto.isDefault } : {}),
-          ...(dto.status !== undefined ? { status: dto.status, isDefault: dto.status === 'INACTIVE' ? false : dto.isDefault } : {}),
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...(dto.status === 'INACTIVE' ? { isDefault: false } : {}),
         },
       });
     });
@@ -200,7 +201,7 @@ export class AccountsService {
     for (const account of defaults) {
       await this.prisma.paymentAccount.upsert({
         where: { name: account.name },
-        update: { type: account.type, status: 'ACTIVE' },
+        update: { type: account.type },
         create: { ...account, status: 'ACTIVE', openingBalance: 0, openingBalanceDate: new Date() },
       });
     }

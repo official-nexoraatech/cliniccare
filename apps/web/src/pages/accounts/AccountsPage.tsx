@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
-import { CheckCircle2, Landmark, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, Landmark, Plus, Power, RotateCcw } from 'lucide-react';
 import type { OutstandingDueItem, PaymentAccount, PaymentAccountType, PaymentMode } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { InlineSkeleton, TableSkeleton } from '@/components/Skeleton';
@@ -50,7 +50,7 @@ export function AccountsPage() {
   const { data: summary, isLoading } = useAccountsSummaryQuery(from, to);
   const { data: dues, isLoading: duesLoading } = useOutstandingDuesQuery();
   const { data: paymentAccounts = [], isLoading: accountsLoading } = usePaymentAccountsQuery();
-  const { create, update, remove } = usePaymentAccountMutations();
+  const { create, update, updateStatus, remove } = usePaymentAccountMutations();
 
   const cards = [
     { label: 'Total Billed', value: isLoading ? <InlineSkeleton className="h-8 w-28" /> : fmtMoney(summary?.totalBilled ?? 0) },
@@ -100,9 +100,18 @@ export function AccountsPage() {
   const onDeactivateAccount = async (account: PaymentAccount) => {
     try {
       await remove.mutateAsync(account.id);
-      toast.success(`${account.name} removed`);
+      toast.success(`${account.name} deactivated`);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not remove account.'));
+      toast.error(getErrorMessage(error, 'Could not deactivate account.'));
+    }
+  };
+
+  const onReactivateAccount = async (account: PaymentAccount) => {
+    try {
+      await updateStatus.mutateAsync({ id: account.id, status: 'ACTIVE' });
+      toast.success(`${account.name} reactivated`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not reactivate account.'));
     }
   };
 
@@ -320,9 +329,9 @@ export function AccountsPage() {
                       {account.isDefault ? ' - Default' : account.status === 'ACTIVE' ? ' - Active' : ' - Inactive'}
                     </p>
                   </div>
-                  {canEdit && account.status === 'ACTIVE' && (
+                  {canEdit && (
                     <div className="flex shrink-0 gap-1">
-                      {!account.isDefault && (
+                      {account.status === 'ACTIVE' && !account.isDefault && (
                         <button
                           type="button"
                           onClick={() => onSetDefault(account)}
@@ -332,14 +341,25 @@ export function AccountsPage() {
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => onDeactivateAccount(account)}
-                        className="rounded-lg border border-red-100 p-1.5 text-red-500 hover:bg-red-50"
-                        title="Remove"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {account.status === 'ACTIVE' ? (
+                        <button
+                          type="button"
+                          onClick={() => onDeactivateAccount(account)}
+                          className="rounded-lg border border-red-100 p-1.5 text-red-500 hover:bg-red-50"
+                          title="Deactivate"
+                        >
+                          <Power className="h-3.5 w-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onReactivateAccount(account)}
+                          className="rounded-lg border border-emerald-100 p-1.5 text-emerald-600 hover:bg-emerald-50"
+                          title="Reactivate"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

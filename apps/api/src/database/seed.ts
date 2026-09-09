@@ -109,7 +109,7 @@ async function main() {
   for (const account of paymentAccounts) {
     await prisma.paymentAccount.upsert({
       where: { name: account.name },
-      update: { type: account.type, status: 'ACTIVE' },
+      update: { type: account.type },
       create: account,
     });
   }
