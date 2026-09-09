@@ -15,7 +15,7 @@ export const compactTableRowClass = 'bg-white transition hover:bg-gray-50';
 export const compactTableCellClass = 'whitespace-nowrap px-3 py-2';
 
 export const printTableClass = 'mt-4 w-full table-fixed border-collapse text-xs';
-export const printTableHeaderRowClass = 'border-y border-slate-300 bg-slate-100 text-left text-[11px] font-semibold uppercase text-slate-700';
+export const printTableHeaderRowClass = 'border-y border-slate-400 bg-slate-100 text-left text-[11px] font-semibold uppercase text-slate-950';
 export const printTableHeaderCellClass = 'px-3 py-2 align-middle font-semibold';
 export const printTableRowClass = 'border-b border-slate-200 align-top';
 export const printTableCellClass = 'px-3 py-2 align-top';

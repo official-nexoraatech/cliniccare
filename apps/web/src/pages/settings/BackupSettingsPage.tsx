@@ -1,7 +1,9 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   Cloud,
   CloudUpload,
@@ -80,6 +82,8 @@ function attemptBadgeClass(status: string) {
   return 'bg-amber-50 text-amber-700 ring-amber-100';
 }
 
+const LOG_PAGE_SIZE_OPTIONS = [5, 10, 20];
+
 export function BackupSettingsPage() {
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = hasPermission(currentUser, 'administration:edit');
@@ -89,7 +93,22 @@ export function BackupSettingsPage() {
   // The stored connection string is never returned to the browser, only whether one exists.
   const [connectionString, setConnectionString] = useState('');
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [logPage, setLogPage] = useState(0);
+  const [logPageSize, setLogPageSize] = useState(5);
   const { data: restorePreview, isLoading: previewLoading } = useRestorePreviewQuery(restoreDialogOpen);
+
+  const attemptsCount = status?.recentAttempts.length ?? 0;
+  const logPageCount = Math.max(1, Math.ceil(attemptsCount / logPageSize));
+  const pagedAttempts = useMemo(
+    () => status?.recentAttempts.slice(logPage * logPageSize, logPage * logPageSize + logPageSize) ?? [],
+    [logPage, logPageSize, status?.recentAttempts],
+  );
+  const pageStart = attemptsCount === 0 ? 0 : logPage * logPageSize + 1;
+  const pageEnd = Math.min((logPage + 1) * logPageSize, attemptsCount);
+
+  useEffect(() => {
+    setLogPage((page) => Math.min(page, logPageCount - 1));
+  }, [logPageCount]);
 
   const onToggle = async (enabled: boolean) => {
     try {
@@ -287,17 +306,19 @@ export function BackupSettingsPage() {
 
       {status.recentAttempts.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-base font-semibold text-[var(--color-navy)]">Recent attempts</h2>
               <InfoButton label="Recent attempts info">
                 Shows the latest backup, sync and restore jobs started from this machine, with their final status and message.
               </InfoButton>
             </div>
-            <span className="text-xs font-semibold text-slate-400">{status.recentAttempts.length} shown</span>
+            <span className="text-xs font-semibold text-slate-400">
+              Showing {pageStart}-{pageEnd} of {status.recentAttempts.length}
+            </span>
           </div>
           <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100">
-            {status.recentAttempts.map((attempt) => (
+            {pagedAttempts.map((attempt) => (
               <div
                 key={attempt.id}
                 className="grid gap-3 bg-white px-4 py-3 text-sm transition hover:bg-slate-50 lg:grid-cols-[8rem_11rem_12rem_minmax(0,1fr)] lg:items-center"
@@ -310,6 +331,46 @@ export function BackupSettingsPage() {
                 <span className="truncate text-xs text-slate-500">{attempt.message || 'No message recorded'}</span>
               </div>
             ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+            <label className="flex items-center gap-2">
+              Rows per page
+              <select
+                value={logPageSize}
+                onChange={(event) => {
+                  setLogPageSize(Number(event.target.value));
+                  setLogPage(0);
+                }}
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700"
+              >
+                {LOG_PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-400">
+                Page {logPage + 1} of {logPageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLogPage((page) => Math.max(0, page - 1))}
+                disabled={logPage === 0}
+                className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" /> Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setLogPage((page) => Math.min(logPageCount - 1, page + 1))}
+                disabled={logPage >= logPageCount - 1}
+                className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </section>
       )}

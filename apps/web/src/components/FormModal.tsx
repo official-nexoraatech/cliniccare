@@ -20,7 +20,7 @@ export function FormModal({ open, title, onClose, children, footer, size = 'md' 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className={`w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl`}>
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-[var(--color-navy)]">{title}</h2>

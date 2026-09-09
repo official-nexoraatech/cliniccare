@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { toast } from 'sonner';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Ban, CreditCard, Download, Eye, Gift, Pencil, Trash2 } from 'lucide-react';
@@ -15,6 +15,7 @@ import { PAYMENT_MODES } from '@clinic-care/shared-types';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
 import { PrintLayout } from '@/components/PrintLayout';
+import { SearchBox } from '@/components/SearchBox';
 import { TableSkeleton } from '@/components/Skeleton';
 import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import {
@@ -58,6 +59,10 @@ const DEPARTMENT_LABEL: Record<ChargeDepartment, string> = {
 
 const inputClass = standardFieldInputClass;
 const labelClass = formLabelClass;
+
+function blockNonNumericKeys(e: KeyboardEvent<HTMLInputElement>) {
+  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+}
 
 function fmtMoney(paise: number) {
   return `₹${paise.toLocaleString('en-IN')}`;
@@ -147,6 +152,7 @@ function BillItemsEditor({ rows, onChange }: { rows: ItemRow[]; onChange: (rows:
                     min={1}
                     value={row.quantity}
                     onChange={(e) => updateRow(row.key, { quantity: Number(e.target.value) || 1 })}
+                    onKeyDown={blockNonNumericKeys}
                     className="w-full border-0 bg-transparent text-sm focus:outline-none"
                   />
                 </td>
@@ -156,6 +162,7 @@ function BillItemsEditor({ rows, onChange }: { rows: ItemRow[]; onChange: (rows:
                     min={0}
                     value={row.unitAmount}
                     onChange={(e) => updateRow(row.key, { unitAmount: Number(e.target.value) || 0 })}
+                    onKeyDown={blockNonNumericKeys}
                     className="w-full border-0 bg-transparent text-sm focus:outline-none"
                   />
                 </td>
@@ -249,10 +256,14 @@ function BillBody({
                 <td className={`${printTableCellClass} ${removed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                   {item.name}
                   <span className="ml-2 text-[10px] font-normal text-gray-400 no-underline">{DEPARTMENT_LABEL[item.department]}</span>
-                  {item.createdByRole && <span className="no-print ml-1 text-[10px] font-normal text-gray-400 no-underline">· {item.createdByRole}</span>}
                   {removed && (
                     <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium no-underline ${item.status === 'CANCELLED' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
                       {item.status === 'CANCELLED' ? 'Cancelled' : 'Waived'}
+                    </span>
+                  )}
+                  {removed && item.removeReason && (
+                    <span className="block pt-1 text-[10px] font-normal text-gray-500 no-underline">
+                      Reason: {item.removeReason}
                     </span>
                   )}
                 </td>
@@ -396,6 +407,7 @@ function AddBillItemInline({ bill }: { bill: BillDetail }) {
         min={1}
         value={amount || ''}
         onChange={(e) => setAmount(Number(e.target.value) || 0)}
+        onKeyDown={blockNonNumericKeys}
         placeholder="Amount"
         className="w-24 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
       />
@@ -499,13 +511,13 @@ function EditBillModal({ billId, onClose }: { billId: string | null; onClose: ()
             {clinic?.discountEnabled && (
               <div>
                 <label className={labelClass}>Discount</label>
-                <input type="number" min={0} value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} className={inputClass} />
+                <input type="number" min={0} value={discount} onChange={(e) => setDiscount(Number(e.target.value) || 0)} onKeyDown={blockNonNumericKeys} className={inputClass} />
               </div>
             )}
             {clinic?.taxEnabled && (
               <div>
                 <label className={labelClass}>{clinic.taxLabel} %</label>
-                <input type="number" min={0} max={100} value={taxPercent} onChange={(e) => setTaxPercent(Number(e.target.value) || 0)} className={inputClass} />
+                <input type="number" min={0} max={100} value={taxPercent} onChange={(e) => setTaxPercent(Number(e.target.value) || 0)} onKeyDown={blockNonNumericKeys} className={inputClass} />
               </div>
             )}
             <div className={clinic?.discountEnabled || clinic?.taxEnabled ? '' : 'col-span-3'}>
@@ -590,7 +602,7 @@ function RecordPaymentModal({ bill, onClose }: { bill: BillListItem | null; onCl
         {bill && <p className="text-xs text-gray-500">Due: {fmtMoney(bill.dueAmount)}</p>}
         <div>
           <label className={labelClass}>Amount</label>
-          <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value) || 0)} className={inputClass} />
+          <input type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value) || 0)} onKeyDown={blockNonNumericKeys} className={inputClass} />
         </div>
         <div>
           <label className={labelClass}>Mode</label>
@@ -727,7 +739,16 @@ function RemoveItemModal({
 export function BillingPage() {
   const currentUser = useAuthStore((state) => state.user);
   const canEdit = hasPermission(currentUser, 'billing:edit');
-  const { data: bills, isLoading } = useBillsQuery();
+  const [statusFilter, setStatusFilter] = useState<BillStatus | 'ALL'>('ALL');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchResetKey, setSearchResetKey] = useState(0);
+  const { data: bills, isLoading } = useBillsQuery({
+    status: statusFilter === 'ALL' ? undefined : statusFilter,
+    from: fromDate || undefined,
+    to: toDate || undefined,
+  });
   const { data: clinic } = useClinicQuery();
   const { markPrinted } = useBillMutations();
 
@@ -738,6 +759,16 @@ export function BillingPage() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const { data: previewTarget } = useBillQuery(previewId ?? undefined);
   const [printTarget, setPrintTarget] = useState<BillDetail | null>(null);
+  const visibleBills = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    if (!normalizedSearch) return bills ?? [];
+    return (bills ?? []).filter((bill) =>
+      [bill.billNo, bill.patientName, bill.patientMobile, fmtDate(bill.date), STATUS_LABEL[bill.status]]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedSearch),
+    );
+  }, [bills, search]);
 
   const handlePrint = async (bill: BillDetail) => {
     try {
@@ -750,11 +781,11 @@ export function BillingPage() {
   };
 
   const handleExport = () => {
-    if (!bills?.length) return;
+    if (!visibleBills.length) return;
     downloadCsv(
       `billing-${new Date().toISOString().slice(0, 10)}.csv`,
       ['Bill No', 'Patient', 'Mobile', 'Date', 'Total', 'Paid', 'Due', 'Status'],
-      bills.map((b) => [b.billNo, b.patientName, b.patientMobile, b.date, b.totalAmount, b.paidAmount, b.dueAmount, STATUS_LABEL[b.status]]),
+      visibleBills.map((b) => [b.billNo, b.patientName, b.patientMobile, b.date, b.totalAmount, b.paidAmount, b.dueAmount, STATUS_LABEL[b.status]]),
     );
   };
 
@@ -831,7 +862,7 @@ export function BillingPage() {
         <div className="flex gap-2">
           <button
             onClick={handleExport}
-            disabled={!bills?.length}
+            disabled={!visibleBills.length}
             className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
           >
             <Download className="h-4 w-4" /> Export CSV
@@ -839,8 +870,50 @@ export function BillingPage() {
         </div>
       </div>
 
+      <div className="no-print flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-4">
+        <SearchBox
+          key={searchResetKey}
+          placeholder="Search by name, contact number or bill no..."
+          onSearch={setSearch}
+          className="w-full sm:w-80"
+        />
+        <div>
+          <label className={labelClass}>Status</label>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as BillStatus | 'ALL')} className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm">
+            <option value="ALL">All bills</option>
+            <option value="UNPAID">Unpaid</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="PAID">Paid</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>From</label>
+          <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm" />
+        </div>
+        <div>
+          <label className={labelClass}>To</label>
+          <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm" />
+        </div>
+        {(statusFilter !== 'ALL' || fromDate || toDate || search) && (
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter('ALL');
+              setFromDate('');
+              setToDate('');
+              setSearch('');
+              setSearchResetKey((key) => key + 1);
+            }}
+            className="h-10 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
       <div className="no-print">
-        {isLoading ? <TableSkeleton rows={6} columns={8} /> : <DataTable columns={columns} data={bills ?? []} emptyMessage="No bills yet." />}
+        {isLoading ? <TableSkeleton rows={6} columns={8} /> : <DataTable columns={columns} data={visibleBills} searchable={false} emptyMessage="No bills found." />}
       </div>
 
       <EditBillModal billId={editId} onClose={() => setEditId(null)} />
