@@ -320,12 +320,12 @@ export function PrescriptionPage() {
           <col className="w-16" />
         </colgroup>
         <thead>
-          <tr className={printTableHeaderRowClass}>
-            <th className={`${printTableHeaderCellClass} pr-2 text-center`}>#</th>
-            <th className={printTableHeaderCellClass}>Medicine</th>
-            <th className={printTableHeaderCellClass}>Schedule</th>
-            <th className={`${printTableHeaderCellClass} text-center`}>Duration</th>
-            <th className={`${printTableHeaderCellClass} text-right`}>Qty</th>
+          <tr className={`${printTableHeaderRowClass} text-slate-950`}>
+            <th className={`${printTableHeaderCellClass} pr-2 text-center font-bold`}>#</th>
+            <th className={`${printTableHeaderCellClass} font-bold`}>Medicine</th>
+            <th className={`${printTableHeaderCellClass} font-bold`}>Schedule</th>
+            <th className={`${printTableHeaderCellClass} text-center font-bold`}>Duration</th>
+            <th className={`${printTableHeaderCellClass} text-right font-bold`}>Qty</th>
           </tr>
         </thead>
         <tbody>
@@ -412,18 +412,18 @@ export function PrescriptionPage() {
               search dropdown whenever it opens below the container's bottom edge. The
               columns fit at normal widths without horizontal scroll anyway. */}
           <table className={compactTableClass}>
-            <thead className={compactTableHeaderClass}>
+            <thead className={`${compactTableHeaderClass} text-slate-950`}>
               <tr>
-                <th className={`${compactTableHeaderCellClass} w-64`}>Medicine</th>
-                <th className={compactTableHeaderCellClass}>Dose</th>
-                <th className={`${compactTableHeaderCellClass} w-12 text-center`}>M</th>
-                <th className={`${compactTableHeaderCellClass} w-12 text-center`}>A</th>
-                <th className={`${compactTableHeaderCellClass} w-12 text-center`}>E</th>
-                <th className={`${compactTableHeaderCellClass} w-12 text-center`}>N</th>
-                <th className={`${compactTableHeaderCellClass} w-36`}>Before/After Food</th>
-                <th className={`${compactTableHeaderCellClass} w-20 text-center`}>Days</th>
-                <th className={`${compactTableHeaderCellClass} w-16 text-center`}>Qty</th>
-                <th className={compactTableHeaderCellClass}>Instruction</th>
+                <th className={`${compactTableHeaderCellClass} w-64 font-bold text-slate-950`}>Medicine</th>
+                <th className={`${compactTableHeaderCellClass} font-bold text-slate-950`}>Dose</th>
+                <th className={`${compactTableHeaderCellClass} w-12 text-center font-bold text-slate-950`}>M</th>
+                <th className={`${compactTableHeaderCellClass} w-12 text-center font-bold text-slate-950`}>A</th>
+                <th className={`${compactTableHeaderCellClass} w-12 text-center font-bold text-slate-950`}>E</th>
+                <th className={`${compactTableHeaderCellClass} w-12 text-center font-bold text-slate-950`}>N</th>
+                <th className={`${compactTableHeaderCellClass} w-36 font-bold text-slate-950`}>Before/After Food</th>
+                <th className={`${compactTableHeaderCellClass} w-20 text-center font-bold text-slate-950`}>Days</th>
+                <th className={`${compactTableHeaderCellClass} w-16 text-center font-bold text-slate-950`}>Qty</th>
+                <th className={`${compactTableHeaderCellClass} font-bold text-slate-950`}>Instruction</th>
                 <th className={`${compactTableHeaderCellClass} w-8`} />
               </tr>
             </thead>

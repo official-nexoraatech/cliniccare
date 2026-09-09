@@ -31,6 +31,16 @@ type HistoryVisitRow = Visit & {
   prescription: (Prescription & { items: PrescriptionItem[] }) | null;
 };
 
+function patientDateBoundary(value: string | undefined, boundary: 'start' | 'end'): Date | undefined {
+  if (!value) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T${boundary === 'start' ? '00:00:00.000' : '23:59:59.999'}+05:30`);
+  }
+  const date = new Date(value);
+  if (boundary === 'end') date.setHours(23, 59, 59, 999);
+  return date;
+}
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -59,8 +69,8 @@ export class PatientsService {
       ...(query.registeredFrom || query.registeredTo
         ? {
             registeredOn: {
-              ...(query.registeredFrom ? { gte: new Date(query.registeredFrom) } : {}),
-              ...(query.registeredTo ? { lte: new Date(query.registeredTo) } : {}),
+              ...(query.registeredFrom ? { gte: patientDateBoundary(query.registeredFrom, 'start') } : {}),
+              ...(query.registeredTo ? { lte: patientDateBoundary(query.registeredTo, 'end') } : {}),
             },
           }
         : {}),

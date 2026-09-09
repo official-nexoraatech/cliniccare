@@ -21,7 +21,10 @@ const filterControlClass =
 type DatePreset = 'today' | 'week' | 'month' | 'custom' | null;
 
 function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function presetRange(preset: 'today' | 'week' | 'month'): { from: string; to: string } {
@@ -35,7 +38,6 @@ function presetRange(preset: 'today' | 'week' | 'month'): { from: string; to: st
 export function PatientListPage() {
   const navigate = useNavigate();
   const [gender, setGender] = useState<Gender | ''>('');
-  const [city, setCity] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -47,7 +49,6 @@ export function PatientListPage() {
     page,
     pageSize,
     gender: gender || undefined,
-    city: city || undefined,
     search: search || undefined,
     registeredFrom: registeredFrom || undefined,
     registeredTo: registeredTo || undefined,
@@ -166,8 +167,8 @@ export function PatientListPage() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white/85 p-3 shadow-sm shadow-slate-200/70">
-        <div className="grid gap-3 xl:grid-cols-[minmax(20rem,1fr)_auto] xl:items-center">
-          <div className="grid gap-3 md:grid-cols-[minmax(16rem,1.3fr)_10rem_minmax(12rem,0.8fr)]">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-full min-w-0 sm:w-72 lg:w-80">
             <SearchBox
               placeholder="Search name or mobile"
               onSearch={(q) => {
@@ -176,32 +177,25 @@ export function PatientListPage() {
               }}
               className="min-w-0"
             />
+          </div>
+          <div className="w-full sm:w-44">
             <select
               value={gender}
               onChange={(e) => {
                 setGender(e.target.value as Gender | '');
                 setPage(1);
               }}
-              className={filterControlClass}
+              className={`${filterControlClass} w-full`}
             >
               <option value="">All genders</option>
               <option value="MALE">Male</option>
               <option value="FEMALE">Female</option>
               <option value="OTHER">Other</option>
             </select>
-            <input
-              value={city}
-              onChange={(e) => {
-                setCity(e.target.value);
-                setPage(1);
-              }}
-              placeholder="City"
-              className={filterControlClass}
-            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex h-10 shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-1">
               <button onClick={() => applyPreset('today')} className={presetClass('today')}>
                 Today
               </button>
@@ -213,7 +207,7 @@ export function PatientListPage() {
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
               <CalendarDays className="h-4 w-4 text-slate-400" />
               <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
                 From
