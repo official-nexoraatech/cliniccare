@@ -14,7 +14,7 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^\d{10}$/, { message: 'Mobile number must be exactly 10 digits' })
+  @Matches(/^(?!(\d)\1{9}$)[6-9]\d{9}$/, { message: 'Enter a valid 10-digit mobile number' })
   mobile?: string;
 
   @IsString()

@@ -20,7 +20,7 @@ import { cn, getErrorMessage } from '@/lib/utils';
 
 const NAME_REGEX = /^[A-Za-z ]+$/;
 const USERNAME_REGEX = /^[A-Za-z0-9]+$/;
-const MOBILE_REGEX = /^\d{10}$/;
+const MOBILE_REGEX = /^(?!(\d)\1{9}$)[6-9]\d{9}$/;
 
 const createUserSchema = z.object({
   name: z.string().min(1, 'Name is required').regex(NAME_REGEX, 'Name can only contain letters and spaces'),
@@ -28,7 +28,7 @@ const createUserSchema = z.object({
     .string()
     .min(3, 'Username must be at least 3 characters')
     .regex(USERNAME_REGEX, 'Username can only contain letters and numbers, no spaces or special characters'),
-  mobile: z.union([z.string().regex(MOBILE_REGEX, 'Mobile number must be exactly 10 digits'), z.literal('')]).optional(),
+  mobile: z.union([z.string().regex(MOBILE_REGEX, 'Enter a valid 10-digit mobile number'), z.literal('')]).optional(),
   password: z.string().min(4, 'Password must be at least 4 characters'),
   pin: z.union([z.string().length(4, 'PIN must be exactly 4 digits'), z.literal('')]).optional(),
   role: z.string().min(1, 'Role is required'),
@@ -38,7 +38,7 @@ type CreateUserFormValues = z.infer<typeof createUserSchema>;
 
 const editUserSchema = z.object({
   name: z.string().min(1, 'Name is required').regex(NAME_REGEX, 'Name can only contain letters and spaces'),
-  mobile: z.union([z.string().regex(MOBILE_REGEX, 'Mobile number must be exactly 10 digits'), z.literal('')]).optional(),
+  mobile: z.union([z.string().regex(MOBILE_REGEX, 'Enter a valid 10-digit mobile number'), z.literal('')]).optional(),
   role: z.string().min(1, 'Role is required'),
 });
 
@@ -313,6 +313,10 @@ export function UsersPage() {
             <label className={labelClass}>Mobile Number</label>
             <input
               {...addForm.register('mobile')}
+              onChange={(e) =>
+                addForm.setValue('mobile', e.target.value.replace(/\D/g, ''), { shouldValidate: true })
+              }
+              inputMode="numeric"
               maxLength={10}
               className={inputClass}
             />
@@ -399,6 +403,10 @@ export function UsersPage() {
             <label className={labelClass}>Mobile Number</label>
             <input
               {...editForm.register('mobile')}
+              onChange={(e) =>
+                editForm.setValue('mobile', e.target.value.replace(/\D/g, ''), { shouldValidate: true })
+              }
+              inputMode="numeric"
               maxLength={10}
               className={inputClass}
             />
