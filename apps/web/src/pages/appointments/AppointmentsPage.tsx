@@ -50,7 +50,7 @@ import {
 import { CardGridSkeleton, TableSkeleton } from '@/components/Skeleton';
 import { usePatientMutations, usePatientSearchQuery } from '@/hooks/usePatients';
 import { usePatientFieldsQuery } from '@/hooks/usePatientFields';
-import { PatientCustomFields, validateCustomFields } from '@/pages/patients/patientFormShared';
+import { MOBILE_REGEX, PatientCustomFields, validateCustomFields } from '@/pages/patients/patientFormShared';
 import {
   useAppointmentMutations,
   useAppointmentQueueQuery,
@@ -408,6 +408,10 @@ function NewFamilyMemberForm({
   const onSubmit = async () => {
     if (!name.trim() || !age) {
       toast.error('Name and age are required.');
+      return;
+    }
+    if (!MOBILE_REGEX.test(mobile)) {
+      toast.error('Enter a valid 10-digit mobile number.');
       return;
     }
     const fieldErrors = validateCustomFields(customFieldDefs, customFieldValues);
@@ -839,6 +843,10 @@ function EditAppointmentModal({ open, onClose, appointment }: { open: boolean; o
   const [purpose, setPurpose] = useState(appointment.purpose ?? '');
 
   const onSave = async () => {
+    if (!MOBILE_REGEX.test(mobile)) {
+      toast.error('Enter a valid 10-digit mobile number.');
+      return;
+    }
     try {
       const result = await update.mutateAsync({
         id: appointment.id,

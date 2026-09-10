@@ -22,7 +22,7 @@ import {
   type PatientCustomFieldValues,
 } from '@clinic-care/shared-types';
 
-const MOBILE_REGEX = /^\d{10}$/;
+const MOBILE_REGEX = /^(?!(\d)\1{9}$)[6-9]\d{9}$/;
 const NAME_REGEX = /^[A-Za-z ]+$/;
 const PINCODE_REGEX = /^[1-9]\d{5}$/;
 
@@ -62,12 +62,12 @@ export class CreatePatientDto {
 
   @IsOptional()
   @optionalTrimmedString()
-  @Matches(MOBILE_REGEX, { message: 'Mobile number must be exactly 10 digits' })
+  @Matches(MOBILE_REGEX, { message: 'Enter a valid 10-digit mobile number' })
   mobile?: string;
 
   @IsOptional()
   @optionalTrimmedString()
-  @Matches(MOBILE_REGEX, { message: 'Alternate mobile number must be exactly 10 digits' })
+  @Matches(MOBILE_REGEX, { message: 'Enter a valid 10-digit alternate mobile number' })
   altMobile?: string;
 
   @IsOptional()

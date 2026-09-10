@@ -11,7 +11,7 @@ import {
 import { formLabelClass, standardFieldInputClass } from '@/components/uiStyles';
 import { cn } from '@/lib/utils';
 
-const MOBILE_REGEX = /^\d{10}$/;
+export const MOBILE_REGEX = /^(?!(\d)\1{9}$)[6-9]\d{9}$/;
 const NAME_REGEX = /^[A-Za-z ]+$/;
 const PINCODE_REGEX = /^[1-9]\d{5}$/;
 
@@ -36,8 +36,8 @@ export const patientSchema = z.object({
   age: z.number().int().min(0, 'Age cannot be negative').max(150, 'Age must be 150 or under').optional(),
   dob: z.string().refine(isTodayOrPast, 'Date of birth cannot be in the future').optional().or(z.literal('')),
   gender: z.enum(GENDERS).optional(),
-  mobile: z.union([z.string().regex(MOBILE_REGEX, 'Mobile number must be exactly 10 digits'), z.literal('')]).optional(),
-  altMobile: z.union([z.string().regex(MOBILE_REGEX, 'Alternate mobile must be exactly 10 digits'), z.literal('')]).optional(),
+  mobile: z.union([z.string().regex(MOBILE_REGEX, 'Enter a valid 10-digit mobile number'), z.literal('')]).optional(),
+  altMobile: z.union([z.string().regex(MOBILE_REGEX, 'Enter a valid 10-digit alternate mobile number'), z.literal('')]).optional(),
   email: z.union([z.string().email('Enter a valid email'), z.literal('')]).optional(),
   address: z.string().optional(),
   city: z.string().optional(),

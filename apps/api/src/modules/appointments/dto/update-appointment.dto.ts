@@ -1,6 +1,6 @@
 import { IsISO8601, IsOptional, IsString, Matches, MinLength } from 'class-validator';
 
-const MOBILE_REGEX = /^\d{10}$/;
+const MOBILE_REGEX = /^(?!(\d)\1{9}$)[6-9]\d{9}$/;
 
 export class UpdateAppointmentDto {
   @IsOptional()
@@ -9,7 +9,7 @@ export class UpdateAppointmentDto {
   patientName?: string;
 
   @IsOptional()
-  @Matches(MOBILE_REGEX, { message: 'Mobile number must be exactly 10 digits' })
+  @Matches(MOBILE_REGEX, { message: 'Enter a valid 10-digit mobile number' })
   mobile?: string;
 
   @IsOptional()
