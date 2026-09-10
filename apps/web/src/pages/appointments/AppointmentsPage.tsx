@@ -643,11 +643,12 @@ function BookAppointmentModal({
             <input
               value={mobile}
               onChange={(e) => {
-                setMobile(e.target.value);
+                setMobile(e.target.value.replace(/\D/g, ''));
                 setPatientId(undefined);
                 setPatientName('');
                 setAddingNew(false);
               }}
+              inputMode="numeric"
               maxLength={10}
               placeholder="10-digit mobile number"
               className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
@@ -885,7 +886,13 @@ function EditAppointmentModal({ open, onClose, appointment }: { open: boolean; o
         </div>
         <div>
           <label className={labelClass}>Mobile</label>
-          <input value={mobile} onChange={(e) => setMobile(e.target.value)} maxLength={10} className={inputClass} />
+          <input
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+            inputMode="numeric"
+            maxLength={10}
+            className={inputClass}
+          />
         </div>
         <DoctorSelect value={doctorId} onChange={setDoctorId} />
         <div>

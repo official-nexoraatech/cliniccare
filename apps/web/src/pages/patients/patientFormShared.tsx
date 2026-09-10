@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { UseFormRegister, FieldErrors, UseFormWatch } from 'react-hook-form';
+import type { ChangeEvent } from 'react';
+import type { UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'react-hook-form';
 import {
   BLOOD_GROUPS,
   GENDERS,
@@ -71,11 +72,12 @@ interface PatientFormFieldsProps {
   register: UseFormRegister<PatientFormValues>;
   errors: FieldErrors<PatientFormValues>;
   watch: UseFormWatch<PatientFormValues>;
+  setValue: UseFormSetValue<PatientFormValues>;
   /** The isCore rows from Settings → Patient Fields — controls which built-in fields render and whether each shows as required. Missing/loading defaults to "visible, optional" so the form never goes blank. */
   coreFieldDefs?: PatientFieldDefinition[];
 }
 
-export function PatientFormFields({ register, errors, watch, coreFieldDefs }: PatientFormFieldsProps) {
+export function PatientFormFields({ register, errors, watch, setValue, coreFieldDefs }: PatientFormFieldsProps) {
   const maritalStatus = watch('maritalStatus');
   const bloodGroup = watch('bloodGroup');
 
@@ -83,6 +85,8 @@ export function PatientFormFields({ register, errors, watch, coreFieldDefs }: Pa
   const isActive = (key: string) => corePolicy.get(key)?.isActive ?? true;
   const isRequired = (key: string) => corePolicy.get(key)?.required ?? false;
   const today = new Date().toISOString().slice(0, 10);
+  const stripNonDigits = (key: 'mobile' | 'altMobile') => (e: ChangeEvent<HTMLInputElement>) =>
+    setValue(key, e.target.value.replace(/\D/g, ''), { shouldValidate: true });
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -130,7 +134,14 @@ export function PatientFormFields({ register, errors, watch, coreFieldDefs }: Pa
       {isActive('mobile') && (
         <div>
           <label className={labelClass}>Mobile Number {isRequired('mobile') && '*'}</label>
-          <input {...register('mobile')} inputMode="numeric" maxLength={10} className={inputClass} placeholder="10 digits" />
+          <input
+            {...register('mobile')}
+            onChange={stripNonDigits('mobile')}
+            inputMode="numeric"
+            maxLength={10}
+            className={inputClass}
+            placeholder="10 digits"
+          />
           {errors.mobile && <p className="mt-1 text-xs text-red-600">{errors.mobile.message}</p>}
         </div>
       )}
@@ -138,7 +149,13 @@ export function PatientFormFields({ register, errors, watch, coreFieldDefs }: Pa
       {isActive('altMobile') && (
         <div>
           <label className={labelClass}>Alternate Mobile {isRequired('altMobile') && '*'}</label>
-          <input {...register('altMobile')} inputMode="numeric" maxLength={10} className={inputClass} />
+          <input
+            {...register('altMobile')}
+            onChange={stripNonDigits('altMobile')}
+            inputMode="numeric"
+            maxLength={10}
+            className={inputClass}
+          />
           {errors.altMobile && <p className="mt-1 text-xs text-red-600">{errors.altMobile.message}</p>}
         </div>
       )}

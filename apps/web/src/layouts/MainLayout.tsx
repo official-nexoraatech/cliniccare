@@ -3,7 +3,6 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuthStore } from '@/store/auth-store';
-import { GlobalPatientSearch } from '@/components/GlobalPatientSearch';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export function MainLayout() {
@@ -33,8 +32,6 @@ export function MainLayout() {
           <div>
             <p className="text-sm font-bold text-[var(--color-navy)]">{today}</p>
           </div>
-
-          <GlobalPatientSearch />
 
           <div className="flex items-center gap-4">
             <div className="text-right">

@@ -825,6 +825,7 @@ export function PatientProfilePage() {
                   register={register}
                   errors={errors}
                   watch={watch}
+                  setValue={setValue}
                   coreFieldDefs={coreFieldDefs}
                 />
                 {(customFieldDefs?.length ?? 0) > 0 && (

@@ -89,7 +89,13 @@ export function PatientForm() {
       <h1 className="mb-6 text-xl font-semibold text-[var(--color-navy)]">New Patient Registration</h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-        <PatientFormFields register={register} errors={errors} watch={watch} coreFieldDefs={coreFieldDefs} />
+        <PatientFormFields
+          register={register}
+          errors={errors}
+          watch={watch}
+          setValue={setValue}
+          coreFieldDefs={coreFieldDefs}
+        />
 
         {(customFieldDefs?.length ?? 0) > 0 && (
           <div>
